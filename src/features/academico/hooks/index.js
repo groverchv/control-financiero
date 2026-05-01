@@ -21,7 +21,7 @@ export const useEventos = () => {
     load();
   }, []);
 
-  return { eventos, loading, error };
+  return { eventos, loading, error, setEventos };
 };
 
 export const useTalentos = (criterio) => {

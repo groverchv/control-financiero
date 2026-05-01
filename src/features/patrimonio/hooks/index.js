@@ -21,7 +21,7 @@ export const useActivos = () => {
     load();
   }, []);
 
-  return { activos, loading, error };
+  return { activos, loading, error, setActivos };
 };
 
 export const useAdquisiciones = () => {

@@ -1,4 +1,4 @@
-import { supabase } from '../../../services/supabase';
+import { supabase, supabaseAdmin } from '../../../services/supabase';
 
 export const administracionApi = {
   obtenerMiembros: async () => {
@@ -11,13 +11,40 @@ export const administracionApi = {
   },
 
   crearMiembro: async (miembro) => {
+    if (!supabaseAdmin) {
+      throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
+    }
+
+    // 1. Crear usuario en Auth (esto disparará el trigger que lo inserta en 'miembros')
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: miembro.email,
+      password: miembro.password || 'password123',
+      email_confirm: true,
+      user_metadata: {
+        full_name: miembro.nombre,
+        rol: miembro.rol
+      }
+    });
+
+    if (authError) throw authError;
+
+    // 2. Si se pasó teléfono, actualizamos la tabla miembros (porque el trigger no mapea teléfono por defecto)
+    if (miembro.telefono) {
+      await supabaseAdmin
+        .from('miembros')
+        .update({ telefono: miembro.telefono })
+        .eq('id', authData.user.id);
+    }
+
+    // 3. Obtener el registro final de la tabla 'miembros' para devolverlo a la UI
     const { data, error } = await supabase
       .from('miembros')
-      .insert([miembro])
-      .select();
+      .select('*')
+      .eq('id', authData.user.id)
+      .single();
 
     if (error) throw error;
-    return data?.[0];
+    return data;
   },
 
   actualizarMiembro: async (id, updates) => {
@@ -42,5 +69,22 @@ export const administracionApi = {
 
     if (error) throw error;
     return data || [];
+  },
+  obtenerKpis: async () => {
+    const { data, error } = await supabase.from('miembros').select('estado');
+    if (error) throw error;
+    
+    const miembros = data || [];
+    const totalMiembros = miembros.length;
+    const miembrosActivos = miembros.filter(m => m.estado === 'activo').length;
+    const miembrosInactivos = totalMiembros - miembrosActivos;
+    const tasaRetention = totalMiembros ? Math.round((miembrosActivos / totalMiembros) * 100) : 0;
+    
+    return {
+      totalMiembros,
+      miembrosActivos,
+      miembrosInactivos,
+      tasaRetention
+    };
   },
 };

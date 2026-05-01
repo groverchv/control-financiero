@@ -1,16 +1,38 @@
+import { useState } from 'react';
 import { CalendarCheck, CalendarPlus } from 'lucide-react';
 import { useEventos } from '../hooks';
-import { Button, Spinner } from '../../../components/ui';
+import { Button, Spinner, Modal, Input } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
 import { Toast } from '../../../components/feedback';
+import { academicoApi } from '../api';
 
 export const GestionEventosPage = () => {
-  const { eventos, loading, error } = useEventos();
+  const { eventos, loading, error, setEventos } = useEventos();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({ nombre: '', fecha: '', asistentes: 0 });
+
   const columns = [
     { key: 'nombre', label: 'Evento' },
     { key: 'fecha', label: 'Fecha' },
     { key: 'asistentes', label: 'Asistentes' },
   ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const nuevoEvento = await academicoApi.crearEvento(formData);
+      setEventos([nuevoEvento, ...eventos]);
+      setIsModalOpen(false);
+      setFormData({ nombre: '', fecha: '', asistentes: 0 });
+    } catch (err) {
+      console.error(err);
+      alert('Error al crear el evento');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -19,7 +41,7 @@ export const GestionEventosPage = () => {
           <h1 className="text-2xl font-semibold text-slate-900">Gestion de eventos</h1>
           <p className="text-sm text-slate-500">Coordina la agenda academica institucional.</p>
         </div>
-        <Button type="button">
+        <Button type="button" onClick={() => setIsModalOpen(true)}>
           <CalendarPlus className="h-4 w-4" />
           Nuevo evento
         </Button>
@@ -43,6 +65,39 @@ export const GestionEventosPage = () => {
           )}
         </div>
       </section>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Crear nuevo evento">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input 
+            label="Nombre del Evento" 
+            value={formData.nombre} 
+            onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} 
+            required 
+          />
+          <Input 
+            label="Fecha" 
+            type="date" 
+            value={formData.fecha} 
+            onChange={(e) => setFormData({ ...formData, fecha: e.target.value })} 
+            required 
+          />
+          <Input 
+            label="Asistentes (Estimados)" 
+            type="number" 
+            value={formData.asistentes} 
+            onChange={(e) => setFormData({ ...formData, asistentes: parseInt(e.target.value) || 0 })} 
+          />
+          
+          <div className="mt-6 flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Guardando...' : 'Guardar Evento'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

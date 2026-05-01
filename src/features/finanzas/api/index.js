@@ -69,6 +69,21 @@ export const finanzasApi = {
   },
 
   obtenerFlujoCaja: async () => {
-    return { ingresosTotales: 0, egresosTotales: 0, saldoNeto: 0 };
+    // 1. Obtener suma de cuotas (solo pagadas)
+    const { data: cuotas } = await supabase.from('cuotas').select('monto').eq('estado', 'pagada');
+    const totalCuotas = (cuotas || []).reduce((acc, curr) => acc + Number(curr.monto), 0);
+
+    // 2. Obtener suma de ingresos extras
+    const { data: extras } = await supabase.from('ingresos_extras').select('monto');
+    const totalExtras = (extras || []).reduce((acc, curr) => acc + Number(curr.monto), 0);
+
+    // 3. Obtener suma de egresos
+    const { data: egresos } = await supabase.from('egresos').select('monto');
+    const egresosTotales = (egresos || []).reduce((acc, curr) => acc + Number(curr.monto), 0);
+
+    const ingresosTotales = totalCuotas + totalExtras;
+    const saldoNeto = ingresosTotales - egresosTotales;
+
+    return { ingresosTotales, egresosTotales, saldoNeto };
   },
 };

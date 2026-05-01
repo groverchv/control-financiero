@@ -30,13 +30,14 @@ export const useKpiData = () => {
 
   useEffect(() => {
     const load = async () => {
-      setKpis({
-        totalMiembros: 0,
-        miembrosActivos: 0,
-        miembrosInactivos: 0,
-        tasaRetention: 0,
-      });
-      setLoading(false);
+      try {
+        const data = await administracionApi.obtenerKpis();
+        setKpis(data);
+      } catch (error) {
+        console.error('Error cargando KPIs:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     load();

@@ -19,6 +19,27 @@ export const academicoApi = {
     if (error) throw error;
     return data || [];
   },
+
+  actualizarEvento: async (id, updates) => {
+    const { data, error } = await supabase
+      .from('eventos')
+      .update(updates)
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    return data?.[0];
+  },
+
+  eliminarEvento: async (id) => {
+    const { error } = await supabase
+      .from('eventos')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  },
   crearActividad: async (actividad) => {
     const { data, error } = await supabase
       .from('actividades_academicas')

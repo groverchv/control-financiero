@@ -38,7 +38,7 @@ export const LoginPage = () => {
       if (role === 'admin' || role === 'secretario') {
         navigate('/admin/miembros');
       } else {
-        navigate('/socio/portal');
+        navigate('/inicio');
       }
     }
 

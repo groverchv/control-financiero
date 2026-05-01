@@ -58,6 +58,18 @@ export const administracionApi = {
     return data?.[0];
   },
 
+  eliminarMiembro: async (id) => {
+    if (!supabaseAdmin) {
+      throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
+    }
+    
+    // Eliminar de Auth (el trigger o cascada debería limpiar 'miembros' si está configurado, 
+    // pero por si acaso Supabase maneja la integridad referencial)
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+    if (error) throw error;
+    return true;
+  },
+
   inactivarMiembro: async (id) => {
     return administracionApi.actualizarMiembro(id, { estado: 'inactivo' });
   },

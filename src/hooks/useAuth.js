@@ -7,15 +7,29 @@ export const useAuth = () => {
 
   useEffect(() => {
     setLoading(true);
+
+    const fetchUserData = async (sessionUser) => {
+      const role = sessionUser.user_metadata?.rol || 'socio';
+      
+      // Intentar obtener el nombre de la tabla miembros
+      const { data: miembro } = await supabase
+        .from('miembros')
+        .select('nombre')
+        .eq('id', sessionUser.id)
+        .single();
+
+      setUser({
+        id: sessionUser.id,
+        email: sessionUser.email || '',
+        nombre: miembro?.nombre || sessionUser.email?.split('@')[0],
+        rol: role,
+        created_at: sessionUser.created_at || '',
+      });
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const role = session.user.user_metadata?.rol || 'socio';
-        setUser({
-          id: session.user.id,
-          email: session.user.email || '',
-          rol: role,
-          created_at: session.user.created_at || '',
-        });
+        fetchUserData(session.user);
       } else {
         setUser(null);
       }
@@ -24,13 +38,7 @@ export const useAuth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user) {
-          const role = session.user.user_metadata?.rol || 'socio';
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            rol: role,
-            created_at: session.user.created_at || '',
-          });
+          fetchUserData(session.user);
         } else {
           setUser(null);
         }

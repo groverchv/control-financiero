@@ -25,12 +25,18 @@ import { AsignacionJuradoPage } from '../features/academico/pages/AsignacionJura
 import { BuscadorTalentoPage } from '../features/academico/pages/BuscadorTalentoPage';
 import { GestionEventosPage } from '../features/academico/pages/GestionEventosPage';
 
+import { PublicEventosPage } from '../features/academico/pages/PublicEventosPage';
+import { PublicCursosPage } from '../features/academico/pages/PublicCursosPage';
+
 export const AppRouter = () => {
   return (
     <Router>
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/inicio" element={<LandingPage />} />
+          <Route path="/eventos" element={<PublicEventosPage />} />
+          <Route path="/cursos" element={<PublicCursosPage />} />
           <Route path="/" element={<LandingPage />} />
         </Route>
 
@@ -41,6 +47,7 @@ export const AppRouter = () => {
             </ProtectedRoute>
           }
         >
+          <Route index element={<DashboardKpisPage />} />
           <Route path="/admin/miembros" element={<GestionMiembrosPage />} />
           <Route path="/admin/kpis" element={<DashboardKpisPage />} />
           <Route path="/admin/alertas" element={<AlertasPage />} />

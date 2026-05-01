@@ -3,7 +3,23 @@
 -- ==========================================
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
-DROP SEQUENCE IF EXISTS miembro_codigo_seq CASCADE;
+DROP SEQUENCE IF EXISTS public.miembro_codigo_seq CASCADE;
+
+-- Eliminar tablas existentes para asegurar un esquema limpio y actualizado
+DROP TABLE IF EXISTS public.plan_amortizacion CASCADE;
+DROP TABLE IF EXISTS public.auditorias_blockchain CASCADE;
+DROP TABLE IF EXISTS public.adquisiciones CASCADE;
+DROP TABLE IF EXISTS public.activos CASCADE;
+DROP TABLE IF EXISTS public.talentos CASCADE;
+DROP TABLE IF EXISTS public.asignaciones_jurado CASCADE;
+DROP TABLE IF EXISTS public.actividades_academicas CASCADE;
+DROP TABLE IF EXISTS public.eventos CASCADE;
+DROP TABLE IF EXISTS public.reportes_financieros CASCADE;
+DROP TABLE IF EXISTS public.ingresos_extras CASCADE;
+DROP TABLE IF EXISTS public.egresos CASCADE;
+DROP TABLE IF EXISTS public.cuotas CASCADE;
+DROP TABLE IF EXISTS public.alertas CASCADE;
+DROP TABLE IF EXISTS public.miembros CASCADE;
 
 -- ==========================================
 -- 2. REPARACIÓN DE ESQUEMA Y PERMISOS
@@ -313,4 +329,7 @@ BEGIN
   VALUES (v_activo_id, 'TechStore SRL', '2025-10-01', 1200, 'registrado');
 
 END $$;
+
+-- Forzar a Supabase a que refresque su memoria (cache) para ver las nuevas columnas
+NOTIFY pgrst, 'reload schema';
 

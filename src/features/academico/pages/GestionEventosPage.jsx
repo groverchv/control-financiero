@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarCheck, CalendarPlus } from 'lucide-react';
+import { CalendarCheck, CalendarPlus, Edit, Trash2 } from 'lucide-react';
 import { useEventos } from '../hooks';
 import { Button, Spinner, Modal, Input } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -10,29 +10,85 @@ export const GestionEventosPage = () => {
   const { eventos, loading, error, setEventos } = useEventos();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingEvento, setEditingEvento] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', fecha: '', asistentes: 0 });
 
   const columns = [
     { key: 'nombre', label: 'Evento' },
     { key: 'fecha', label: 'Fecha' },
     { key: 'asistentes', label: 'Asistentes' },
+    { key: 'acciones', label: 'Acciones' },
   ];
+
+  const handleOpenCreate = () => {
+    setEditingEvento(null);
+    setFormData({ nombre: '', fecha: '', asistentes: 0 });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (evento) => {
+    setEditingEvento(evento);
+    setFormData({ 
+      nombre: evento.nombre, 
+      fecha: evento.fecha, 
+      asistentes: evento.asistentes 
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Estás seguro de eliminar este evento?')) return;
+    try {
+      await academicoApi.eliminarEvento(id);
+      setEventos(eventos.filter(e => e.id !== id));
+    } catch (err) {
+      alert('Error al eliminar: ' + err.message);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const nuevoEvento = await academicoApi.crearEvento(formData);
-      setEventos([nuevoEvento, ...eventos]);
+      if (editingEvento) {
+        // ACTUALIZAR
+        const actualizado = await academicoApi.actualizarEvento(editingEvento.id, formData);
+        setEventos(eventos.map(e => e.id === editingEvento.id ? actualizado : e));
+      } else {
+        // CREAR
+        const nuevoEvento = await academicoApi.crearEvento(formData);
+        setEventos([nuevoEvento, ...eventos]);
+      }
       setIsModalOpen(false);
-      setFormData({ nombre: '', fecha: '', asistentes: 0 });
     } catch (err) {
       console.error(err);
-      alert('Error al crear el evento');
+      alert('Error al procesar el evento');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const rows = eventos.map((evento) => ({
+    ...evento,
+    acciones: (
+      <div className="flex gap-2">
+        <button 
+          onClick={() => handleOpenEdit(evento)}
+          className="rounded p-1 text-blue-600 hover:bg-blue-50"
+          title="Editar"
+        >
+          <Edit className="h-4 w-4" />
+        </button>
+        <button 
+          onClick={() => handleDelete(evento.id)}
+          className="rounded p-1 text-red-600 hover:bg-red-50"
+          title="Eliminar"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    )
+  }));
 
   return (
     <div className="space-y-6">
@@ -41,7 +97,7 @@ export const GestionEventosPage = () => {
           <h1 className="text-2xl font-semibold text-slate-900">Gestion de eventos</h1>
           <p className="text-sm text-slate-500">Coordina la agenda academica institucional.</p>
         </div>
-        <Button type="button" onClick={() => setIsModalOpen(true)}>
+        <Button type="button" onClick={handleOpenCreate}>
           <CalendarPlus className="h-4 w-4" />
           Nuevo evento
         </Button>
@@ -61,12 +117,16 @@ export const GestionEventosPage = () => {
           ) : error ? (
             <Toast title="Error" message={error} variant="error" />
           ) : (
-            <Table columns={columns} rows={eventos} emptyMessage="No hay eventos registrados." />
+            <Table columns={columns} rows={rows} emptyMessage="No hay eventos registrados." />
           )}
         </div>
       </section>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Crear nuevo evento">
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={editingEvento ? 'Editar evento' : 'Crear nuevo evento'}
+      >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input 
             label="Nombre del Evento" 
@@ -93,7 +153,7 @@ export const GestionEventosPage = () => {
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando...' : 'Guardar Evento'}
+              {isSubmitting ? 'Guardando...' : editingEvento ? 'Actualizar' : 'Guardar Evento'}
             </Button>
           </div>
         </form>

@@ -21,7 +21,7 @@ export const usePagos = (miembroId) => {
     load();
   }, [miembroId]);
 
-  return { cuotas, loading, error };
+  return { cuotas, loading, error, setCuotas };
 };
 
 export const useFlujoCaja = () => {
@@ -57,7 +57,7 @@ export const useEgresos = () => {
     load();
   }, []);
 
-  return { egresos, loading, error };
+  return { egresos, loading, error, setEgresos };
 };
 
 export const useIngresosExtras = () => {

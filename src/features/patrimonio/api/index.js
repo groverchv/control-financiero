@@ -8,13 +8,25 @@ export const patrimonioApi = {
       .select();
 
     if (error) throw error;
-    return data?.[0];
+    const activoRegistrado = data?.[0];
+
+    // Registrar en la tabla archivo si hay imagen
+    if (activo.imagen_url && activoRegistrado) {
+      await supabase.from('archivo').insert([{
+        activo_id: activoRegistrado.id,
+        miembro_id: activo.miembro_id,
+        url: activo.imagen_url,
+        tipo: 'imagen_activo'
+      }]);
+    }
+
+    return activoRegistrado;
   },
 
   obtenerActivos: async () => {
     const { data, error } = await supabase
       .from('activos')
-      .select('*');
+      .select('*, tipo_activo(nombre)');
 
     if (error) throw error;
     return data || [];
@@ -64,5 +76,23 @@ export const patrimonioApi = {
 
     if (error) throw error;
     return data || [];
+  },
+  obtenerTiposActivo: async () => {
+    const { data, error } = await supabase
+      .from('tipo_activo')
+      .select('*')
+      .order('nombre');
+
+    if (error) throw error;
+    return data || [];
+  },
+  crearTipoActivo: async (tipo) => {
+    const { data, error } = await supabase
+      .from('tipo_activo')
+      .insert([tipo])
+      .select();
+
+    if (error) throw error;
+    return data?.[0];
   },
 };

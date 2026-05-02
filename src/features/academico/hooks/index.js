@@ -62,7 +62,7 @@ export const useActividades = () => {
     load();
   }, []);
 
-  return { actividades, loading, error };
+  return { actividades, loading, error, setActividades };
 };
 
 export const useAsignacionesJurado = () => {

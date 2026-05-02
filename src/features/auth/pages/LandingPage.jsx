@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Activity, BadgeCheck, Calendar, CalendarDays, ChevronRight, GraduationCap, Layers, ShieldCheck, Users, Wallet, Clock, MapPin } from 'lucide-react';
+import { useAuthStore } from '../../../store/authStore';
 import { academicoApi } from '../../academico/api';
 
 const features = [
@@ -35,6 +36,8 @@ const features = [
 ];
 
 export const LandingPage = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuthStore();
   const [eventos, setEventos] = useState([]);
   const [actividades, setActividades] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,15 +61,15 @@ export const LandingPage = () => {
   }, []);
 
   return (
-    <div className="flex flex-col gap-24 pb-20">
+    <div className="flex flex-col gap-12 sm:gap-16 md:gap-24 pb-10 sm:pb-20">
       {/* HERO SECTION */}
-      <section className="relative overflow-hidden rounded-3xl bg-slate-900 px-8 py-20 text-white lg:px-16">
+      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-slate-900 px-5 sm:px-8 py-12 sm:py-20 text-white lg:px-16">
         <div className="relative z-10 max-w-2xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-blue-400 border border-blue-500/20">
             <BadgeCheck className="h-4 w-4" />
             PLATAFORMA INSTITUCIONAL v2.0
           </div>
-          <h1 className="text-4xl font-extrabold tracking-tight lg:text-6xl">
+          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight lg:text-6xl">
             La nueva era de la <span className="text-blue-400">Gestión Institucional</span>
           </h1>
           <p className="mt-6 text-lg text-slate-300 leading-relaxed">
@@ -83,7 +86,7 @@ export const LandingPage = () => {
           </div>
         </div>
         
-        <div className="absolute right-0 top-0 h-full w-1/2 opacity-20 lg:opacity-100">
+        <div className="absolute right-0 top-0 h-full w-1/2 opacity-10 sm:opacity-20 lg:opacity-100">
            <img 
             src="/hero_dashboard.png" 
             alt="Dashboard Preview" 
@@ -93,16 +96,16 @@ export const LandingPage = () => {
       </section>
 
       {/* EVENTOS SECCION */}
-      <section id="eventos" className="space-y-12 scroll-mt-24">
-        <div className="flex items-end justify-between">
+      <section id="eventos" className="space-y-6 sm:space-y-12 scroll-mt-24">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900">Próximos Eventos</h2>
-            <p className="mt-2 text-slate-500">Participe en nuestras actividades institucionales programadas.</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Próximos Eventos</h2>
+            <p className="mt-1 sm:mt-2 text-sm sm:text-base text-slate-500">Participe en nuestras actividades institucionales programadas.</p>
           </div>
-          <Link to="/login" className="text-sm font-semibold text-blue-600 hover:underline">Ver todos los eventos</Link>
+          <Link to="/login" className="text-sm font-semibold text-blue-600 hover:underline shrink-0">Ver todos los eventos</Link>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-4 sm:gap-8 sm:grid-cols-2 md:grid-cols-3">
           {loading ? (
             [1,2,3].map(i => <div key={i} className="h-48 animate-pulse rounded-2xl bg-slate-100" />)
           ) : eventos.length > 0 ? (
@@ -133,15 +136,15 @@ export const LandingPage = () => {
       </section>
 
       {/* CURSOS SECCION */}
-      <section id="cursos" className="space-y-12 scroll-mt-24">
-        <div className="flex items-end justify-between">
+      <section id="cursos" className="space-y-6 sm:space-y-12 scroll-mt-24">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900">Cursos y Capacitaciones</h2>
-            <p className="mt-2 text-slate-500">Mejore sus habilidades con nuestra oferta académica especializada.</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Cursos y Capacitaciones</h2>
+            <p className="mt-1 sm:mt-2 text-sm sm:text-base text-slate-500">Mejore sus habilidades con nuestra oferta académica especializada.</p>
           </div>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-4 sm:gap-8 sm:grid-cols-2 md:grid-cols-3">
           {loading ? (
             [1,2,3].map(i => <div key={i} className="h-40 animate-pulse rounded-2xl bg-slate-100" />)
           ) : actividades.length > 0 ? (
@@ -165,13 +168,13 @@ export const LandingPage = () => {
       </section>
 
       {/* MODULES GRID */}
-      <section className="space-y-12">
+      <section className="space-y-6 sm:space-y-12">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-slate-900">Nuestras Soluciones</h2>
-          <p className="mt-4 text-slate-500">Módulos especializados para una gestión integral.</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Nuestras Soluciones</h2>
+          <p className="mt-2 sm:mt-4 text-sm sm:text-base text-slate-500">Módulos especializados para una gestión integral.</p>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:gap-8 grid-cols-2 lg:grid-cols-4">
           {features.map((feature) => (
             <div key={feature.title} className="group relative rounded-2xl border border-slate-100 bg-white p-8 transition-all hover:border-blue-100 hover:shadow-xl hover:shadow-blue-500/5">
               <div className={`mb-6 flex h-12 w-12 items-center justify-center rounded-xl ${feature.bg} ${feature.color}`}>

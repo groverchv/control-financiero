@@ -8,9 +8,16 @@ export const CatalogoActivosPage = () => {
   const { activos, loading, error } = useActivos();
   const columns = [
     { key: 'nombre', label: 'Activo' },
-    { key: 'categoria', label: 'Categoria' },
-    { key: 'valorInicial', label: 'Valor inicial' },
-    { key: 'valorActual', label: 'Valor actual' },
+    { 
+      key: 'tipo_activo', 
+      label: 'Tipo',
+      render: (val) => val?.nombre || 'Sin tipo'
+    },
+    { 
+      key: 'costo_total', 
+      label: 'Costo Total',
+      render: (val) => new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(val || 0)
+    },
   ];
 
   return (

@@ -27,7 +27,7 @@ export const LoginPage = () => {
     }
 
     if (data?.user) {
-      const role = data.user.user_metadata?.rol || 'socio';
+      const role = data.user.role_from_db || data.user.user_metadata?.rol || 'socio';
       setUser({
         id: data.user.id,
         email: data.user.email || '',
@@ -46,7 +46,7 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-10 rounded-md bg-white p-8 shadow-sm lg:grid-cols-2">
+    <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-6 sm:gap-10 rounded-xl sm:rounded-md bg-white p-5 sm:p-8 shadow-sm lg:grid-cols-2">
       <div className="flex flex-col justify-between gap-8">
         <div>
           <p className="text-sm font-semibold text-blue-600">Acceso institucional</p>

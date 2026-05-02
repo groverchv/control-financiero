@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Edit, Plus, Search, Trash2 } from 'lucide-react';
+import { Edit, Eye, EyeOff, Info, Plus, Search, Trash2, Lightbulb } from 'lucide-react';
 import { useMiembros } from '../hooks';
-import { Button, Input, Spinner, Modal } from '../../../components/ui';
+import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
 import { Toast } from '../../../components/feedback';
 import { administracionApi } from '../api';
@@ -11,7 +11,20 @@ export const GestionMiembrosPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', email: '', telefono: '', password: '', rol: 'socio', estado: 'activo' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({ 
+    nombre: '', 
+    apellidoPaterno: '', 
+    apellidoMaterno: '', 
+    email: '', 
+    telefono: '', 
+    password: '', 
+    confirmPassword: '',
+    rol: 'socio', 
+    estado: 'activo' 
+  });
+  const [detailModal, setDetailModal] = useState({ open: false, miembro: null, inscripciones: [], notificaciones: [], cvUrl: null, loading: false, tab: 'inscripciones' });
+  const [talentSearchModal, setTalentSearchModal] = useState({ open: false, queryProf: '', queryDesc: '', results: [] });
 
   const columns = [
     { key: 'nombre', label: 'Nombre' },
@@ -23,7 +36,18 @@ export const GestionMiembrosPage = () => {
 
   const handleOpenCreate = () => {
     setEditingMember(null);
-    setFormData({ nombre: '', email: '', telefono: '', password: '', rol: 'socio', estado: 'activo' });
+    setFormData({ 
+      nombre: '', 
+      apellidoPaterno: '', 
+      apellidoMaterno: '', 
+      email: '', 
+      telefono: '', 
+      password: '', 
+      confirmPassword: '',
+      rol: 'socio', 
+      estado: 'activo' 
+    });
+    setShowPassword(false);
     setIsModalOpen(true);
   };
 
@@ -31,9 +55,12 @@ export const GestionMiembrosPage = () => {
     setEditingMember(miembro);
     setFormData({
       nombre: miembro.nombre,
+      apellidoPaterno: miembro.apellidoPaterno || '',
+      apellidoMaterno: miembro.apellidoMaterno || '',
       email: miembro.email,
       telefono: miembro.telefono || '',
-      password: '', // No mostramos la contraseña actual por seguridad
+      password: '',
+      confirmPassword: '',
       rol: miembro.rol,
       estado: miembro.estado
     });
@@ -51,18 +78,72 @@ export const GestionMiembrosPage = () => {
     }
   };
 
+  const handleOpenDetail = async (miembro) => {
+    setDetailModal({ open: true, miembro, inscripciones: [], notificaciones: [], cvUrl: null, loading: true, tab: 'inscripciones' });
+    try {
+      const [inscripciones, notificaciones, cvUrl] = await Promise.all([
+        administracionApi.obtenerInscripcionesMiembro(miembro.id),
+        administracionApi.obtenerNotificacionesMiembro(miembro.id),
+        administracionApi.obtenerDocumentoMiembro(miembro.id),
+      ]);
+      setDetailModal(prev => ({ ...prev, inscripciones, notificaciones, cvUrl, loading: false }));
+    } catch (err) {
+      console.error('Error cargando detalle:', err);
+      setDetailModal(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+
+  const handleSearchTalent = (queryProf, queryDesc) => {
+    if (!queryProf.trim() && !queryDesc.trim()) {
+      setTalentSearchModal(prev => ({ ...prev, queryProf, queryDesc, results: [] }));
+      return;
+    }
+    
+    const termsProf = queryProf.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    const termsDesc = queryDesc.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    
+    const scored = miembros.map(m => {
+      let score = 0;
+      const prof = (m.profesion || '').toLowerCase();
+      const bio = (m.biografia || '').toLowerCase();
+      
+      termsProf.forEach(term => {
+        if (prof.includes(term)) score += 5;
+      });
+
+      termsDesc.forEach(term => {
+        if (bio.includes(term)) score += 2;
+      });
+      
+      return { ...m, score };
+    }).filter(m => m.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+      
+    setTalentSearchModal(prev => ({ ...prev, queryProf, queryDesc, results: scored }));
+  };
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!editingMember && formData.password !== formData.confirmPassword) {
+      alert('Las contraseñas no coinciden');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (editingMember) {
         // ACTUALIZAR
-        const { password, email, ...updates } = formData; // No permitimos cambiar email fácilmente aquí por consistencia con Auth
+        const { password, confirmPassword, email, ...updates } = formData;
         const actualizado = await administracionApi.actualizarMiembro(editingMember.id, updates);
         setMiembros(miembros.map(m => m.id === editingMember.id ? actualizado : m));
       } else {
         // CREAR
-        const nuevoMiembro = await administracionApi.crearMiembro(formData);
+        const { confirmPassword, ...dataToSave } = formData;
+        const nuevoMiembro = await administracionApi.crearMiembro(dataToSave);
         if (nuevoMiembro) {
           setMiembros([nuevoMiembro, ...miembros]);
         }
@@ -88,6 +169,13 @@ export const GestionMiembrosPage = () => {
     acciones: (
       <div className="flex gap-2">
         <button 
+          onClick={() => handleOpenDetail(miembro)}
+          className="rounded p-1 text-slate-600 hover:bg-slate-50"
+          title="Ver detalle"
+        >
+          <Info className="h-4 w-4" />
+        </button>
+        <button 
           onClick={() => handleOpenEdit(miembro)}
           className="rounded p-1 text-blue-600 hover:bg-blue-50"
           title="Editar"
@@ -112,10 +200,21 @@ export const GestionMiembrosPage = () => {
           <h1 className="text-2xl font-semibold text-slate-900">Gestion de miembros</h1>
           <p className="text-sm text-slate-500">Administra el registro institucional de socios.</p>
         </div>
-        <Button type="button" onClick={handleOpenCreate}>
-          <Plus className="h-4 w-4" />
-          Nuevo miembro
-        </Button>
+        <div className="flex gap-2">
+          <ExportButtons 
+            data={miembros.map(m => ({ Nombre: m.nombre, Email: m.email, Telefono: m.telefono, Rol: m.rol, Estado: m.estado }))} 
+            filename="lista_miembros" 
+            title="Listado de Miembros Institucionales" 
+          />
+          <Button variant="outline" type="button" onClick={() => setTalentSearchModal({ open: true, query: '', results: [] })}>
+            <Lightbulb className="h-4 w-4 mr-1 text-yellow-500" />
+            Buscador de Talentos
+          </Button>
+          <Button type="button" onClick={handleOpenCreate}>
+            <Plus className="h-4 w-4" />
+            Nuevo miembro
+          </Button>
+        </div>
       </header>
 
       <section className="rounded-md bg-white p-6 shadow-sm">
@@ -166,13 +265,31 @@ export const GestionMiembrosPage = () => {
           />
           
           {!editingMember && (
-            <Input 
-              label="Contraseña" 
-              type="password"
-              value={formData.password} 
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
-              required 
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <Input 
+                  label="Contraseña" 
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password} 
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                  required 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Input 
+                label="Confirmar Contraseña" 
+                type={showPassword ? 'text' : 'password'}
+                value={formData.confirmPassword} 
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
+                required 
+              />
+            </div>
           )}
 
           <Input 
@@ -180,6 +297,19 @@ export const GestionMiembrosPage = () => {
             value={formData.telefono} 
             onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} 
           />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Apellido Paterno" 
+              value={formData.apellidoPaterno || ''} 
+              onChange={(e) => setFormData({ ...formData, apellidoPaterno: e.target.value })} 
+            />
+            <Input 
+              label="Apellido Materno" 
+              value={formData.apellidoMaterno || ''} 
+              onChange={(e) => setFormData({ ...formData, apellidoMaterno: e.target.value })} 
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -217,6 +347,168 @@ export const GestionMiembrosPage = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal de detalle del miembro */}
+      <Modal
+        isOpen={detailModal.open}
+        onClose={() => setDetailModal(prev => ({ ...prev, open: false }))}
+        title={`Detalle de: ${detailModal.miembro?.nombre || ''}`}
+      >
+        <div className="space-y-4">
+          {/* Info basica */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><span className="font-semibold text-slate-500">Correo:</span> <span className="text-slate-800">{detailModal.miembro?.email}</span></div>
+            <div><span className="font-semibold text-slate-500">Telefono:</span> <span className="text-slate-800">{detailModal.miembro?.telefono || '-'}</span></div>
+            <div><span className="font-semibold text-slate-500">Rol:</span> <span className="text-slate-800">{detailModal.miembro?.rol}</span></div>
+            <div><span className="font-semibold text-slate-500">Estado:</span> <span className="text-slate-800">{detailModal.miembro?.estado}</span></div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 border-b border-slate-200">
+            <button
+              onClick={() => setDetailModal(prev => ({ ...prev, tab: 'inscripciones' }))}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                detailModal.tab === 'inscripciones' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Inscripciones ({detailModal.inscripciones.length})
+            </button>
+            <button
+              onClick={() => setDetailModal(prev => ({ ...prev, tab: 'notificaciones' }))}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+                detailModal.tab === 'notificaciones' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Notificaciones 
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${detailModal.notificaciones.some(n => n.estado !== 'leida') ? 'bg-blue-100 text-blue-700 font-bold' : 'bg-slate-100 text-slate-500'}`}>
+                {detailModal.notificaciones.filter(n => n.estado !== 'leida').length} sin leer
+              </span>
+            </button>
+            <button
+              onClick={() => setDetailModal(prev => ({ ...prev, tab: 'cv' }))}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                detailModal.tab === 'cv' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Documento CV
+            </button>
+          </div>
+
+          {detailModal.loading ? (
+            <div className="flex items-center gap-2 py-8 justify-center text-sm text-slate-500">
+              <Spinner size="sm" /> Cargando informacion...
+            </div>
+          ) : detailModal.tab === 'inscripciones' ? (
+            <div className="max-h-72 overflow-y-auto space-y-2">
+              {detailModal.inscripciones.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">No tiene inscripciones registradas.</p>
+              ) : detailModal.inscripciones.map((insc, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3 text-sm border border-slate-100">
+                  <div>
+                    <p className="font-semibold text-slate-800">{insc.nombre}</p>
+                    <p className="text-xs text-slate-500">
+                      {insc.tipo === 'evento' ? 'Evento' : 'Actividad Academica'} &mdash; {insc.fecha ? new Date(insc.fecha).toLocaleDateString('es-ES') : 'Sin fecha'}
+                    </p>
+                  </div>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${insc.tipo === 'evento' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                    {insc.tipo === 'evento' ? 'Evento' : 'Curso'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : detailModal.tab === 'notificaciones' ? (
+            <div className="max-h-72 overflow-y-auto space-y-2">
+              {detailModal.notificaciones.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">No tiene notificaciones registradas.</p>
+              ) : detailModal.notificaciones.map((notif, i) => (
+                <div key={i} className={`rounded-lg px-4 py-3 text-sm border ${notif.estado !== 'leida' ? 'bg-blue-50/50 border-blue-200' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {notif.estado !== 'leida' && <span className="h-2 w-2 rounded-full bg-blue-600"></span>}
+                      <p className={`font-semibold ${notif.estado !== 'leida' ? 'text-slate-900' : 'text-slate-800'}`}>{notif.titulo}</p>
+                    </div>
+                    <span className="text-[10px] text-slate-400">{notif.creacion ? new Date(notif.creacion).toLocaleDateString('es-ES') : ''}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">{notif.descripcion}</p>
+                </div>
+              ))}
+            </div>
+          ) : detailModal.tab === 'cv' ? (
+            <div className="space-y-4">
+              {detailModal.cvUrl ? (
+                <div className="flex flex-col items-center">
+                  <div className="w-full flex justify-end mb-2">
+                    <a href={detailModal.cvUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline font-medium">Abrir en nueva pestaña</a>
+                  </div>
+                  <iframe src={detailModal.cvUrl} className="w-full h-80 border rounded-lg bg-slate-50" title="CV del Miembro"></iframe>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-6">El socio no ha subido su CV.</p>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </Modal>
+
+      <Modal isOpen={talentSearchModal.open} onClose={() => setTalentSearchModal({ open: false, queryProf: '', queryDesc: '', results: [] })} title="Buscador Inteligente de Talentos">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-500">
+            Encuentra perfiles completando uno o ambos campos. Mostraremos el top 10 con mayor coincidencia.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="queryProf" className="block text-xs font-medium text-slate-700 mb-1">Profesión / Título</label>
+              <Input 
+                id="queryProf"
+                name="queryProf"
+                placeholder="Ej: Ingeniero de Sistemas, Diseñador..."
+                value={talentSearchModal.queryProf}
+                onChange={(e) => handleSearchTalent(e.target.value, talentSearchModal.queryDesc)}
+                className="w-full"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label htmlFor="queryDesc" className="block text-xs font-medium text-slate-700 mb-1">Resumen Profesional / Habilidades</label>
+              <Input 
+                id="queryDesc"
+                name="queryDesc"
+                placeholder="Ej: Desarrollo web, React, finanzas corporativas..."
+                value={talentSearchModal.queryDesc}
+                onChange={(e) => handleSearchTalent(talentSearchModal.queryProf, e.target.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
+          
+          <div className="mt-4 max-h-[50vh] overflow-y-auto space-y-2">
+            {(talentSearchModal.queryProf || talentSearchModal.queryDesc) && talentSearchModal.results.length === 0 ? (
+              <p className="text-sm text-slate-500 py-4 text-center">No se encontraron perfiles que coincidan con la búsqueda.</p>
+            ) : (
+              talentSearchModal.results.map((m, index) => (
+                <div key={m.id} className="p-3 border border-slate-100 bg-slate-50 rounded flex justify-between items-center hover:border-emerald-200 transition-colors">
+                  <div className="flex-1 pr-4">
+                    <p className="font-semibold text-slate-800 text-sm">{index + 1}. {m.nombre} {m.apellidoPaterno}</p>
+                    <p className="text-xs text-emerald-600 font-medium">{m.profesion || 'Sin profesión registrada'}</p>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2" title={m.biografia}>{m.biografia || 'Sin descripción'}</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => {
+                      setTalentSearchModal({ open: false, queryProf: '', queryDesc: '', results: [] });
+                      handleOpenDetail(m);
+                    }}
+                  >
+                    Ver Perfil
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </Modal>
     </div>
   );

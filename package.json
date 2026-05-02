@@ -10,11 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.542.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.14.2",
     "zustand": "^5.0.12"
   },

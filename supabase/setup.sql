@@ -127,7 +127,6 @@ CREATE TABLE public.activos (
     saldo_pendiente numeric(12,2) DEFAULT 0,
     estado text DEFAULT 'deuda',
     "fechaAdquisicion" date,
-    imagen_url text,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
@@ -173,6 +172,7 @@ CREATE TABLE public.archivo (
     activo_id uuid REFERENCES public.activos(id) ON DELETE CASCADE,
     evento_id uuid REFERENCES public.evento(id) ON DELETE CASCADE,
     actividad_academica_id uuid REFERENCES public.actividad_academica(id) ON DELETE CASCADE,
+    activo_id uuid REFERENCES public.activos(id) ON DELETE CASCADE,
     url text NOT NULL,
     tipo text,
     estado text DEFAULT 'activo',

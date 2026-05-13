@@ -17,7 +17,7 @@ export const PublicCursosPage = () => {
           isAuthenticated && user?.id ? academicoApi.obtenerInscripcionesUsuario(user.id) : Promise.resolve([])
         ]);
 
-        const enrolledIds = new Set(insc.filter(i => i.actividad_academica_id).map(i => i.actividad_academica_id));
+        const enrolledIds = new Set(insc.map(i => i.actividad_id));
 
         const processed = acts.map(a => ({
           ...a,
@@ -54,8 +54,8 @@ export const PublicCursosPage = () => {
           <Link to="/inicio" className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 mb-4 transition-colors">
             <ArrowLeft className="h-4 w-4" /> Volver al inicio
           </Link>
-          <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">Oferta Académica</h1>
-          <p className="text-slate-500 mt-2 text-base sm:text-lg">Cursos, talleres y capacitaciones disponibles para nuestros miembros.</p>
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">Agenda de Actividades</h1>
+          <p className="text-slate-500 mt-2 text-base sm:text-lg">Explora y participa en nuestros cursos, talleres y eventos institucionales.</p>
         </div>
       </header>
 

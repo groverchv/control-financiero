@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { CalendarPlus, ClipboardList, Edit, Trash2, Camera, X, MapPin, Info, Users, ArrowRight } from 'lucide-react';
-import { useActividades } from '../hooks';
+import { CalendarPlus, ClipboardList, Edit, Trash2, Camera, X, MapPin, Info, Users, ArrowRight, Tags, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useActividades, useTiposActividad } from '../hooks';
 import { Button, Spinner, Modal, Input, ExportButtons } from '../../../components/ui';
 import { MapPicker } from '../../../components/ui/MapPicker';
 import { Table } from '../../../components/data-display';
@@ -11,6 +11,9 @@ import { useAuthStore } from '../../../store/authStore';
 
 export const GestionActividadesPage = () => {
   const { actividades, loading, error, setActividades } = useActividades();
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+  const { tipos } = useTiposActividad();
   const { user } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,15 +31,18 @@ export const GestionActividadesPage = () => {
     costo: 0, 
     requisitos: '',
     incluye_certificacion: false,
-    estado: 'programado' 
+    estado: 'programado',
+    tipo_actividad_id: ''
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [inscritosModal, setInscritosModal] = useState({ open: false, actividad: null, inscritos: [], loading: false });
+  const [imageModal, setImageModal] = useState({ open: false, url: null });
 
   const columns = [
     { key: 'imagen_display', label: 'Imagen' },
     { key: 'nombre', label: 'Actividad' },
+    { key: 'tipo_nombre', label: 'Tipo' },
     { key: 'fecha_hora', label: 'Fecha/Hora' },
     { key: 'ubicacion_display', label: 'Ubicación' },
     { key: 'cupos', label: 'Cupos' },
@@ -66,7 +72,8 @@ export const GestionActividadesPage = () => {
       costo: 0, 
       requisitos: '',
       incluye_certificacion: false,
-      estado: 'programado'
+      estado: 'programado',
+      tipo_actividad_id: tipos[0]?.id || ''
     });
     setSelectedFile(null);
     setPreviewUrl(null);
@@ -88,7 +95,8 @@ export const GestionActividadesPage = () => {
       costo: act.costo || 0,
       requisitos: act.requisitos || '',
       incluye_certificacion: act.incluye_certificacion || false,
-      estado: act.estado || 'programado'
+      estado: act.estado || 'programado',
+      tipo_actividad_id: act.tipo_actividad_id || ''
     });
     setSelectedFile(null);
     setPreviewUrl(act.imagen || null);
@@ -137,7 +145,13 @@ export const GestionActividadesPage = () => {
     }
   };
 
-  const rows = actividades.map((act) => ({
+  const totalPages = Math.ceil(actividades.length / ITEMS_PER_PAGE);
+  const paginatedActividades = actividades.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const rows = paginatedActividades.map((act) => ({
     ...act,
     fecha_hora: (
       <div className="flex flex-col">
@@ -155,7 +169,10 @@ export const GestionActividadesPage = () => {
       </div>
     ),
     imagen_display: (
-      <div className="h-10 w-16 rounded overflow-hidden bg-slate-100 border border-slate-200 shadow-sm">
+      <div 
+        className="h-10 w-16 rounded overflow-hidden bg-slate-100 border border-slate-200 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={() => act.imagen && setImageModal({ open: true, url: act.imagen })}
+      >
         {act.imagen ? (
           <img src={act.imagen} alt={act.nombre} className="h-full w-full object-cover" />
         ) : (
@@ -194,14 +211,14 @@ export const GestionActividadesPage = () => {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Gestion de actividades</h1>
-          <p className="text-sm text-slate-500">Planifica y registra actividades academicas.</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Gestión de Actividades</h1>
+          <p className="text-sm text-slate-500">Planifica y registra eventos, cursos y otras actividades institucionales.</p>
         </div>
         <div className="flex gap-2">
           <ExportButtons 
-            data={actividades.map(a => ({ Actividad: a.nombre, Fecha: a.fecha, Hora: a.hora, Ubicacion: a.ubicacion, Modalidad: a.modalidad, Cupos: a.cupos }))} 
+            data={actividades.map(a => ({ Actividad: a.nombre, Tipo: a.tipo_nombre, Fecha: a.fecha, Hora: a.hora, Ubicacion: a.ubicacion, Modalidad: a.modalidad, Cupos: a.cupos }))} 
             filename="lista_actividades" 
-            title="Cronograma de Actividades Académicas" 
+            title="Cronograma de Actividades" 
           />
           <Button type="button" onClick={handleOpenCreate}>
             <CalendarPlus className="h-4 w-4" />
@@ -224,7 +241,49 @@ export const GestionActividadesPage = () => {
           ) : error ? (
             <Toast title="Error" message={error} variant="error" />
           ) : (
-            <Table columns={columns} rows={rows} emptyMessage="No hay actividades registradas." />
+            <>
+              <Table columns={columns} rows={rows} emptyMessage="No hay actividades registradas." />
+              
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-4">
+                  <p className="text-xs text-slate-500">
+                    Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, actividades.length)} de {actividades.length} actividades
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button 
+                      variant="outline" 
+                      className="h-8 px-2 text-xs" 
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Anterior
+                    </Button>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "primary" : "outline"}
+                        className={`h-8 w-8 p-0 text-xs ${currentPage === page ? 'bg-blue-600 text-white' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+
+                    <Button 
+                      variant="outline" 
+                      className="h-8 px-2 text-xs" 
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    >
+                      Siguiente
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -273,6 +332,24 @@ export const GestionActividadesPage = () => {
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} 
                 required 
               />
+              
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                  <Tags className="h-3 w-3" /> Tipo de Actividad
+                </label>
+                <select
+                  value={formData.tipo_actividad_id}
+                  onChange={(e) => setFormData({ ...formData, tipo_actividad_id: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  required
+                >
+                  <option value="" disabled>Selecciona una categoría</option>
+                  {tipos.map(t => (
+                    <option key={t.id} value={t.id}>{t.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <Input 
                   label="Fecha" 
@@ -426,6 +503,24 @@ export const GestionActividadesPage = () => {
           </div>
         )}
       </Modal>
+
+      {/* Modal para ver imagen en grande */}
+      <Modal 
+        isOpen={imageModal.open} 
+        onClose={() => setImageModal({ open: false, url: null })} 
+        title="Vista previa de imagen"
+      >
+        <div className="flex justify-center bg-slate-900/5 rounded-xl p-2 overflow-hidden">
+          {imageModal.url && (
+            <img 
+              src={imageModal.url} 
+              alt="Vista previa" 
+              className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
+            />
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
+

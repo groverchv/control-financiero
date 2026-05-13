@@ -53,29 +53,18 @@ CREATE TABLE public.notificacion (
     creacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.evento (
+CREATE TABLE public.tipo_actividad (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
-    titulo text NOT NULL,
+    nombre text NOT NULL,
     descripcion text,
-    fecha date NOT NULL,
-    hora time NOT NULL,
-    cupos integer DEFAULT 0,
-    ubicacion text,
-    latitud numeric(10,8),
-    longitud numeric(11,8),
-    modalidad text DEFAULT 'presencial',
-    costo numeric(10,2) DEFAULT 0,
-    requisitos text,
-    incluye_certificacion boolean DEFAULT false,
-    estado text DEFAULT 'programado',
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.actividad_academica (
+CREATE TABLE public.actividad (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
+    tipo_actividad_id uuid REFERENCES public.tipo_actividad(id) ON DELETE SET NULL,
     titulo text NOT NULL,
     descripcion text,
     fecha date NOT NULL,
@@ -127,6 +116,9 @@ CREATE TABLE public.activos (
     saldo_pendiente numeric(12,2) DEFAULT 0,
     estado text DEFAULT 'deuda',
     "fechaAdquisicion" date,
+    hash_anterior text,
+    hash_actual text,
+    blockchain_tx_id text,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
@@ -140,6 +132,9 @@ CREATE TABLE public.ingreso (
     fecha date NOT NULL,
     descripcion text,
     estado text DEFAULT 'pagada',
+    hash_anterior text,
+    hash_actual text,
+    blockchain_tx_id text,
     creacion timestamptz DEFAULT now()
 );
 
@@ -152,6 +147,9 @@ CREATE TABLE public.egreso (
     fecha date NOT NULL,
     concepto text NOT NULL,
     descripcion text,
+    hash_anterior text,
+    hash_actual text,
+    blockchain_tx_id text,
     creacion timestamptz DEFAULT now()
 );
 
@@ -170,12 +168,13 @@ CREATE TABLE public.archivo (
     egreso_id uuid REFERENCES public.egreso(id) ON DELETE CASCADE,
     ingreso_id uuid REFERENCES public.ingreso(id) ON DELETE CASCADE,
     activo_id uuid REFERENCES public.activos(id) ON DELETE CASCADE,
-    evento_id uuid REFERENCES public.evento(id) ON DELETE CASCADE,
-    actividad_academica_id uuid REFERENCES public.actividad_academica(id) ON DELETE CASCADE,
-    activo_id uuid REFERENCES public.activos(id) ON DELETE CASCADE,
+    actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
     url text NOT NULL,
     tipo text,
     estado text DEFAULT 'activo',
+    hash_anterior text,
+    hash_actual text,
+    blockchain_tx_id text,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
@@ -183,12 +182,10 @@ CREATE TABLE public.archivo (
 CREATE TABLE public.inscripcion (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
-    evento_id uuid REFERENCES public.evento(id) ON DELETE CASCADE,
-    actividad_academica_id uuid REFERENCES public.actividad_academica(id) ON DELETE CASCADE,
+    actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
     fecha_inscripcion timestamptz DEFAULT now(),
     estado text DEFAULT 'confirmado',
-    UNIQUE NULLS NOT DISTINCT (miembro_id, evento_id),
-    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_academica_id)
+    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id)
 );
 
 -- ==========================================
@@ -208,18 +205,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER tr_update_evento_status
-  BEFORE INSERT OR UPDATE ON public.evento
+CREATE TRIGGER tr_update_actividad_status
+  BEFORE INSERT OR UPDATE ON public.actividad
   FOR EACH ROW EXECUTE FUNCTION public.update_academico_status();
 
 CREATE OR REPLACE FUNCTION public.decrease_cupos()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW.evento_id IS NOT NULL THEN
-    UPDATE public.evento SET cupos = cupos - 1 WHERE id = NEW.evento_id AND cupos > 0;
-  END IF;
-  IF NEW.actividad_academica_id IS NOT NULL THEN
-    UPDATE public.actividad_academica SET cupos = cupos - 1 WHERE id = NEW.actividad_academica_id AND cupos > 0;
+  IF NEW.actividad_id IS NOT NULL THEN
+    UPDATE public.actividad SET cupos = cupos - 1 WHERE id = NEW.actividad_id AND cupos > 0;
   END IF;
   RETURN NEW;
 END;
@@ -228,10 +222,6 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tr_decrease_cupos
   AFTER INSERT ON public.inscripcion
   FOR EACH ROW EXECUTE FUNCTION public.decrease_cupos();
-
-CREATE TRIGGER tr_update_actividad_status
-  BEFORE INSERT OR UPDATE ON public.actividad_academica
-  FOR EACH ROW EXECUTE FUNCTION public.update_academico_status();
 
 CREATE OR REPLACE FUNCTION public.update_activo_saldo()
 RETURNS trigger AS $$
@@ -287,13 +277,127 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- Sellado: ingreso
+CREATE OR REPLACE FUNCTION public.sellar_ingreso()
+RETURNS trigger AS $$
+DECLARE
+    v_hash_anterior TEXT;
+BEGIN
+    SELECT hash_actual INTO v_hash_anterior
+    FROM public.ingreso
+    ORDER BY creacion DESC
+    LIMIT 1;
+
+    NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
+
+    NEW.hash_actual := encode(digest(
+      convert_to(NEW.id::text || NEW.monto::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
+      'sha256'
+    ), 'hex');
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_blockchain_ingreso
+BEFORE INSERT ON public.ingreso
+FOR EACH ROW EXECUTE FUNCTION public.sellar_ingreso();
+
+-- Sellado: egreso
+CREATE OR REPLACE FUNCTION public.sellar_egreso()
+RETURNS trigger AS $$
+DECLARE
+    v_hash_anterior TEXT;
+BEGIN
+    SELECT hash_actual INTO v_hash_anterior
+    FROM public.egreso
+    ORDER BY creacion DESC
+    LIMIT 1;
+
+    NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
+
+    NEW.hash_actual := encode(digest(
+      convert_to(NEW.id::text || NEW.monto::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
+      'sha256'
+    ), 'hex');
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_blockchain_egreso
+BEFORE INSERT ON public.egreso
+FOR EACH ROW EXECUTE FUNCTION public.sellar_egreso();
+
+-- Sellado: activos
+CREATE OR REPLACE FUNCTION public.sellar_activo()
+RETURNS trigger AS $$
+DECLARE
+    v_hash_anterior TEXT;
+BEGIN
+    SELECT hash_actual INTO v_hash_anterior
+    FROM public.activos
+    ORDER BY creacion DESC
+    LIMIT 1;
+
+    NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
+
+    NEW.hash_actual := encode(digest(
+      convert_to(NEW.id::text || NEW.costo_total::text || COALESCE(NEW."fechaAdquisicion"::text, '') || NEW.hash_anterior, 'utf8'),
+      'sha256'
+    ), 'hex');
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_blockchain_activo
+BEFORE INSERT ON public.activos
+FOR EACH ROW EXECUTE FUNCTION public.sellar_activo();
+
+-- Sellado: archivo (poliformico)
+CREATE OR REPLACE FUNCTION public.sellar_archivo()
+RETURNS trigger AS $$
+DECLARE
+    v_hash_anterior TEXT;
+    v_llave_foranea TEXT;
+BEGIN
+    SELECT hash_actual INTO v_hash_anterior
+    FROM public.archivo
+    ORDER BY creacion DESC
+    LIMIT 1;
+
+    NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
+
+    v_llave_foranea := COALESCE(
+        NEW.egreso_id::text,
+        NEW.ingreso_id::text,
+        NEW.activo_id::text,
+        NEW.actividad_id::text,
+        NEW.miembro_id::text,
+        'sin_referencia'
+    );
+
+    NEW.hash_actual := encode(digest(
+      convert_to(NEW.id::text || NEW.url || v_llave_foranea || NEW.hash_anterior, 'utf8'),
+      'sha256'
+    ), 'hex');
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_blockchain_archivo
+BEFORE INSERT ON public.archivo
+FOR EACH ROW EXECUTE FUNCTION public.sellar_archivo();
+
 -- ==========================================
 -- 4. SEGURIDAD DE FILAS (RLS)
 -- ==========================================
 ALTER TABLE public.miembro ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notificacion ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.evento ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.actividad_academica ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tipo_actividad ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actividad ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tipo_ingreso ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tipo_egreso ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activos ENABLE ROW LEVEL SECURITY;
@@ -306,8 +410,8 @@ ALTER TABLE public.inscripcion ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Acceso total" ON public.miembro FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.notificacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.evento FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.actividad_academica FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total" ON public.tipo_actividad FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total" ON public.actividad FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.tipo_ingreso FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.tipo_egreso FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.ingreso FOR ALL TO authenticated USING (true) WITH CHECK (true);

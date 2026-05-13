@@ -1,5 +1,6 @@
 import { supabase } from '../../../services/supabase';
 import { brevoService } from '../../../services/brevo';
+import { blockchainService } from '../../../services/blockchain';
 
 export const finanzasApi = {
   // Nota: 'cuotas' ya no existe en el esquema nuevo. Se mapea a 'ingreso' temporalmente o se marca como pendiente.
@@ -23,12 +24,20 @@ export const finanzasApi = {
 
     // Registrar archivo si se proporcionó una URL de comprobante
     if (pago.comprobanteUrl && pagoRegistrado) {
-      await supabase.from('archivo').insert([{
+      const { data: archData } = await supabase.from('archivo').insert([{
         ingreso_id: pagoRegistrado.id,
         url: pago.comprobanteUrl,
         tipo: 'comprobante_ingreso'
-      }]);
+      }]).select();
+
+      // Sellar el archivo en blockchain
+      if (archData?.[0]) {
+        blockchainService.sellarYActualizar('archivo', archData[0], pago.registradoPor || 'sistema');
+      }
     }
+
+    // Sellar el ingreso en blockchain (en segundo plano para no bloquear el UI)
+    blockchainService.sellarYActualizar('ingreso', pagoRegistrado, pago.registradoPor || 'sistema');
 
     // Enviar email de confirmación de pago al socio si existe miembroId (en segundo plano)
     try {
@@ -110,12 +119,20 @@ export const finanzasApi = {
 
     // Registrar archivo si se proporcionó una URL de comprobante
     if (egreso.comprobanteUrl && egresoRegistrado) {
-      await supabase.from('archivo').insert([{
+      const { data: archData } = await supabase.from('archivo').insert([{
         egreso_id: egresoRegistrado.id,
         url: egreso.comprobanteUrl,
         tipo: 'comprobante_egreso'
-      }]);
+      }]).select();
+
+      // Sellar el archivo en blockchain
+      if (archData?.[0]) {
+        blockchainService.sellarYActualizar('archivo', archData[0], egreso.registradoPor || 'sistema');
+      }
     }
+
+    // Sellar el egreso en blockchain
+    blockchainService.sellarYActualizar('egreso', egresoRegistrado, egreso.registradoPor || 'sistema');
 
     return egresoRegistrado;
   },
@@ -213,4 +230,16 @@ export const finanzasApi = {
     if (error) throw error;
     return data || [];
   },
+  
+  sellarIngreso: async (id, registradoPor) => {
+    const { data, error } = await supabase.from('ingreso').select('*').eq('id', id).single();
+    if (error) throw error;
+    return await blockchainService.sellarYActualizar('ingreso', data, registradoPor);
+  },
+
+  sellarEgreso: async (id, registradoPor) => {
+    const { data, error } = await supabase.from('egreso').select('*').eq('id', id).single();
+    if (error) throw error;
+    return await blockchainService.sellarYActualizar('egreso', data, registradoPor);
+  }
 };

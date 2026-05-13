@@ -1,0 +1,16 @@
+{
+  "name": "audit-chaincode",
+  "version": "1.0.0",
+  "description": "Chaincode de auditoria para Control Financiero - Patron Hash-Anchor",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "fabric-chaincode-node start"
+  },
+  "dependencies": {
+    "fabric-contract-api": "^2.5.0",
+    "fabric-shim": "^2.5.0"
+  }
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PackagePlus, Search, Tags } from 'lucide-react';
+import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useActivos } from '../hooks';
 import { Button, Input, Spinner, Modal, Select, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -11,6 +11,8 @@ import { cloudinaryService } from '../../../services/cloudinary';
 export const GestionActivosPage = () => {
   const { activos, loading, error, setActivos } = useActivos();
   const { user } = useAuthStore();
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -22,6 +24,16 @@ export const GestionActivosPage = () => {
     imagen: null
   });
   const [tiposActivo, setTiposActivo] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [estadoFilter, setEstadoFilter] = useState('');
+
+  // Filtrado de activos
+  const filteredActivos = activos.filter(activo => {
+    const matchesSearch = (activo.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (activo.tipo_activo?.nombre || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesEstado = estadoFilter ? activo.estado === estadoFilter : true;
+    return matchesSearch && matchesEstado;
+  });
 
   useEffect(() => {
     const loadTipos = async () => {
@@ -45,7 +57,18 @@ export const GestionActivosPage = () => {
         <div className="h-10 w-10 rounded-md bg-slate-100 flex items-center justify-center text-[10px] text-slate-400">Sin foto</div>
       )
     },
-    { key: 'nombre', label: 'Nombre' },
+    { 
+      key: 'nombre', 
+      label: 'Nombre',
+      render: (val, row) => (
+        <div className="flex items-center gap-2">
+          {val}
+          {row.blockchain_tx_id && (
+            <ShieldCheck className="h-3.5 w-3.5 text-blue-600" title="Sellado en Blockchain" />
+          )}
+        </div>
+      )
+    },
     { 
       key: 'tipo_activo', 
       label: 'Tipo',
@@ -73,6 +96,38 @@ export const GestionActivosPage = () => {
       )
     },
     { key: 'fechaAdquisicion', label: 'Fecha' },
+    { 
+      key: 'blockchain_tx_id', 
+      label: 'Blockchain ID',
+      render: (val) => val ? (
+        <div className="flex items-center gap-1 text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 w-fit" title={val}>
+          <ShieldCheck className="h-3 w-3" />
+          {val.substring(0, 8)}...
+        </div>
+      ) : (
+        <span className="text-[10px] text-slate-400">No sellado</span>
+      )
+    },
+    {
+      key: 'id',
+      label: 'Acciones',
+      render: (id, row) => (
+        <div className="flex justify-end gap-2">
+          {!row.blockchain_tx_id && (
+            <Button 
+              size="xs" 
+              variant="outline" 
+              className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-7"
+              onClick={() => handleSellar(id)}
+              disabled={isSubmitting}
+            >
+              <ShieldCheck className="h-3 w-3 mr-1" />
+              Sellar
+            </Button>
+          )}
+        </div>
+      )
+    }
   ];
 
   const handleSubmit = async (e) => {
@@ -115,6 +170,20 @@ export const GestionActivosPage = () => {
     }
   };
 
+  const handleSellar = async (id) => {
+    setIsSubmitting(true);
+    try {
+      await patrimonioApi.sellarActivo(id, user?.id);
+      const updatedData = await patrimonioApi.obtenerActivos();
+      setActivos(updatedData);
+    } catch (err) {
+      console.error(err);
+      alert('Error al sellar: Verifique que la red Blockchain esté activa.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -124,7 +193,14 @@ export const GestionActivosPage = () => {
         </div>
         <div className="flex gap-2">
           <ExportButtons 
-            data={activos.map(a => ({ Activo: a.nombre, Tipo: a.tipo_activo?.nombre, Costo: a.costo_total, Estado: a.estado, Fecha: a.fechaAdquisicion }))} 
+            data={filteredActivos.map(a => ({ 
+              Activo: a.nombre, 
+              Tipo: a.tipo_activo?.nombre, 
+              Costo: a.costo_total, 
+              Estado: a.estado, 
+              Fecha: a.fechaAdquisicion,
+              'Tx Blockchain': a.blockchain_tx_id || 'No sellado'
+            }))} 
             filename="lista_activos" 
             title="Inventario de Activos Institucionales" 
           />
@@ -136,12 +212,29 @@ export const GestionActivosPage = () => {
       </header>
 
       <section className="rounded-md bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex w-full max-w-sm items-center gap-2">
-            <Search className="h-4 w-4 text-slate-400" />
-            <Input className="flex-1" placeholder="Buscar activo" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          <div className="flex flex-wrap items-center gap-2 w-full max-w-lg">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o tipo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-md border border-slate-300 pl-9 pr-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <select
+              value={estadoFilter}
+              onChange={(e) => setEstadoFilter(e.target.value)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+            >
+              <option value="">Todos los estados</option>
+              <option value="pagado">Pagado</option>
+              <option value="deuda">Con Deuda</option>
+            </select>
           </div>
-          <span className="text-sm text-slate-500">{activos.length} activos</span>
+          <span className="text-sm text-slate-500">{filteredActivos.length} activos</span>
         </div>
 
         <div className="mt-6">
@@ -153,7 +246,49 @@ export const GestionActivosPage = () => {
           ) : error ? (
             <Toast title="Error" message={error} variant="error" />
           ) : (
-            <Table columns={columns} rows={activos} emptyMessage="No hay activos registrados." />
+            <>
+              <Table columns={columns} rows={filteredActivos.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)} emptyMessage="No hay activos registrados o no coinciden con la busqueda." />
+              
+              {Math.ceil(filteredActivos.length / ITEMS_PER_PAGE) > 1 && (
+                <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-4">
+                  <p className="text-xs text-slate-500">
+                    Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredActivos.length)} de {filteredActivos.length} activos
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button 
+                      variant="outline" 
+                      className="h-8 px-2 text-xs" 
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Anterior
+                    </Button>
+                    
+                    {Array.from({ length: Math.ceil(filteredActivos.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "primary" : "outline"}
+                        className={`h-8 w-8 p-0 text-xs ${currentPage === page ? 'bg-blue-600 text-white' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+
+                    <Button 
+                      variant="outline" 
+                      className="h-8 px-2 text-xs" 
+                      disabled={currentPage === (Math.ceil(filteredActivos.length / ITEMS_PER_PAGE))}
+                      onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredActivos.length / ITEMS_PER_PAGE), p + 1))}
+                    >
+                      Siguiente
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>

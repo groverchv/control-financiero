@@ -1,10 +1,12 @@
 import { supabase } from '../../../services/supabase';
+import { blockchainService } from '../../../services/blockchain';
 
 export const patrimonioApi = {
   registrarActivo: async (activo) => {
+    const { imagen_url, ...activoData } = activo;
     const { data, error } = await supabase
       .from('activos')
-      .insert([activo])
+      .insert([activoData])
       .select();
 
     if (error) throw error;
@@ -12,13 +14,21 @@ export const patrimonioApi = {
 
     // Registrar en la tabla archivo si hay imagen
     if (activo.imagen_url && activoRegistrado) {
-      await supabase.from('archivo').insert([{
+      const { data: archData } = await supabase.from('archivo').insert([{
         activo_id: activoRegistrado.id,
         miembro_id: activo.miembro_id,
         url: activo.imagen_url,
         tipo: 'imagen_activo'
-      }]);
+      }]).select();
+
+      // Sellar el archivo
+      if (archData?.[0]) {
+        blockchainService.sellarYActualizar('archivo', archData[0], activo.miembro_id || 'sistema');
+      }
     }
+
+    // Sellar el activo en blockchain
+    blockchainService.sellarYActualizar('activo', activoRegistrado, activo.miembro_id || 'sistema');
 
     return activoRegistrado;
   },
@@ -95,4 +105,10 @@ export const patrimonioApi = {
     if (error) throw error;
     return data?.[0];
   },
+
+  sellarActivo: async (id, registradoPor) => {
+    const { data, error } = await supabase.from('activos').select('*').eq('id', id).single();
+    if (error) throw error;
+    return await blockchainService.sellarYActualizar('activo', data, registradoPor);
+  }
 };

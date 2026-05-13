@@ -283,17 +283,17 @@ export const administracionApi = {
   obtenerInscripcionesMiembro: async (miembroId) => {
     const { data, error } = await supabase
       .from('inscripcion')
-      .select('*, evento(id, titulo, fecha, hora, ubicacion, modalidad, estado), actividad_academica(id, titulo, fecha, hora, ubicacion, modalidad, estado)')
+      .select('*, actividad(id, titulo, fecha, hora, ubicacion, modalidad, estado)')
       .eq('miembro_id', miembroId)
       .order('fecha_inscripcion', { ascending: false });
 
     if (error) throw error;
     return (data || []).map(i => ({
       ...i,
-      tipo: i.evento_id ? 'evento' : 'actividad',
-      nombre: i.evento?.titulo || i.actividad_academica?.titulo || 'Sin nombre',
-      fecha: i.evento?.fecha || i.actividad_academica?.fecha,
-      modalidad: i.evento?.modalidad || i.actividad_academica?.modalidad,
+      tipo: 'actividad',
+      nombre: i.actividad?.titulo || 'Sin nombre',
+      fecha: i.actividad?.fecha,
+      modalidad: i.actividad?.modalidad,
     }));
   },
 
@@ -327,32 +327,11 @@ export const administracionApi = {
     return data?.url || null;
   },
 
-  /**
-   * Obtener todos los inscritos en un evento con datos completos
-   */
-  obtenerInscritosEvento: async (eventoId) => {
-    const { data, error } = await supabase
-      .from('inscripcion')
-      .select('creacion, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado)')
-      .eq('evento_id', eventoId)
-      .order('creacion', { ascending: false });
-
-    if (error) throw error;
-    return (data || []).map(d => ({
-      ...d.miembro,
-      email: d.miembro?.correoElectronico,
-      fechaInscripcion: d.creacion,
-    }));
-  },
-
-  /**
-   * Obtener todos los inscritos en una actividad con datos completos
-   */
   obtenerInscritosActividad: async (actividadId) => {
     const { data, error } = await supabase
       .from('inscripcion')
       .select('creacion, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado)')
-      .eq('actividad_academica_id', actividadId)
+      .eq('actividad_id', actividadId)
       .order('creacion', { ascending: false });
 
     if (error) throw error;

@@ -2,7 +2,8 @@ import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { ArrowDownCircle, Bell, CalendarDays, CreditCard, GraduationCap, LayoutGrid, LineChart, LogOut, ShieldCheck, TrendingUp, Users, Wallet, Eye, ChevronDown, LayoutDashboard, Menu, X, Tags } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { blockchainService } from '../services/blockchain';
 
 export const AdminLayout = () => {
   const { user, logout } = useAuthStore();
@@ -15,6 +16,18 @@ export const AdminLayout = () => {
     logout();
     navigate('/login');
   };
+
+  const [blockchainActive, setBlockchainActive] = useState(false);
+
+  useEffect(() => {
+    const checkBlockchain = async () => {
+      const active = await blockchainService.healthCheck();
+      setBlockchainActive(active);
+    };
+    checkBlockchain();
+    const interval = setInterval(checkBlockchain, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, []);
 
   const closeSidebar = () => setIsSidebarOpen(false);
 
@@ -133,9 +146,24 @@ export const AdminLayout = () => {
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/admin/eventos" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                  <GraduationCap className="h-4 w-4" />
-                  Eventos
+                <NavLink to="/admin/tipos-actividad" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <Tags className="h-4 w-4" />
+                  Tipos de Actividad
+                </NavLink>
+              </li>
+            </ul>
+          </div>
+
+          {/* AUDITORIA */}
+          <div className="mb-6">
+            <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              Auditoria
+            </h3>
+            <ul className="space-y-1 text-sm">
+              <li>
+                <NavLink to="/admin/auditoria" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <ShieldCheck className="h-4 w-4" />
+                  Blockchain
                 </NavLink>
               </li>
             </ul>
@@ -203,6 +231,14 @@ export const AdminLayout = () => {
                     </Link>
                   </div>
                 )}
+              </div>
+
+              {/* Blockchain Status Badge */}
+              <div className="hidden md:flex items-center gap-2 border-l pl-4 ml-2">
+                <div className={`h-2 w-2 rounded-full ${blockchainActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${blockchainActive ? 'text-emerald-600' : 'text-red-600'}`}>
+                  Blockchain {blockchainActive ? 'En Línea' : 'Desconectada'}
+                </span>
               </div>
             </div>
             

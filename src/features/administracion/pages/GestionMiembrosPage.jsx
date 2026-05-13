@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, Eye, EyeOff, Info, Plus, Search, Trash2, Lightbulb } from 'lucide-react';
+import { Edit, Eye, EyeOff, Info, Plus, Search, Trash2, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMiembros } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -8,6 +8,8 @@ import { administracionApi } from '../api';
 
 export const GestionMiembrosPage = () => {
   const { miembros, loading, error, setMiembros } = useMiembros();
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
@@ -25,8 +27,10 @@ export const GestionMiembrosPage = () => {
   });
   const [detailModal, setDetailModal] = useState({ open: false, miembro: null, inscripciones: [], notificaciones: [], cvUrl: null, loading: false, tab: 'inscripciones' });
   const [talentSearchModal, setTalentSearchModal] = useState({ open: false, queryProf: '', queryDesc: '', results: [] });
+  const [imageModal, setImageModal] = useState({ open: false, url: null });
 
   const columns = [
+    { key: 'foto_display', label: 'Foto' },
     { key: 'nombre', label: 'Nombre' },
     { key: 'email', label: 'Correo' },
     { key: 'rol', label: 'Rol' },
@@ -157,8 +161,28 @@ export const GestionMiembrosPage = () => {
     }
   };
 
-  const rows = miembros.map((miembro) => ({
+  const totalPages = Math.ceil(miembros.length / ITEMS_PER_PAGE);
+  const paginatedMiembros = miembros.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const rows = paginatedMiembros.map((miembro) => ({
     ...miembro,
+    foto_display: (
+      <div 
+        className="h-10 w-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={() => miembro.foto && setImageModal({ open: true, url: miembro.foto })}
+      >
+        {miembro.foto ? (
+          <img src={miembro.foto} alt={miembro.nombre} className="h-full w-full object-cover" />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-[10px] text-slate-400 font-bold uppercase">
+            {miembro.nombre?.charAt(0)}
+          </div>
+        )}
+      </div>
+    ),
     estado: (
       <span className={`rounded-full px-2 py-1 text-xs ${
         miembro.estado === 'activo' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
@@ -238,7 +262,49 @@ export const GestionMiembrosPage = () => {
           ) : error ? (
             <Toast title="Error" message={error} variant="error" />
           ) : (
-            <Table columns={columns} rows={rows} emptyMessage="No hay miembros registrados." />
+            <>
+              <Table columns={columns} rows={rows} emptyMessage="No hay miembros registrados." />
+              
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-4">
+                  <p className="text-xs text-slate-500">
+                    Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, miembros.length)} de {miembros.length} miembros
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button 
+                      variant="outline" 
+                      className="h-8 px-2 text-xs" 
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Anterior
+                    </Button>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "primary" : "outline"}
+                        className={`h-8 w-8 p-0 text-xs ${currentPage === page ? 'bg-blue-600 text-white' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+
+                    <Button 
+                      variant="outline" 
+                      className="h-8 px-2 text-xs" 
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    >
+                      Siguiente
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -508,6 +574,23 @@ export const GestionMiembrosPage = () => {
               ))
             )}
           </div>
+        </div>
+      </Modal>
+
+      {/* Modal para ver imagen en grande */}
+      <Modal 
+        isOpen={imageModal.open} 
+        onClose={() => setImageModal({ open: false, url: null })} 
+        title="Fotografía de Perfil"
+      >
+        <div className="flex justify-center bg-slate-900/5 rounded-xl p-2 overflow-hidden">
+          {imageModal.url && (
+            <img 
+              src={imageModal.url} 
+              alt="Perfil ampliado" 
+              className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
+            />
+          )}
         </div>
       </Modal>
     </div>

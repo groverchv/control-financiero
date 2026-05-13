@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 
-export const Modal = ({ isOpen, onClose, title, children, width = 'max-w-lg' }) => {
+export const Modal = ({ isOpen, onClose, title, children, width = 'max-w-4xl' }) => {
   if (!isOpen) return null;
 
   return (

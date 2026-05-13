@@ -24,7 +24,7 @@ export const DetalleActividadPage = () => {
 
   useEffect(() => {
     if (isAuthenticated && user?.id && id) {
-      academicoApi.verificarInscripcion(user.id, id, 'actividad')
+      academicoApi.verificarInscripcion(user.id, id)
         .then(setIsInscrito)
         .catch(console.error);
     }
@@ -57,7 +57,7 @@ export const DetalleActividadPage = () => {
     setShowConfirmModal(false);
     setIsEnrolling(true);
     try {
-      await academicoApi.inscribirSocio(user.id, actividad.id, 'actividad');
+      await academicoApi.inscribirSocio(user.id, actividad.id);
       setIsInscrito(true);
       setActividad(prev => ({ ...prev, cupos: prev.cupos - 1 }));
       setModalMessage({
@@ -83,7 +83,7 @@ export const DetalleActividadPage = () => {
     <div className="max-w-5xl mx-auto space-y-8 animate-fadeIn pb-20">
       <header>
         <Link to="/cursos" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 mb-6 transition-colors group">
-          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Volver a la oferta académica
+          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Volver a la agenda de actividades
         </Link>
       </header>
 
@@ -110,7 +110,7 @@ export const DetalleActividadPage = () => {
           <div className="bg-white rounded-2xl sm:rounded-[3rem] p-5 sm:p-8 md:p-12 shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-4">
               <BookOpen className="h-5 w-5 text-emerald-500" />
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Capacitación Académica</span>
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{actividad.tipo_nombre || 'Actividad Institucional'}</span>
             </div>
             
             <h1 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-4 sm:mb-6">{actividad.nombre}</h1>

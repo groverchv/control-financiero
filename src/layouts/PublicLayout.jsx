@@ -19,11 +19,11 @@ export const PublicLayout = () => {
 
   const navLinks = [
     { to: '/inicio', label: 'Inicio' },
-    { to: '/eventos', label: 'Eventos' },
-    { to: '/cursos', label: 'Cursos' },
+    { to: '/actividades', label: 'Actividades' },
   ];
 
   const authLinks = [
+    { to: '/transparencia', label: 'Transparencia' },
     { to: '/socio/estado-cuenta', label: 'Estado de Cuenta' },
     { to: '/socio/notificaciones', label: 'Notificaciones' },
     { to: '/socio/perfil', label: 'Mi Perfil' },

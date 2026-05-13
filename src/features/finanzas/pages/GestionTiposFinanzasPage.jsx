@@ -35,6 +35,7 @@ export const GestionTiposFinanzasPage = () => {
 
   useEffect(() => {
     fetchDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openModal = (type) => {

@@ -13,7 +13,6 @@ import { EstadoCuentaSocioPage } from '../features/administracion/pages/EstadoCu
 import { RegistroCuotasPage } from '../features/finanzas/pages/RegistroCuotasPage';
 import { HistorialCuotasPage } from '../features/finanzas/pages/HistorialCuotasPage';
 import { RegistroEgresosPage } from '../features/finanzas/pages/RegistroEgresosPage';
-import { IngresoExtraPage } from '../features/finanzas/pages/IngresoExtraPage';
 import { FlujoCajaPage } from '../features/finanzas/pages/FlujoCajaPage';
 import { ReportesFinancierosPage } from '../features/finanzas/pages/ReportesFinancierosPage';
 import { GestionTiposFinanzasPage } from '../features/finanzas/pages/GestionTiposFinanzasPage';
@@ -24,12 +23,12 @@ import { GestionTiposActivoPage } from '../features/patrimonio/pages/GestionTipo
 import { GestionActividadesPage } from '../features/academico/pages/GestionActividadesPage';
 import { AsignacionJuradoPage } from '../features/academico/pages/AsignacionJuradoPage';
 import { BuscadorTalentoPage } from '../features/academico/pages/BuscadorTalentoPage';
-import { GestionEventosPage } from '../features/academico/pages/GestionEventosPage';
+import { GestionTiposActividadPage } from '../features/academico/pages/GestionTiposActividadPage';
 import { NotificacionesPage } from '../features/administracion/pages/NotificacionesPage';
+import { AuditoriaPage } from '../features/auditoria/pages/AuditoriaPage';
+import { TransparenciaPage } from '../features/auditoria/pages/TransparenciaPage';
 
-import { PublicEventosPage } from '../features/academico/pages/PublicEventosPage';
-import { PublicCursosPage } from '../features/academico/pages/PublicCursosPage';
-import { DetalleEventoPage } from '../features/academico/pages/DetalleEventoPage';
+import { PublicCursosPage as PublicActividadesPage } from '../features/academico/pages/PublicCursosPage';
 import { DetalleActividadPage } from '../features/academico/pages/DetalleActividadPage';
 
 export const AppRouter = () => {
@@ -39,9 +38,9 @@ export const AppRouter = () => {
         <Route element={<PublicLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/inicio" element={<LandingPage />} />
-          <Route path="/eventos" element={<PublicEventosPage />} />
-          <Route path="/eventos/:id" element={<DetalleEventoPage />} />
-          <Route path="/cursos" element={<PublicCursosPage />} />
+          <Route path="/actividades" element={<PublicActividadesPage />} />
+          <Route path="/actividades/:id" element={<DetalleActividadPage />} />
+          <Route path="/cursos" element={<PublicActividadesPage />} />
           <Route path="/cursos/:id" element={<DetalleActividadPage />} />
           <Route path="/" element={<LandingPage />} />
           
@@ -65,6 +64,11 @@ export const AppRouter = () => {
               <NotificacionesPage />
             </ProtectedRoute>
           } />
+          <Route path="/transparencia" element={
+            <ProtectedRoute requiredRoles={['socio', 'admin', 'secretario']}>
+              <TransparenciaPage />
+            </ProtectedRoute>
+          } />
         </Route>
 
         <Route
@@ -85,9 +89,10 @@ export const AppRouter = () => {
           <Route path="/admin/activos/catalogo" element={<CatalogoActivosPage />} />
           <Route path="/admin/activos/adquisicion" element={<NuevaAdquisicionPage />} />
           <Route path="/admin/actividades" element={<GestionActividadesPage />} />
+          <Route path="/admin/tipos-actividad" element={<GestionTiposActividadPage />} />
           <Route path="/admin/actividades/jurados" element={<AsignacionJuradoPage />} />
           <Route path="/admin/talento" element={<BuscadorTalentoPage />} />
-          <Route path="/admin/eventos" element={<GestionEventosPage />} />
+          <Route path="/admin/auditoria" element={<AuditoriaPage />} />
         </Route>
 
 

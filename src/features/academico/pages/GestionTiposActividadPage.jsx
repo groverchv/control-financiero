@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Tags, PlusCircle, Trash2, Edit } from 'lucide-react';
+import { Tags, PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useTiposActividad } from '../hooks';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
@@ -14,6 +14,7 @@ export const GestionTiposActividadPage = () => {
   const [editingTipo, setEditingTipo] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
 
   const openCreateModal = () => {
     setEditingTipo(null);
@@ -36,15 +37,31 @@ export const GestionTiposActividadPage = () => {
       if (editingTipo) {
         const actualizado = await academicoApi.actualizarTipoActividad(editingTipo.id, formData);
         setTipos(tipos.map(t => t.id === editingTipo.id ? actualizado : t));
-        setMessage({ type: 'success', text: 'Tipo de actividad actualizado correctamente.' });
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Categoría actualizada con éxito!',
+          details: `La categoría de actividad académica "${formData.nombre}" ha sido modificada correctamente.`
+        });
       } else {
         const nuevo = await academicoApi.crearTipoActividad(formData);
         setTipos([nuevo, ...tipos]);
-        setMessage({ type: 'success', text: 'Tipo de actividad creado correctamente.' });
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Categoría registrada con éxito!',
+          details: `La nueva categoría de actividad "${formData.nombre}" ha sido guardada correctamente en el sistema.`
+        });
       }
       setIsModalOpen(false);
     } catch (err) {
-      setMessage({ type: 'error', text: 'Error al procesar el tipo de actividad.' });
+      console.error(err);
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error de procesamiento',
+        details: err instanceof Error ? err.message : 'No se pudo guardar la categoría de actividad en Supabase.'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -55,9 +72,20 @@ export const GestionTiposActividadPage = () => {
     try {
       await academicoApi.eliminarTipoActividad(id);
       setTipos(tipos.filter(t => t.id !== id));
-      setMessage({ type: 'success', text: 'Tipo de actividad eliminado.' });
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: '¡Categoría eliminada!',
+        details: 'El tipo de actividad ha sido removido con éxito de la base de datos.'
+      });
     } catch (err) {
-      setMessage({ type: 'error', text: 'No se pudo eliminar el tipo de actividad.' });
+      console.error(err);
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'No se pudo eliminar',
+        details: err instanceof Error ? err.message : 'No se pudo eliminar la categoría debido a dependencias con actividades existentes.'
+      });
     }
   };
 
@@ -148,6 +176,40 @@ export const GestionTiposActividadPage = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal 
+        isOpen={resultModal.open} 
+        onClose={() => setResultModal(prev => ({ ...prev, open: false }))} 
+        title={resultModal.type === 'success' ? "Operación Exitosa" : "Error en Operación"} 
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === 'success' ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertCircle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === 'success' ? 'text-slate-900' : 'text-rose-900'}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button 
+              className="w-full" 
+              variant={resultModal.type === 'success' ? 'primary' : 'danger'}
+              onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

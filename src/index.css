@@ -16,4 +16,29 @@
   a {
     @apply text-blue-600 hover:text-blue-700;
   }
+
+  /* Premium Custom Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.4); /* subtle gray */
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.7);
+  }
+
+  /* Utility to hide scrollbars completely when needed */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
 }

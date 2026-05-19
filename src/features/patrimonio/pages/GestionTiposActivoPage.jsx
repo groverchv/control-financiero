@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, Plus } from 'lucide-react';
+import { Tags, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -12,6 +12,7 @@ export const GestionTiposActivoPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
+  const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
 
   const fetchTipos = async () => {
     try {
@@ -36,11 +37,22 @@ export const GestionTiposActivoPage = () => {
     try {
       await patrimonioApi.crearTipoActivo(formData);
       await fetchTipos();
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: '¡Categoría de activo registrada!',
+        details: `La nueva categoría patrimonial "${formData.nombre}" ha sido dada de alta con éxito en el sistema.`
+      });
       setIsModalOpen(false);
       setFormData({ nombre: '', descripcion: '' });
     } catch (err) {
       console.error(err);
-      alert('Error al registrar el tipo de activo');
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error al registrar categoría',
+        details: err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql.'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -108,6 +120,40 @@ export const GestionTiposActivoPage = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal 
+        isOpen={resultModal.open} 
+        onClose={() => setResultModal(prev => ({ ...prev, open: false }))} 
+        title={resultModal.type === 'success' ? "Registro Exitoso" : "Error de Operación"} 
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === 'success' ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertCircle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === 'success' ? 'text-slate-900' : 'text-rose-900'}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button 
+              className="w-full" 
+              variant={resultModal.type === 'success' ? 'primary' : 'danger'}
+              onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

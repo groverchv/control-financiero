@@ -6,13 +6,25 @@ export const administracionApi = {
   obtenerMiembros: async () => {
     const { data, error } = await supabase
       .from('miembro')
-      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, creacion');
+      .select(`
+        id, 
+        nombre, 
+        "apellidoPaterno", 
+        "apellidoMaterno", 
+        "correoElectronico", 
+        telefono, 
+        rol, 
+        estado, 
+        creacion,
+        archivos:archivo(url, tipo, estado)
+      `);
 
     if (error) throw error;
     // Mapeo para compatibilidad con la UI
     return (data || []).map(m => ({
       ...m,
       email: m.correoElectronico, // Mapeamos correoElectronico a email para la UI
+      foto: m.archivos?.find(a => a.tipo === 'foto' && a.estado === 'activo')?.url || null,
     }));
   },
 
@@ -97,13 +109,7 @@ export const administracionApi = {
   },
 
   eliminarMiembro: async (id) => {
-    if (!supabaseAdmin) {
-      throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
-    }
-    
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-    if (error) throw error;
-    return true;
+    throw new Error('La eliminación directa de miembros está deshabilitada por motivos de integridad histórica de datos financieros. Utilice el cambio de estado a Inactivo en su lugar.');
   },
 
   inactivarMiembro: async (id) => {
@@ -330,15 +336,15 @@ export const administracionApi = {
   obtenerInscritosActividad: async (actividadId) => {
     const { data, error } = await supabase
       .from('inscripcion')
-      .select('creacion, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado)')
+      .select('fecha_inscripcion, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado)')
       .eq('actividad_id', actividadId)
-      .order('creacion', { ascending: false });
+      .order('fecha_inscripcion', { ascending: false });
 
     if (error) throw error;
     return (data || []).map(d => ({
       ...d.miembro,
       email: d.miembro?.correoElectronico,
-      fechaInscripcion: d.creacion,
+      fechaInscripcion: d.fecha_inscripcion,
     }));
   }
 };

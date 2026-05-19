@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, NavLink } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
@@ -23,11 +23,31 @@ export const PublicLayout = () => {
   ];
 
   const authLinks = [
-    { to: '/transparencia', label: 'Transparencia' },
     { to: '/socio/estado-cuenta', label: 'Estado de Cuenta' },
-    { to: '/socio/notificaciones', label: 'Notificaciones' },
+    { to: '/socio/notificaciones', label: 'Notificaciones', showBadge: true },
     { to: '/socio/perfil', label: 'Mi Perfil' },
   ];
+
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from('notificacion')
+        .select('id', { count: 'exact', head: true })
+        .eq('miembro_id', user.id)
+        .neq('estado', 'leida');
+      setUnreadCount(count || 0);
+    };
+    fetchUnread();
+    // Realtime subscription
+    const channel = supabase
+      .channel('notif-count')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacion', filter: `miembro_id=eq.${user.id}` }, fetchUnread)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [user?.id]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -96,9 +116,14 @@ export const PublicLayout = () => {
                 <NavLink 
                   key={link.to} 
                   to={link.to} 
-                  className={({ isActive }) => `text-sm font-medium transition-colors ${isActive ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
+                  className={({ isActive }) => `relative text-sm font-medium transition-colors ${isActive ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
                 >
                   {link.label}
+                  {link.showBadge && unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-3 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-1">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>

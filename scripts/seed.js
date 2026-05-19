@@ -1,3 +1,4 @@
+/* eslint-env node */
 const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
 dotenv.config({ path: '.env.local' });
@@ -28,7 +29,7 @@ async function seed() {
 
   for (const u of usersToCreate) {
     // Attempt to create user safely
-    const { data, error } = await supabase.auth.admin.createUser({
+    const { error } = await supabase.auth.admin.createUser({
       email: u.email,
       password: 'password123',
       email_confirm: true,

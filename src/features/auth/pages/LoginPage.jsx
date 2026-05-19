@@ -35,8 +35,10 @@ export const LoginPage = () => {
         created_at: data.user.created_at || '',
       });
 
-      if (role === 'admin' || role === 'secretario') {
+      if (role === 'admin') {
         navigate('/admin/miembros');
+      } else if (role === 'secretario') {
+        navigate('/admin/ingresos');
       } else {
         navigate('/inicio');
       }

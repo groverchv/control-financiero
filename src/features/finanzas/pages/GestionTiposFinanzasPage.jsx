@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, PlusCircle } from 'lucide-react';
+import { Tags, PlusCircle, CheckCircle2, AlertCircle } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
@@ -16,6 +16,7 @@ export const GestionTiposFinanzasPage = () => {
   const [modalType, setModalType] = useState('ingreso'); // 'ingreso' or 'egreso'
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
 
   const fetchDatos = async () => {
     setLoading(true);
@@ -57,10 +58,21 @@ export const GestionTiposFinanzasPage = () => {
         const nuevo = await finanzasApi.crearTipoEgreso(formData.nombre, formData.descripcion);
         setTiposEgreso([nuevo, ...tiposEgreso]);
       }
-      setMessage({ type: 'success', text: `Tipo de ${modalType} creado correctamente.` });
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: `¡Categoría de ${modalType} registrada!`,
+        details: `La nueva categoría "${formData.nombre}" ha sido dada de alta correctamente en la base de datos.`
+      });
       setIsModalOpen(false);
     } catch (err) {
-      setMessage({ type: 'error', text: `Error al crear tipo de ${modalType}.` });
+      console.error(err);
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: `Error al registrar categoría`,
+        details: err instanceof Error ? err.message : `No se pudo registrar la categoría de ${modalType} en Supabase.`
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -172,6 +184,40 @@ export const GestionTiposFinanzasPage = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal 
+        isOpen={resultModal.open} 
+        onClose={() => setResultModal(prev => ({ ...prev, open: false }))} 
+        title={resultModal.type === 'success' ? "Registro Exitoso" : "Error de Operación"} 
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === 'success' ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertCircle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === 'success' ? 'text-slate-900' : 'text-rose-900'}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button 
+              className="w-full" 
+              variant={resultModal.type === 'success' ? 'primary' : 'danger'}
+              onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

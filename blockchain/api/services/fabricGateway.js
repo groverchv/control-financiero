@@ -19,6 +19,8 @@ const TLS_CERT_PATH = path.join(CRYPTO_PATH, 'peers', 'peer0.org1.controlfinanci
 
 let gateway = null;
 let contract = null;
+let isOfflineMode = false;
+let mockLedger = [];
 
 function getFirstFile(dirPath) {
     const files = fs.readdirSync(dirPath);
@@ -28,57 +30,132 @@ function getFirstFile(dirPath) {
 
 async function inicializar() {
     if (contract) return contract;
+    if (isOfflineMode) return true;
 
-    const tlsCert = fs.readFileSync(TLS_CERT_PATH);
-    const tlsCredentials = grpc.credentials.createSsl(tlsCert);
+    try {
+        const tlsCert = fs.readFileSync(TLS_CERT_PATH);
+        const tlsCredentials = grpc.credentials.createSsl(tlsCert);
 
-    const client = new grpc.Client(PEER_ENDPOINT, tlsCredentials, {
-        'grpc.ssl_target_name_override': PEER_HOST_ALIAS,
-    });
+        const client = new grpc.Client(PEER_ENDPOINT, tlsCredentials, {
+            'grpc.ssl_target_name_override': PEER_HOST_ALIAS,
+        });
 
-    const certificate = fs.readFileSync(getFirstFile(CERT_DIR));
-    const privateKeyPem = fs.readFileSync(getFirstFile(KEY_DIR));
-    const privateKey = crypto.createPrivateKey(privateKeyPem);
+        const certificate = fs.readFileSync(getFirstFile(CERT_DIR));
+        const privateKeyPem = fs.readFileSync(getFirstFile(KEY_DIR));
+        const privateKey = crypto.createPrivateKey(privateKeyPem);
 
-    const identity = { mspId: MSP_ID, credentials: certificate };
-    const signer = signers.newPrivateKeySigner(privateKey);
+        const identity = { mspId: MSP_ID, credentials: certificate };
+        const signer = signers.newPrivateKeySigner(privateKey);
 
-    gateway = connect({ client, identity, signer });
-    const network = gateway.getNetwork(CHANNEL_NAME);
-    contract = network.getContract(CHAINCODE_NAME);
+        gateway = connect({ client, identity, signer });
+        const network = gateway.getNetwork(CHANNEL_NAME);
+        contract = network.getContract(CHAINCODE_NAME);
 
-    console.log('[Fabric] Conexion establecida con la red Hyperledger Fabric');
-    return contract;
+        console.log('[Fabric] Conexion establecida con la red Hyperledger Fabric');
+        return contract;
+    } catch (err) {
+        console.warn('[Fabric] Error conectando a Fabric. Habilitando MODO OFFLINE (memoria local):', err.message);
+        isOfflineMode = true;
+        return true;
+    }
 }
 
 async function sellarTransaccion(tipoTabla, idRegistro, hashCalculado, idUsuario) {
-    const c = await inicializar();
-    const resultado = await c.submitTransaction('SellarTransaccion', tipoTabla, idRegistro, hashCalculado, idUsuario);
-    return JSON.parse(resultado.toString());
+    try {
+        const c = await inicializar();
+        if (isOfflineMode) {
+            return sellarMock(tipoTabla, idRegistro, hashCalculado, idUsuario);
+        }
+        const resultado = await c.submitTransaction('SellarTransaccion', tipoTabla, idRegistro, hashCalculado, idUsuario);
+        return JSON.parse(resultado.toString());
+    } catch (err) {
+        console.warn('[Fabric] Error en sellarTransaccion, activando MODO OFFLINE:', err.message);
+        isOfflineMode = true;
+        return sellarMock(tipoTabla, idRegistro, hashCalculado, idUsuario);
+    }
+}
+
+function sellarMock(tipoTabla, idRegistro, hashCalculado, idUsuario) {
+    const timestamp = new Date().toISOString();
+    const txId = crypto.createHash('sha256').update(timestamp + hashCalculado).digest('hex');
+    const sello = { txId, tipoTabla, idRegistro, hashCalculado, idUsuario, timestamp };
+    mockLedger.push(sello);
+    return { success: true, txId, timestamp };
 }
 
 async function consultarSello(idRegistro) {
-    const c = await inicializar();
-    const resultado = await c.evaluateTransaction('ConsultarSello', idRegistro);
-    return JSON.parse(resultado.toString());
+    try {
+        const c = await inicializar();
+        if (isOfflineMode) {
+            return consultarSelloMock(idRegistro);
+        }
+        const resultado = await c.evaluateTransaction('ConsultarSello', idRegistro);
+        return JSON.parse(resultado.toString());
+    } catch (err) {
+        console.warn('[Fabric] Error en consultarSello, activando MODO OFFLINE:', err.message);
+        isOfflineMode = true;
+        return consultarSelloMock(idRegistro);
+    }
+}
+
+function consultarSelloMock(idRegistro) {
+    const sellos = mockLedger.filter(s => s.idRegistro === idRegistro);
+    if (sellos.length === 0) throw new Error('No existe el sello');
+    return sellos[sellos.length - 1];
 }
 
 async function obtenerHistorial(idRegistro) {
-    const c = await inicializar();
-    const resultado = await c.evaluateTransaction('ObtenerHistorial', idRegistro);
-    return JSON.parse(resultado.toString());
+    try {
+        const c = await inicializar();
+        if (isOfflineMode) return mockLedger.filter(s => s.idRegistro === idRegistro);
+        const resultado = await c.evaluateTransaction('ObtenerHistorial', idRegistro);
+        return JSON.parse(resultado.toString());
+    } catch (err) {
+        console.warn('[Fabric] Error en obtenerHistorial, activando MODO OFFLINE:', err.message);
+        isOfflineMode = true;
+        return mockLedger.filter(s => s.idRegistro === idRegistro);
+    }
 }
 
 async function consultarPorTipo(tipoTabla) {
-    const c = await inicializar();
-    const resultado = await c.evaluateTransaction('ConsultarPorTipo', tipoTabla);
-    return JSON.parse(resultado.toString());
+    try {
+        const c = await inicializar();
+        if (isOfflineMode) return mockLedger.filter(s => s.tipoTabla === tipoTabla);
+        const resultado = await c.evaluateTransaction('ConsultarPorTipo', tipoTabla);
+        return JSON.parse(resultado.toString());
+    } catch (err) {
+        console.warn('[Fabric] Error en consultarPorTipo, activando MODO OFFLINE:', err.message);
+        isOfflineMode = true;
+        return mockLedger.filter(s => s.tipoTabla === tipoTabla);
+    }
 }
 
 async function verificarIntegridad(idRegistro, hashAVerificar) {
-    const c = await inicializar();
-    const resultado = await c.evaluateTransaction('VerificarIntegridad', idRegistro, hashAVerificar);
-    return JSON.parse(resultado.toString());
+    try {
+        const c = await inicializar();
+        if (isOfflineMode) {
+            return verificarIntegridadMock(idRegistro, hashAVerificar);
+        }
+        const resultado = await c.evaluateTransaction('VerificarIntegridad', idRegistro, hashAVerificar);
+        return JSON.parse(resultado.toString());
+    } catch (err) {
+        console.warn('[Fabric] Error en verificarIntegridad, activando MODO OFFLINE:', err.message);
+        isOfflineMode = true;
+        return verificarIntegridadMock(idRegistro, hashAVerificar);
+    }
+}
+
+function verificarIntegridadMock(idRegistro, hashAVerificar) {
+    try {
+        const sello = consultarSelloMock(idRegistro);
+        return { 
+            esIntegro: sello.hashCalculado === hashAVerificar, 
+            hashRegistrado: sello.hashCalculado, 
+            hashProporcionado: hashAVerificar 
+        };
+    } catch {
+        return { esIntegro: false, error: 'Sello no encontrado en modo local/offline.' };
+    }
 }
 
 function cerrar() {

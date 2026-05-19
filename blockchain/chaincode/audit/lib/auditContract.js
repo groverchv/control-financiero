@@ -134,7 +134,7 @@ class AuditContract extends Contract {
     }
 
     /**
-     * Consulta enriquecida por tipo de tabla usando CouchDB.
+     * Consulta enriquecida por tipo de tabla usando FinanzasDB (CouchDB).
      * Permite obtener todos los sellos de una entidad especifica.
      *
      * @param {Context} ctx

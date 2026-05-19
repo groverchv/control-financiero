@@ -169,7 +169,8 @@ export const PerfilSocioPage = () => {
                     <img 
                       src={fotoPerfil.replace('/upload/', '/upload/w_400,h_400,c_thumb,g_face/')} 
                       alt="Perfil" 
-                      className={`h-full w-full object-cover transition-all duration-500 ${!isEditing ? 'group-hover:scale-110 group-hover:blur-[2px]' : ''}`} 
+                      className={`h-full w-full object-cover transition-all duration-500 cursor-pointer ${!isEditing ? 'group-hover:scale-110 group-hover:blur-[2px]' : ''}`} 
+                      onClick={() => !isEditing && setShowImageModal(true)}
                     />
                     {!isEditing && (
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">

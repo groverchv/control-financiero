@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, Eye, EyeOff, Info, Plus, Search, Trash2, Lightbulb, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useMiembros } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -10,6 +10,7 @@ export const GestionMiembrosPage = () => {
   const { miembros, loading, error, setMiembros } = useMiembros();
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
@@ -28,11 +29,14 @@ export const GestionMiembrosPage = () => {
   const [detailModal, setDetailModal] = useState({ open: false, miembro: null, inscripciones: [], notificaciones: [], cvUrl: null, loading: false, tab: 'inscripciones' });
   const [talentSearchModal, setTalentSearchModal] = useState({ open: false, queryProf: '', queryDesc: '', results: [] });
   const [imageModal, setImageModal] = useState({ open: false, url: null });
+  const [statusConfirmModal, setStatusConfirmModal] = useState({ open: false, miembro: null, nuevoEstado: 'activo' });
+  const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
 
   const columns = [
     { key: 'foto_display', label: 'Foto' },
-    { key: 'nombre', label: 'Nombre' },
+    { key: 'nombre_completo', label: 'Nombre Completo' },
     { key: 'email', label: 'Correo' },
+    { key: 'telefono', label: 'Teléfono' },
     { key: 'rol', label: 'Rol' },
     { key: 'estado', label: 'Estado' },
     { key: 'acciones', label: 'Acciones' },
@@ -71,14 +75,41 @@ export const GestionMiembrosPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar este miembro? Se borrará también su cuenta de acceso.')) return;
-    
+  const handleToggleEstado = (miembro) => {
+    const nuevoEstado = miembro.estado === 'activo' ? 'inactivo' : 'activo';
+    setStatusConfirmModal({
+      open: true,
+      miembro,
+      nuevoEstado
+    });
+  };
+
+  const executeToggleEstado = async () => {
+    const { miembro, nuevoEstado } = statusConfirmModal;
+    if (!miembro) return;
+
+    setIsSubmitting(true);
     try {
-      await administracionApi.eliminarMiembro(id);
-      setMiembros(miembros.filter(m => m.id !== id));
+      const actualizado = await administracionApi.actualizarMiembro(miembro.id, { estado: nuevoEstado });
+      setMiembros(miembros.map(m => m.id === miembro.id ? actualizado : m));
+      setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' });
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: nuevoEstado === 'activo' ? '¡Miembro Reactivado!' : '¡Miembro Desactivado!',
+        details: `El estado del miembro ${miembro.nombre} ha sido actualizado a ${nuevoEstado} con éxito en la base de datos.`
+      });
     } catch (err) {
-      alert('Error al eliminar: ' + err.message);
+      console.error(err);
+      setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' });
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error al cambiar estado',
+        details: err instanceof Error ? err.message : 'No se pudo actualizar el estado del miembro en Supabase.'
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -133,7 +164,12 @@ export const GestionMiembrosPage = () => {
     e.preventDefault();
 
     if (!editingMember && formData.password !== formData.confirmPassword) {
-      alert('Las contraseñas no coinciden');
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error de validación',
+        details: 'Las contraseñas ingresadas no coinciden. Por favor, verifíquelas.'
+      });
       return;
     }
 
@@ -144,6 +180,12 @@ export const GestionMiembrosPage = () => {
         const { password, confirmPassword, email, ...updates } = formData;
         const actualizado = await administracionApi.actualizarMiembro(editingMember.id, updates);
         setMiembros(miembros.map(m => m.id === editingMember.id ? actualizado : m));
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Miembro actualizado con éxito!',
+          details: 'Los datos personales y de configuración del socio se han actualizado correctamente.'
+        });
       } else {
         // CREAR
         const { confirmPassword, ...dataToSave } = formData;
@@ -151,18 +193,44 @@ export const GestionMiembrosPage = () => {
         if (nuevoMiembro) {
           setMiembros([nuevoMiembro, ...miembros]);
         }
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Miembro registrado con éxito!',
+          details: 'El nuevo miembro ha sido dado de alta correctamente. Recibirá un correo de bienvenida con sus credenciales.'
+        });
       }
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
-      alert('Error: ' + (err.message || 'Error desconocido'));
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: editingMember ? 'No se pudo actualizar los datos' : 'No se pudo registrar el miembro',
+        details: err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql.'
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const totalPages = Math.ceil(miembros.length / ITEMS_PER_PAGE);
-  const paginatedMiembros = miembros.slice(
+  // Filtrado de miembros en tiempo real
+  const filteredMiembros = miembros.filter(m => {
+    const fullName = `${m.nombre || ''} ${m.apellidoPaterno || ''} ${m.apellidoMaterno || ''}`.toLowerCase();
+    const email = (m.email || '').toLowerCase();
+    const telefono = (m.telefono || '').toLowerCase();
+    const rol = (m.rol || '').toLowerCase();
+    const estado = (m.estado || '').toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return fullName.includes(search) || 
+           email.includes(search) || 
+           telefono.includes(search) ||
+           rol.includes(search) ||
+           estado.includes(search);
+  });
+
+  const totalPages = Math.ceil(filteredMiembros.length / ITEMS_PER_PAGE);
+  const paginatedMiembros = filteredMiembros.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -183,9 +251,29 @@ export const GestionMiembrosPage = () => {
         )}
       </div>
     ),
+    nombre_completo: (
+      <div className="font-semibold text-slate-900">
+        {`${miembro.nombre} ${miembro.apellidoPaterno || ''} ${miembro.apellidoMaterno || ''}`.trim()}
+      </div>
+    ),
+    email: (
+      <span className="text-slate-600">{miembro.email}</span>
+    ),
+    telefono: (
+      <span className="text-slate-600 font-mono text-xs">{miembro.telefono || '-'}</span>
+    ),
+    rol: (
+      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${
+        miembro.rol === 'admin' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+        miembro.rol === 'secretario' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+        'bg-slate-50 text-slate-700 border-slate-100'
+      }`}>
+        {miembro.rol}
+      </span>
+    ),
     estado: (
-      <span className={`rounded-full px-2 py-1 text-xs ${
-        miembro.estado === 'activo' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${
+        miembro.estado === 'activo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200'
       }`}>
         {miembro.estado}
       </span>
@@ -206,13 +294,23 @@ export const GestionMiembrosPage = () => {
         >
           <Edit className="h-4 w-4" />
         </button>
-        <button 
-          onClick={() => handleDelete(miembro.id)}
-          className="rounded p-1 text-red-600 hover:bg-red-50"
-          title="Eliminar"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        {miembro.estado === 'activo' ? (
+          <button 
+            onClick={() => handleToggleEstado(miembro)}
+            className="rounded p-1 text-red-600 hover:bg-red-50"
+            title="Desactivar miembro"
+          >
+            <UserX className="h-4 w-4" />
+          </button>
+        ) : (
+          <button 
+            onClick={() => handleToggleEstado(miembro)}
+            className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+            title="Activar miembro"
+          >
+            <UserCheck className="h-4 w-4" />
+          </button>
+        )}
       </div>
     )
   }));
@@ -226,7 +324,13 @@ export const GestionMiembrosPage = () => {
         </div>
         <div className="flex gap-2">
           <ExportButtons 
-            data={miembros.map(m => ({ Nombre: m.nombre, Email: m.email, Telefono: m.telefono, Rol: m.rol, Estado: m.estado }))} 
+            data={miembros.map(m => ({ 
+              'Nombre Completo': `${m.nombre} ${m.apellidoPaterno || ''} ${m.apellidoMaterno || ''}`.trim(), 
+              Email: m.email, 
+              Telefono: m.telefono || '-', 
+              Rol: m.rol, 
+              Estado: m.estado 
+            }))} 
             filename="lista_miembros" 
             title="Listado de Miembros Institucionales" 
           />
@@ -242,15 +346,17 @@ export const GestionMiembrosPage = () => {
       </header>
 
       <section className="rounded-md bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex w-full max-w-sm items-center gap-2">
             <Search className="h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Buscar por nombre o correo"
+              placeholder="Buscar por nombre, correo, teléfono, rol..."
               className="flex-1"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             />
           </div>
-          <span className="text-sm text-slate-500">{miembros.length} registros</span>
+          <span className="text-sm text-slate-500">{filteredMiembros.length} registros</span>
         </div>
 
         <div className="mt-6">
@@ -268,7 +374,7 @@ export const GestionMiembrosPage = () => {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-4">
                   <p className="text-xs text-slate-500">
-                    Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, miembros.length)} de {miembros.length} miembros
+                    Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredMiembros.length)} de {filteredMiembros.length} miembros
                   </p>
                   <div className="flex items-center gap-1">
                     <Button 
@@ -315,96 +421,118 @@ export const GestionMiembrosPage = () => {
         title={editingMember ? 'Editar miembro' : 'Registrar nuevo miembro'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input 
-            label="Nombre Completo" 
-            value={formData.nombre} 
-            onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} 
-            required 
-          />
-          <Input 
-            label="Correo Electrónico" 
-            type="email"
-            value={formData.email} 
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-            required 
-            disabled={!!editingMember}
-          />
-          
-          {!editingMember && (
+          {/* Sección de Datos Personales */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Datos Personales</h3>
+            
+            <Input 
+              label="Nombres" 
+              value={formData.nombre} 
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} 
+              required 
+            />
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="relative">
+              <Input 
+                label="Apellido Paterno" 
+                value={formData.apellidoPaterno || ''} 
+                onChange={(e) => setFormData({ ...formData, apellidoPaterno: e.target.value })} 
+              />
+              <Input 
+                label="Apellido Materno" 
+                value={formData.apellidoMaterno || ''} 
+                onChange={(e) => setFormData({ ...formData, apellidoMaterno: e.target.value })} 
+              />
+            </div>
+          </div>
+
+          {/* Sección de Contacto */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Información de Contacto</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input 
+                label="Correo Electrónico" 
+                type="email"
+                value={formData.email} 
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+                required 
+                disabled={!!editingMember}
+              />
+              <Input 
+                label="Teléfono" 
+                value={formData.telefono} 
+                onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} 
+              />
+            </div>
+          </div>
+          
+          {/* Sección de Credenciales (Solo para Nuevos Miembros) */}
+          {!editingMember && (
+            <div className="space-y-3 pt-2">
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Credenciales de Acceso</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="relative">
+                  <Input 
+                    label="Contraseña" 
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password} 
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                    required 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
                 <Input 
-                  label="Contraseña" 
+                  label="Confirmar Contraseña" 
                   type={showPassword ? 'text' : 'password'}
-                  value={formData.password} 
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                  value={formData.confirmPassword} 
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
                   required 
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
               </div>
-              <Input 
-                label="Confirmar Contraseña" 
-                type={showPassword ? 'text' : 'password'}
-                value={formData.confirmPassword} 
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
-                required 
-              />
             </div>
           )}
 
-          <Input 
-            label="Teléfono" 
-            value={formData.telefono} 
-            onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} 
-          />
+          {/* Sección de Configuración Administrativa */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold text-slate-500">Configuración del Sistema</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Rol</label>
+                <select
+                  className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.rol}
+                  onChange={(e) => setFormData({ ...formData, rol: e.target.value })}
+                >
+                  <option value="socio">Socio</option>
+                  <option value="secretario">Secretario</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Apellido Paterno" 
-              value={formData.apellidoPaterno || ''} 
-              onChange={(e) => setFormData({ ...formData, apellidoPaterno: e.target.value })} 
-            />
-            <Input 
-              label="Apellido Materno" 
-              value={formData.apellidoMaterno || ''} 
-              onChange={(e) => setFormData({ ...formData, apellidoMaterno: e.target.value })} 
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Rol</label>
-              <select
-                className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.rol}
-                onChange={(e) => setFormData({ ...formData, rol: e.target.value })}
-              >
-                <option value="socio">Socio</option>
-                <option value="secretario">Secretario</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Estado</label>
-              <select
-                className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.estado}
-                onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-              >
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-              </select>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Estado</label>
+                <select
+                  className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.estado}
+                  onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+                >
+                  <option value="activo">Activo</option>
+                  <option value="inactivo">Inactivo</option>
+                </select>
+              </div>
             </div>
           </div>
           
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
@@ -577,6 +705,61 @@ export const GestionMiembrosPage = () => {
         </div>
       </Modal>
 
+      {/* Modal premium de confirmación de cambio de estado */}
+      <Modal
+        isOpen={statusConfirmModal.open}
+        onClose={() => setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' })}
+        title={
+          statusConfirmModal.nuevoEstado === 'inactivo' ? (
+            <div className="flex items-center gap-2.5 text-red-600">
+              <AlertTriangle className="h-5.5 w-5.5 stroke-[2.5]" />
+              <span>Desactivar Miembro</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 text-emerald-600">
+              <CheckCircle2 className="h-5.5 w-5.5 stroke-[2.5]" />
+              <span>Reactivar Miembro</span>
+            </div>
+          )
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 text-sm">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+            <div>
+              {statusConfirmModal.nuevoEstado === 'inactivo' ? (
+                <span>
+                  ¿Estás seguro de desactivar al miembro <strong>{statusConfirmModal.miembro?.nombre}</strong>? 
+                  Esto deshabilitará su acceso de sesión, detendrá las notificaciones y pausará la generación de cobros de cuotas.
+                </span>
+              ) : (
+                <span>
+                  ¿Estás seguro de reactivar al miembro <strong>{statusConfirmModal.miembro?.nombre}</strong>? 
+                  Esto restaurará su acceso de inicio de sesión y la recepción de notificaciones institucionales.
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button 
+              variant="outline" 
+              onClick={() => setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' })}
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant={statusConfirmModal.nuevoEstado === 'inactivo' ? 'danger' : 'primary'}
+              onClick={executeToggleEstado}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Procesando...' : statusConfirmModal.nuevoEstado === 'inactivo' ? 'Confirmar Desactivación' : 'Confirmar Reactivación'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Modal para ver imagen en grande */}
       <Modal 
         isOpen={imageModal.open} 
@@ -591,6 +774,40 @@ export const GestionMiembrosPage = () => {
               className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
             />
           )}
+        </div>
+      </Modal>
+
+      <Modal 
+        isOpen={resultModal.open} 
+        onClose={() => setResultModal(prev => ({ ...prev, open: false }))} 
+        title={resultModal.type === 'success' ? "Operación Exitosa" : "Error en Operación"} 
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === 'success' ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertTriangle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === 'success' ? 'text-slate-900' : 'text-rose-900'}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button 
+              className="w-full" 
+              variant={resultModal.type === 'success' ? 'primary' : 'danger'}
+              onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
+            >
+              Entendido
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

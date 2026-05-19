@@ -91,6 +91,19 @@ const enviarEmail = async ({ to, subject, htmlContent }) => {
 const guardarNotificacionDB = async (miembroId, titulo, descripcion) => {
   try {
     if (!miembroId) return;
+
+    // Verificar si el miembro está activo
+    const { data: miembro } = await supabase
+      .from('miembro')
+      .select('estado')
+      .eq('id', miembroId)
+      .maybeSingle();
+
+    if (miembro && miembro.estado === 'inactivo') {
+      console.warn(`[Brevo] Evitando guardar notificación para miembro inactivo: ${miembroId}`);
+      return;
+    }
+
     await supabase.from('notificacion').insert([{
       miembro_id: miembroId,
       titulo,
@@ -105,6 +118,11 @@ const guardarNotificacionDB = async (miembroId, titulo, descripcion) => {
 export const brevoService = {
 
   notificarPagoRegistrado: async ({ email, nombre, monto, fecha, concepto = 'Cuota mensual', miembroId }) => {
+    if (miembroId) {
+      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
+      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
+    }
+
     const content = `
       <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Pago Registrado Exitosamente</h2>
       <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
@@ -142,7 +160,12 @@ export const brevoService = {
     });
   },
 
-  notificarPagoPendiente: async ({ email, nombre, monto, fechaLimite, diasRetraso = 0, miembroId }) => {
+  notificarPagoPendiente: async ({ email, nombre, monto, fechaLimite, diasRetraso = 0, miembroId, periodoKey }) => {
+    if (miembroId) {
+      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
+      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
+    }
+
     const esRetraso = diasRetraso > 0;
     const content = `
       <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">
@@ -162,6 +185,10 @@ export const brevoService = {
                 <td style="padding:6px 0;color:${esRetraso ? '#dc2626' : '#d97706'};font-size:18px;font-weight:800;text-align:right;">Bs. ${monto}</td>
               </tr>
               <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Periodo</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${periodoKey || 'Pendiente'}</td>
+              </tr>
+              <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha limite</td>
                 <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaLimite}</td>
               </tr>
@@ -179,9 +206,12 @@ export const brevoService = {
       </p>
     `;
 
-    await guardarNotificacionDB(miembroId, esRetraso ? 'Pago con retraso' : 'Pago pendiente',
-      esRetraso ? `Tiene un pago de Bs. ${monto} con ${diasRetraso} dias de retraso. Fecha limite: ${fechaLimite}.`
-                : `Recordatorio: tiene un pago pendiente de Bs. ${monto}. Fecha limite: ${fechaLimite}.`
+    const tituloBase = esRetraso ? 'Pago con retraso' : 'Pago pendiente';
+    const tituloFinal = periodoKey ? `${tituloBase}: ${periodoKey}` : tituloBase;
+
+    await guardarNotificacionDB(miembroId, tituloFinal,
+      esRetraso ? `Tiene un pago de Bs. ${monto} con ${diasRetraso} dias de retraso del periodo ${periodoKey || ''}. Fecha limite: ${fechaLimite}.`
+                : `Recordatorio: tiene un pago pendiente de Bs. ${monto} del periodo ${periodoKey || ''}. Fecha limite: ${fechaLimite}.`
     );
 
     return enviarEmail({
@@ -229,6 +259,13 @@ export const brevoService = {
 
     const results = [];
     for (const dest of destinatarios) {
+      // Verificar si el destinatario está activo
+      const { data } = await supabase.from('miembro').select('estado').eq('id', dest.id).maybeSingle();
+      if (data && data.estado === 'inactivo') {
+        console.warn(`[Brevo] Evitando notificar nuevo evento a miembro inactivo: ${dest.id}`);
+        continue;
+      }
+
       await guardarNotificacionDB(dest.id, 'Nuevo evento: ' + evento.nombre, `Se ha programado el evento "${evento.nombre}" para el ${fechaFormateada}. Ubicacion: ${evento.ubicacion || 'Por confirmar'}. Costo: ${evento.costo > 0 ? 'Bs. ' + evento.costo : 'Gratuito'}.`);
       const result = await enviarEmail({
         to: { email: dest.email, name: dest.nombre },
@@ -278,6 +315,13 @@ export const brevoService = {
 
     const results = [];
     for (const dest of destinatarios) {
+      // Verificar si el destinatario está activo
+      const { data } = await supabase.from('miembro').select('estado').eq('id', dest.id).maybeSingle();
+      if (data && data.estado === 'inactivo') {
+        console.warn(`[Brevo] Evitando notificar nuevo curso a miembro inactivo: ${dest.id}`);
+        continue;
+      }
+
       await guardarNotificacionDB(dest.id, 'Nuevo curso: ' + curso.nombre, `Se ha registrado la actividad "${curso.nombre}" para el ${fechaFormateada}. Modalidad: ${curso.modalidad || 'Presencial'}. Costo: ${curso.costo > 0 ? 'Bs. ' + curso.costo : 'Sin costo'}.`);
       const result = await enviarEmail({
         to: { email: dest.email, name: dest.nombre },
@@ -290,6 +334,11 @@ export const brevoService = {
   },
 
   notificarInscripcionEvento: async ({ email, nombre, evento, miembroId }) => {
+    if (miembroId) {
+      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
+      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
+    }
+
     const fechaFormateada = new Date(evento.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const content = `
       <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Inscripcion Confirmada</h2>
@@ -331,6 +380,11 @@ export const brevoService = {
   },
 
   notificarInscripcionCurso: async ({ email, nombre, curso, miembroId }) => {
+    if (miembroId) {
+      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
+      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
+    }
+
     const fechaFormateada = new Date(curso.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const content = `
       <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Inscripcion Academica Confirmada</h2>
@@ -372,6 +426,11 @@ export const brevoService = {
   },
 
   enviarNotificacionGeneral: async ({ email, nombre, titulo, mensaje, tipo = 'info', miembroId }) => {
+    if (miembroId) {
+      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
+      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
+    }
+
     const colores = {
       info: { accent: '#1e3a5f', bg: '#eff6ff', border: '#bfdbfe' },
       success: { accent: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },

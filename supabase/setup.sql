@@ -143,9 +143,9 @@ CREATE TABLE public.egreso (
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     tipo_egreso_id uuid REFERENCES public.tipo_egreso(id),
     activo_id uuid REFERENCES public.activos(id) ON DELETE SET NULL,
+    concepto text NOT NULL,
     monto numeric(12,2) NOT NULL,
     fecha date NOT NULL,
-    concepto text NOT NULL,
     descripcion text,
     hash_anterior text,
     hash_actual text,
@@ -185,7 +185,20 @@ CREATE TABLE public.inscripcion (
     actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
     fecha_inscripcion timestamptz DEFAULT now(),
     estado text DEFAULT 'confirmado',
-    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id)
+    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id),
+    creacion timestamptz DEFAULT now()
+);
+
+CREATE TABLE public.jurado (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
+    actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
+    actividad_externa text,
+    descripcion text,
+    fecha_asignacion timestamptz DEFAULT now(),
+    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id, actividad_externa),
+    creacion timestamptz DEFAULT now(),
+    actualizacion timestamptz DEFAULT now()
 );
 
 -- ==========================================
@@ -243,6 +256,33 @@ CREATE TRIGGER tr_update_activo_saldo
   AFTER INSERT ON public.egreso
   FOR EACH ROW EXECUTE FUNCTION public.update_activo_saldo();
 
+CREATE OR REPLACE FUNCTION public.notificar_asignacion_jurado()
+RETURNS trigger AS $$
+DECLARE
+    v_titulo_actividad text;
+BEGIN
+    IF NEW.actividad_id IS NOT NULL THEN
+        SELECT titulo INTO v_titulo_actividad FROM public.actividad WHERE id = NEW.actividad_id;
+    ELSE
+        v_titulo_actividad := COALESCE(NEW.actividad_externa, 'Actividad externa / general');
+    END IF;
+
+    INSERT INTO public.notificacion (miembro_id, titulo, descripcion)
+    VALUES (
+        NEW.miembro_id,
+        'Asignación como Jurado',
+        'Has sido designado como jurado para la actividad: ' || v_titulo_actividad || '. Detalle: ' || COALESCE(NEW.descripcion, 'Sin observaciones.')
+    );
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS tr_notificar_asignacion_jurado ON public.jurado;
+CREATE TRIGGER tr_notificar_asignacion_jurado
+  AFTER INSERT ON public.jurado
+  FOR EACH ROW EXECUTE FUNCTION public.notificar_asignacion_jurado();
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
@@ -273,6 +313,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
@@ -290,7 +331,7 @@ BEGIN
 
     NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
 
-    NEW.hash_actual := encode(digest(
+    NEW.hash_actual := encode(extensions.digest(
       convert_to(NEW.id::text || NEW.monto::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
       'sha256'
     ), 'hex');
@@ -316,7 +357,7 @@ BEGIN
 
     NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
 
-    NEW.hash_actual := encode(digest(
+    NEW.hash_actual := encode(extensions.digest(
       convert_to(NEW.id::text || NEW.monto::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
       'sha256'
     ), 'hex');
@@ -342,7 +383,7 @@ BEGIN
 
     NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
 
-    NEW.hash_actual := encode(digest(
+    NEW.hash_actual := encode(extensions.digest(
       convert_to(NEW.id::text || NEW.costo_total::text || COALESCE(NEW."fechaAdquisicion"::text, '') || NEW.hash_anterior, 'utf8'),
       'sha256'
     ), 'hex');
@@ -378,7 +419,7 @@ BEGIN
         'sin_referencia'
     );
 
-    NEW.hash_actual := encode(digest(
+    NEW.hash_actual := encode(extensions.digest(
       convert_to(NEW.id::text || NEW.url || v_llave_foranea || NEW.hash_anterior, 'utf8'),
       'sha256'
     ), 'hex');
@@ -394,6 +435,56 @@ FOR EACH ROW EXECUTE FUNCTION public.sellar_archivo();
 -- ==========================================
 -- 4. SEGURIDAD DE FILAS (RLS)
 -- ==========================================
+
+-- ── Tabla: configuracion_cuotas ──────────────────────────────────
+-- Control global de pausa/reanudación de cuotas de membresía.
+-- Solo debe existir UN registro activo.
+CREATE TABLE IF NOT EXISTS public.configuracion_cuotas (
+  id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  pausado       boolean      NOT NULL DEFAULT false,
+  fecha_pausa   timestamptz,
+  dias_pausados integer      NOT NULL DEFAULT 0,
+  dias_recordatorio_activos integer NOT NULL DEFAULT 5,
+  frecuencia    text         NOT NULL DEFAULT 'mes',
+  monto_cuota   numeric      NOT NULL DEFAULT 150,
+  creacion      timestamptz  NOT NULL DEFAULT now(),
+  actualizacion timestamptz  NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION public.update_configuracion_cuotas_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.actualizacion = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_configuracion_cuotas_updated ON public.configuracion_cuotas;
+CREATE TRIGGER trg_configuracion_cuotas_updated
+  BEFORE UPDATE ON public.configuracion_cuotas
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_configuracion_cuotas_timestamp();
+
+-- ── Upgrade guard: añadir columnas nuevas si no existen (para BDs ya creadas) ──
+ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS frecuencia    text    NOT NULL DEFAULT 'mes';
+ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS monto_cuota   numeric NOT NULL DEFAULT 150;
+
+INSERT INTO public.configuracion_cuotas (pausado, dias_pausados, dias_recordatorio_activos, frecuencia, monto_cuota)
+SELECT false, 0, 5, 'mes', 150
+WHERE NOT EXISTS (SELECT 1 FROM public.configuracion_cuotas);
+
+-- ── Tabla: plan_amortizacion ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.plan_amortizacion (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    "activoId" uuid REFERENCES public.activos(id) ON DELETE CASCADE,
+    numero integer NOT NULL,
+    "fechaVencimiento" date NOT NULL,
+    monto numeric(12,2) NOT NULL,
+    estado text DEFAULT 'pendiente',
+    creacion timestamptz DEFAULT now(),
+    actualizacion timestamptz DEFAULT now()
+);
+
 ALTER TABLE public.miembro ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notificacion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tipo_actividad ENABLE ROW LEVEL SECURITY;
@@ -407,6 +498,9 @@ ALTER TABLE public.detalles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.archivo ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tipo_activo ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inscripcion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.configuracion_cuotas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_amortizacion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.jurado ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Acceso total" ON public.miembro FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.notificacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -421,5 +515,8 @@ CREATE POLICY "Acceso total" ON public.detalles FOR ALL TO authenticated USING (
 CREATE POLICY "Acceso total" ON public.archivo FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.inscripcion FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.tipo_activo FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total" ON public.configuracion_cuotas FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total" ON public.plan_amortizacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total" ON public.jurado FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 NOTIFY pgrst, 'reload schema';

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ClipboardList, ArrowDownCircle, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus } from 'lucide-react';
+import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { finanzasApi } from '../api';
+import { patrimonioApi } from '../../patrimonio/api';
 import { useEgresos } from '../hooks';
 import { useAuthStore } from '../../../store/authStore';
 import { Button, Input, Select, Spinner, ExportButtons, Modal } from '../../../components/ui';
@@ -14,7 +15,6 @@ export const RegistroEgresosPage = () => {
   const [form, setForm] = useState({
     concepto: '',
     monto: '',
-    fecha: '',
     tipo_egreso_id: '',
     activo_id: '',
     descripcion: '',
@@ -27,11 +27,20 @@ export const RegistroEgresosPage = () => {
   const [confirmModal, setConfirmModal] = useState(false);
   const [detalleModal, setDetalleModal] = useState({ open: false, egreso: null });
   const [imageModal, setImageModal] = useState({ open: false, url: null });
+  const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoriaFilter, setCategoriaFilter] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [comprobantePreview, setComprobantePreview] = useState(null);
   const ITEMS_PER_PAGE = 10;
+  
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    if (!isCreateModalOpen) {
+      setComprobantePreview(null);
+    }
+  }, [isCreateModalOpen]);
   
   // Filtrado de egresos
   const filteredEgresos = egresos.filter(egreso => {
@@ -60,12 +69,32 @@ export const RegistroEgresosPage = () => {
     fetchData();
   }, []);
 
-  const handleChange = (event) => {
+  const handleChange = async (event) => {
     const { name, value, type, files } = event.target;
     if (type === 'file') {
-      setForm((prev) => ({ ...prev, [name]: files[0] || null }));
+      const file = files[0] || null;
+      setForm((prev) => ({ ...prev, [name]: file }));
+      if (file && file.type.startsWith('image/')) {
+        setComprobantePreview(URL.createObjectURL(file));
+      } else {
+        setComprobantePreview(null);
+      }
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
+      
+      // Si se selecciona un activo, revisar si tiene plan de amortización pendiente
+      if (name === 'activo_id' && value) {
+        try {
+          const plan = await patrimonioApi.obtenerAmortizacion(value);
+          const cuotaPendiente = plan.find(p => p.estado === 'pendiente');
+          if (cuotaPendiente) {
+            setForm(prev => ({ ...prev, monto: cuotaPendiente.monto.toString() }));
+            setMessage({ type: 'success', text: `Monto completado según cuota #${cuotaPendiente.numero} del plan de amortización.` });
+          }
+        } catch (err) {
+          console.error("Error al obtener plan de amortización", err);
+        }
+      }
     }
   };
 
@@ -107,20 +136,27 @@ export const RegistroEgresosPage = () => {
         concepto: form.concepto,
         descripcion: form.descripcion,
         monto: Number(form.monto),
-        fecha: form.fecha,
         comprobanteUrl,
       });
       
       const updatedEgresos = await finanzasApi.obtenerEgresos();
       if (setEgresos) setEgresos(updatedEgresos);
 
-      setMessage({ type: 'success', text: 'Egreso registrado correctamente.' });
-      setForm({ concepto: '', monto: '', fecha: '', tipo_egreso_id: '', activo_id: '', descripcion: '', comprobante: null });
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: '¡Egreso registrado correctamente!',
+        details: 'El egreso operativo ha sido descontado del saldo del activo (si corresponde) y sellado exitosamente en la Blockchain.'
+      });
+      setForm({ concepto: '', monto: '', tipo_egreso_id: '', activo_id: '', descripcion: '', comprobante: null });
       setIsCreateModalOpen(false);
     } catch (err) {
-      setMessage({
+      console.error(err);
+      setResultModal({
+        open: true,
         type: 'error',
-        text: err instanceof Error ? err.message : 'No se pudo registrar el egreso.',
+        text: 'No se pudo registrar el egreso',
+        details: err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql en Supabase.'
       });
     } finally {
       setSubmitting(false);
@@ -134,7 +170,7 @@ export const RegistroEgresosPage = () => {
       const updatedEgresos = await finanzasApi.obtenerEgresos();
       if (setEgresos) setEgresos(updatedEgresos);
       setMessage({ type: 'success', text: 'Registro sellado en Blockchain correctamente.' });
-    } catch (err) {
+    } catch {
       setMessage({ type: 'error', text: 'Error al sellar: Asegúrese de que el nodo de Blockchain esté activo.' });
     } finally {
       setSubmitting(false);
@@ -143,6 +179,7 @@ export const RegistroEgresosPage = () => {
 
   return (
     <div className="space-y-6">
+      {message && <Toast type={message.type} message={message.text} onClose={() => setMessage(null)} />}
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Registro de egresos</h1>
@@ -215,7 +252,6 @@ export const RegistroEgresosPage = () => {
                       <tr>
                         <th className="px-4 py-3">Concepto</th>
                         <th className="px-4 py-3">Tipo</th>
-                        <th className="px-4 py-3">Comprobante</th>
                         <th className="px-4 py-3">Monto</th>
                         <th className="px-4 py-3">Fecha Registro</th>
                         <th className="px-4 py-3">Blockchain ID</th>
@@ -227,18 +263,7 @@ export const RegistroEgresosPage = () => {
                         <tr key={egreso.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3 font-medium text-slate-900">{egreso.concepto}</td>
                           <td className="px-4 py-3">{egreso.categoria}</td>
-                          <td className="px-4 py-3">
-                            {egreso.comprobanteUrl ? (
-                              <div 
-                                className="h-8 w-12 rounded bg-slate-100 border border-slate-200 overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => setImageModal({ open: true, url: egreso.comprobanteUrl })}
-                              >
-                                <img src={egreso.comprobanteUrl} alt="Recibo" className="h-full w-full object-cover" />
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-slate-400 font-medium">Sin adjunto</span>
-                            )}
-                          </td>
+
                           <td className="px-4 py-3 font-semibold text-slate-900">
                             <div className="flex items-center gap-1.5">
                               Bs. {egreso.monto}
@@ -341,33 +366,6 @@ export const RegistroEgresosPage = () => {
       <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Registrar nuevo egreso">
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              id="concepto"
-              name="concepto"
-              label="Concepto"
-              value={form.concepto}
-              onChange={handleChange}
-              placeholder="Mantenimiento, servicios, etc."
-              required
-            />
-            <Input
-              id="monto"
-              name="monto"
-              label="Monto (Bs)"
-              type="number"
-              value={form.monto}
-              onChange={handleChange}
-              required
-            />
-            <Input
-              id="fecha"
-              name="fecha"
-              label="Fecha"
-              type="date"
-              value={form.fecha}
-              onChange={handleChange}
-              required
-            />
             <Select
               id="tipo_egreso_id"
               name="tipo_egreso_id"
@@ -381,6 +379,15 @@ export const RegistroEgresosPage = () => {
                 <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
               ))}
             </Select>
+            <Input
+              id="concepto"
+              name="concepto"
+              label="Concepto"
+              value={form.concepto}
+              onChange={handleChange}
+              placeholder="Mantenimiento, servicios, etc."
+              required
+            />
             <Select
               id="activo_id"
               name="activo_id"
@@ -394,13 +401,24 @@ export const RegistroEgresosPage = () => {
               ))}
             </Select>
             <Input
-              id="descripcion"
-              name="descripcion"
-              label="Detalle de egreso (Opcional)"
-              value={form.descripcion}
+              id="monto"
+              name="monto"
+              label="Monto (Bs)"
+              type="number"
+              value={form.monto}
               onChange={handleChange}
-              placeholder="Descripción adicional..."
+              required
             />
+            <div className="md:col-span-2">
+              <Input
+                id="descripcion"
+                name="descripcion"
+                label="Detalle de egreso (Opcional)"
+                value={form.descripcion}
+                onChange={handleChange}
+                placeholder="Descripción adicional..."
+              />
+            </div>
             <div className="md:col-span-2">
               <label htmlFor="comprobante" className="block text-sm font-medium text-slate-700 mb-1">
                 Comprobante / Evidencia (Opcional)
@@ -413,6 +431,36 @@ export const RegistroEgresosPage = () => {
                 onChange={handleChange}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
+              
+              {/* Previsualización de Comprobante */}
+              {comprobantePreview && (
+                <div className="mt-3 p-2 bg-slate-50 border border-slate-200 rounded-lg max-w-xs relative group animate-in fade-in duration-200">
+                  <p className="text-xs text-slate-400 font-medium mb-1">Previsualización de Imagen:</p>
+                  <div className="relative rounded overflow-hidden border border-slate-100">
+                    <img 
+                      src={comprobantePreview} 
+                      alt="Vista previa del comprobante" 
+                      className="max-h-40 w-auto object-cover rounded shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setImageModal({ open: true, url: comprobantePreview })}
+                      title="Haga clic para ampliar"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Haga clic en la imagen para ampliar</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm(prev => ({ ...prev, comprobante: null }));
+                        setComprobantePreview(null);
+                        const fileInput = document.getElementById('comprobante');
+                        if (fileInput) fileInput.value = '';
+                      }}
+                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow hover:bg-red-700 transition"
+                      title="Eliminar archivo"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
@@ -435,17 +483,63 @@ export const RegistroEgresosPage = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={detalleModal.open} onClose={() => setDetalleModal({ open: false, egreso: null })} title="Detalle del Egreso">
+      <Modal isOpen={detalleModal.open} onClose={() => setDetalleModal({ open: false, egreso: null })} title="Detalle del Egreso" width="max-w-2xl">
         {detalleModal.egreso && (
-          <div className="space-y-4 text-sm">
-            <div className="grid grid-cols-2 gap-4 rounded-lg bg-slate-50 p-4 border border-slate-100">
+          <div className="space-y-5 text-sm">
+
+            {/* Registrado por */}
+            <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
+              <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-3">Registrado por</p>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                  {detalleModal.egreso.registrado_por_nombre?.charAt(0) || 'S'}
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 flex-1">
+                  <div>
+                    <p className="text-[10px] text-blue-400">Nombre completo</p>
+                    <p className="font-semibold text-slate-900">{detalleModal.egreso.registrado_por_nombre || 'Sistema'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-blue-400">Rol</p>
+                    <p className="font-semibold text-slate-900 capitalize">{detalleModal.egreso.registrado_por_rol || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-blue-400">Correo</p>
+                    <p className="text-slate-700">{detalleModal.egreso.registrado_por_correo || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-blue-400">Teléfono</p>
+                    <p className="text-slate-700">{detalleModal.egreso.registrado_por_telefono || '—'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Activo Asociado (Si aplica) */}
+            {detalleModal.egreso.activo_id && (
+              <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 animate-in fade-in duration-200">
+                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-3">Activo Físico Asociado</p>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    A
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-amber-500">Nombre del Activo</p>
+                    <p className="font-semibold text-slate-900">{detalleModal.egreso.activo_nombre || 'Activo Físico'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Datos del egreso */}
+            <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 border border-slate-100 p-4">
               <div>
-                <p className="text-xs text-slate-500 font-medium mb-1">Concepto</p>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Concepto</p>
                 <p className="font-semibold text-slate-900">{detalleModal.egreso.concepto}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium mb-1">Monto Egresado</p>
-                <p className="font-semibold text-slate-900">
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Monto Egresado</p>
+                <p className="font-bold text-lg text-red-600">
                   Bs. {detalleModal.egreso.monto}
                   {detalleModal.egreso.blockchain_tx_id && (
                     <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
@@ -455,44 +549,56 @@ export const RegistroEgresosPage = () => {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium mb-1">Tipo de Egreso</p>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Tipo de Egreso</p>
                 <p className="text-slate-700">{detalleModal.egreso.categoria}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium mb-1">Fecha Lógica</p>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Fecha Lógica</p>
                 <p className="text-slate-700">{new Date(detalleModal.egreso.fecha).toLocaleDateString('es-ES')}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium mb-1">Fecha de Registro</p>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Fecha de Registro</p>
                 <p className="text-slate-700">
                   {detalleModal.egreso.creacion 
                     ? new Date(detalleModal.egreso.creacion).toLocaleString('es-ES', { 
                         day: '2-digit', month: '2-digit', year: 'numeric', 
                         hour: '2-digit', minute: '2-digit', hour12: true 
                       }) 
-                    : '-'}
+                    : new Date(detalleModal.egreso.fecha).toLocaleDateString('es-ES')}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium mb-1">Registrado por</p>
-                <p className="text-slate-700">{detalleModal.egreso.registrado_por_nombre}</p>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Estado</p>
+                <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold bg-red-100 text-red-800 uppercase tracking-wider">
+                  ✓ Egresado
+                </span>
               </div>
-              <div className="col-span-2">
-                <p className="text-xs text-slate-500 font-medium mb-1">Descripción</p>
-                <p className="text-slate-700 bg-white p-2.5 rounded border border-slate-200">{detalleModal.egreso.descripcion || 'Sin descripción adicional'}</p>
-              </div>
-              {detalleModal.egreso.comprobanteUrl && (
+              {detalleModal.egreso.blockchain_tx_id && (
                 <div className="col-span-2">
-                  <p className="text-xs text-slate-500 font-medium mb-2">Comprobante Adjunto</p>
-                  <img 
-                    src={detalleModal.egreso.comprobanteUrl} 
-                    alt="Comprobante" 
-                    className="h-32 w-auto object-cover rounded border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => setImageModal({ open: true, url: detalleModal.egreso.comprobanteUrl })}
-                  />
+                  <p className="text-[10px] text-slate-400 font-medium mb-1">Blockchain TX ID</p>
+                  <p className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg break-all">{detalleModal.egreso.blockchain_tx_id}</p>
                 </div>
               )}
+              <div className="col-span-2">
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Descripción</p>
+                <p className="text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200">{detalleModal.egreso.descripcion || 'Sin descripción adicional'}</p>
+              </div>
             </div>
+
+            {/* Comprobante */}
+            {detalleModal.egreso.comprobanteUrl && (
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Comprobante de Egreso</p>
+                <img 
+                  src={detalleModal.egreso.comprobanteUrl} 
+                  alt="Comprobante" 
+                  className="max-h-56 w-auto object-contain rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                  onClick={() => setImageModal({ open: true, url: detalleModal.egreso.comprobanteUrl })}
+                  title="Haga clic para ampliar"
+                />
+                <p className="text-[10px] text-slate-400 mt-2">Haga clic en la imagen para ampliar</p>
+              </div>
+            )}
           </div>
         )}
       </Modal>
@@ -506,6 +612,40 @@ export const RegistroEgresosPage = () => {
               className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
             />
           )}
+        </div>
+      </Modal>
+
+      <Modal 
+        isOpen={resultModal.open} 
+        onClose={() => setResultModal(prev => ({ ...prev, open: false }))} 
+        title={resultModal.type === 'success' ? "Registro Exitoso" : "Error al Registrar"} 
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === 'success' ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertCircle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === 'success' ? 'text-slate-900' : 'text-rose-900'}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button 
+              className="w-full" 
+              variant={resultModal.type === 'success' ? 'primary' : 'danger'}
+              onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
+            >
+              Entendido
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

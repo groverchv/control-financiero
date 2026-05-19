@@ -12,12 +12,21 @@ export const useAuth = () => {
       // Intentar obtener los datos reales de la tabla miembro (rol, nombre, etc)
       const { data: miembro, error } = await supabase
         .from('miembro')
-        .select('rol, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico"')
+        .select('rol, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", estado')
         .eq('id', sessionUser.id)
         .maybeSingle();
 
       if (error) {
         console.error('Error al obtener perfil del miembro:', error);
+      }
+
+      // Si el miembro está inactivo, bloquear el acceso y cerrar la sesión
+      if (miembro && miembro.estado === 'inactivo') {
+        console.warn('Usuario inactivo detectado. Cerrando sesión...');
+        await supabase.auth.signOut();
+        setUser(null);
+        setLoading(false);
+        return;
       }
 
       // El rol real viene de la DB, priorizándolo sobre la metadata

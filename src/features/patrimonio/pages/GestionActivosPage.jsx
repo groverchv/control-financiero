@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight, X, Eye, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useActivos } from '../hooks';
 import { Button, Input, Spinner, Modal, Select, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -26,6 +26,37 @@ export const GestionActivosPage = () => {
   const [tiposActivo, setTiposActivo] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [estadoFilter, setEstadoFilter] = useState('');
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageModal, setImageModal] = useState({ open: false, url: null });
+  const [detalleModal, setDetalleModal] = useState({ open: false, activo: null });
+  const [activePlan, setActivePlan] = useState([]);
+  const [loadingPlan, setLoadingPlan] = useState(false);
+  const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+
+  useEffect(() => {
+    if (detalleModal.activo) {
+      setLoadingPlan(true);
+      patrimonioApi.obtenerAmortizacion(detalleModal.activo.id)
+        .then(plan => {
+          setActivePlan(plan || []);
+        })
+        .catch(err => {
+          console.error('Error fetching plan:', err);
+          setActivePlan([]);
+        })
+        .finally(() => {
+          setLoadingPlan(false);
+        });
+    } else {
+      setActivePlan([]);
+    }
+  }, [detalleModal.activo]);
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      setImagePreview(null);
+    }
+  }, [isModalOpen]);
 
   // Filtrado de activos
   const filteredActivos = activos.filter(activo => {
@@ -52,7 +83,13 @@ export const GestionActivosPage = () => {
       key: 'imagen_url', 
       label: 'Imagen',
       render: (val) => val ? (
-        <img src={val} alt="Activo" className="h-10 w-10 rounded-md object-cover border border-slate-200" />
+        <img 
+          src={val} 
+          alt="Activo" 
+          className="h-10 w-10 rounded-md object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity" 
+          onClick={() => setImageModal({ open: true, url: val })}
+          title="Haga clic para ampliar"
+        />
       ) : (
         <div className="h-10 w-10 rounded-md bg-slate-100 flex items-center justify-center text-[10px] text-slate-400">Sin foto</div>
       )
@@ -113,6 +150,15 @@ export const GestionActivosPage = () => {
       label: 'Acciones',
       render: (id, row) => (
         <div className="flex justify-end gap-2">
+          <Button 
+            size="xs" 
+            variant="outline" 
+            className="text-blue-600 border-blue-200 hover:bg-blue-50 h-7 flex items-center gap-1"
+            onClick={() => setDetalleModal({ open: true, activo: row })}
+          >
+            <Eye className="h-3 w-3" />
+            Detalle
+          </Button>
           {!row.blockchain_tx_id && (
             <Button 
               size="xs" 
@@ -153,6 +199,12 @@ export const GestionActivosPage = () => {
 
       const nuevoActivo = await patrimonioApi.registrarActivo(payload);
       setActivos([nuevoActivo, ...activos]);
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: '¡Activo registrado con éxito!',
+        details: `El activo "${formData.nombre}" ha sido registrado en el inventario patrimonial. Puede generar un plan de amortización si es necesario.`
+      });
       setIsModalOpen(false);
       setFormData({ 
         nombre: '', 
@@ -164,7 +216,12 @@ export const GestionActivosPage = () => {
       });
     } catch (err) {
       console.error(err);
-      alert('Error al registrar el activo');
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'No se pudo registrar el activo',
+        details: err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql.'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -176,9 +233,20 @@ export const GestionActivosPage = () => {
       await patrimonioApi.sellarActivo(id, user?.id);
       const updatedData = await patrimonioApi.obtenerActivos();
       setActivos(updatedData);
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: '¡Activo sellado en la Blockchain!',
+        details: 'El activo patrimonial y sus firmas de auditoría han sido grabados y sellados de manera inmutable.'
+      });
     } catch (err) {
       console.error(err);
-      alert('Error al sellar: Verifique que la red Blockchain esté activa.');
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error de sellado Blockchain',
+        details: err instanceof Error ? err.message : 'Error al sellar: Verifique que la red Blockchain esté activa.'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -335,11 +403,48 @@ export const GestionActivosPage = () => {
           <div className="space-y-1">
             <label className="text-sm font-medium text-slate-700">Imagen del Activo</label>
             <input 
+              id="imagen"
               type="file" 
               accept="image/*"
-              onChange={(e) => setFormData({ ...formData, imagen: e.target.files[0] })}
+              onChange={(e) => {
+                const file = e.target.files[0] || null;
+                setFormData({ ...formData, imagen: file });
+                if (file && file.type.startsWith('image/')) {
+                  setImagePreview(URL.createObjectURL(file));
+                } else {
+                  setImagePreview(null);
+                }
+              }}
               className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
+            {imagePreview && (
+              <div className="mt-3 p-2 bg-slate-50 border border-slate-200 rounded-lg max-w-xs relative group animate-in fade-in duration-200">
+                <p className="text-xs text-slate-400 font-medium mb-1">Previsualización del Activo:</p>
+                <div className="relative rounded overflow-hidden border border-slate-100">
+                  <img 
+                    src={imagePreview} 
+                    alt="Vista previa de activo" 
+                    className="max-h-40 w-auto object-cover rounded shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setImageModal({ open: true, url: imagePreview })}
+                    title="Haga clic para ampliar"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Haga clic para ampliar</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, imagen: null }));
+                      setImagePreview(null);
+                      const fileInput = document.getElementById('imagen');
+                      if (fileInput) fileInput.value = '';
+                    }}
+                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow hover:bg-red-700 transition"
+                    title="Eliminar imagen"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="mt-6 flex justify-end gap-3">
@@ -351,6 +456,180 @@ export const GestionActivosPage = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={imageModal.open} onClose={() => setImageModal({ open: false, url: null })} title="Imagen del Activo">
+        <div className="flex justify-center bg-slate-900/5 rounded-xl p-2 overflow-hidden">
+          {imageModal.url && (
+            <img 
+              src={imageModal.url} 
+              alt="Activo Completo" 
+              className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
+            />
+          )}
+        </div>
+      </Modal>
+
+      <Modal 
+        isOpen={detalleModal.open} 
+        onClose={() => setDetalleModal({ open: false, activo: null })} 
+        title="Detalle del Activo"
+      >
+        {detalleModal.activo && (
+          <div className="space-y-4">
+            {/* Encabezado */}
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                <Tags className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">{detalleModal.activo.nombre}</p>
+                <p className="text-xs text-slate-500">{detalleModal.activo.tipo_activo?.nombre || 'Sin tipo'}</p>
+              </div>
+            </div>
+
+            {/* Datos del Activo */}
+            <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 border border-slate-100 p-4">
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Costo Total</p>
+                <p className="font-semibold text-slate-900">
+                  {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(detalleModal.activo.costo_total || 0)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Saldo Pendiente</p>
+                <p className={`font-bold ${detalleModal.activo.saldo_pendiente > 0 ? 'text-orange-600' : 'text-emerald-700'}`}>
+                  {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(detalleModal.activo.saldo_pendiente || 0)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Estado</p>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
+                  detalleModal.activo.estado === 'pagado' ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'
+                }`}>
+                  {detalleModal.activo.estado === 'pagado' ? '✓ Pagado' : '⚠ Deuda'}
+                </span>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-medium mb-1">Fecha de Adquisición</p>
+                <p className="text-slate-700">{detalleModal.activo.fechaAdquisicion || 'No especificada'}</p>
+              </div>
+              {detalleModal.activo.blockchain_tx_id && (
+                <div className="col-span-2">
+                  <p className="text-[10px] text-slate-400 font-medium mb-1">Blockchain TX ID</p>
+                  <p className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg break-all">
+                    {detalleModal.activo.blockchain_tx_id}
+                  </p>
+                </div>
+              )}
+              {detalleModal.activo.descripcion && (
+                <div className="col-span-2">
+                  <p className="text-[10px] text-slate-400 font-medium mb-1">Descripción</p>
+                  <p className="text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200">
+                    {detalleModal.activo.descripcion}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Imagen del Activo */}
+            {detalleModal.activo.imagen_url && (
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Foto del Activo</p>
+                <img 
+                  src={detalleModal.activo.imagen_url} 
+                  alt="Activo" 
+                  className="max-h-56 w-auto object-contain rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                  onClick={() => setImageModal({ open: true, url: detalleModal.activo.imagen_url })}
+                  title="Haga clic para ampliar"
+                />
+                <p className="text-[10px] text-slate-400 mt-2">Haga clic en la imagen para ampliar</p>
+              </div>
+            )}
+
+            {/* Plan de Amortización / Cronograma */}
+            <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Cronograma de Amortización</p>
+              {loadingPlan ? (
+                <div className="flex items-center justify-center py-4 gap-2 text-xs text-slate-400">
+                  <Spinner size="sm" />
+                  Cargando cronograma...
+                </div>
+              ) : activePlan.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-100/50 text-[10px] uppercase text-slate-500 font-semibold">
+                      <tr>
+                        <th className="px-3 py-2 rounded-l-md">Cuota #</th>
+                        <th className="px-3 py-2">Vencimiento</th>
+                        <th className="px-3 py-2 text-right">Monto</th>
+                        <th className="px-3 py-2 rounded-r-md text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100/80">
+                      {activePlan.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-100/40">
+                          <td className="px-3 py-2 font-medium text-slate-800">Cuota {c.numero}</td>
+                          <td className="px-3 py-2 text-slate-500">
+                            {new Date(c.fechaVencimiento + 'T00:00:00').toLocaleDateString('es-ES')}
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold text-slate-900">
+                            {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(c.monto || 0)}
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                              c.estado === 'pagada' || c.estado === 'pagado'
+                                ? 'bg-emerald-50 text-emerald-705 text-emerald-700'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}>
+                              {c.estado}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic py-2">Este activo no cuenta con un plan de amortización generado.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal 
+        isOpen={resultModal.open} 
+        onClose={() => setResultModal(prev => ({ ...prev, open: false }))} 
+        title={resultModal.type === 'success' ? "Operación Exitosa" : "Error en Operación"} 
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === 'success' ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertCircle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === 'success' ? 'text-slate-900' : 'text-rose-900'}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button 
+              className="w-full" 
+              variant={resultModal.type === 'success' ? 'primary' : 'danger'}
+              onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

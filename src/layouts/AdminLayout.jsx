@@ -1,9 +1,10 @@
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { ArrowDownCircle, Bell, CalendarDays, CreditCard, GraduationCap, LayoutGrid, LineChart, LogOut, ShieldCheck, TrendingUp, Users, Wallet, Eye, ChevronDown, LayoutDashboard, Menu, X, Tags } from 'lucide-react';
+import { ArrowDownCircle, Bell, CalendarDays, CreditCard, GraduationCap, History, LayoutGrid, LineChart, LogOut, Users, Building, Settings, Wallet, Menu, ChevronDown, LayoutDashboard, X, Tags, Calculator, ShieldCheck, TrendingUp, Eye } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
 import { useState, useEffect } from 'react';
 import { blockchainService } from '../services/blockchain';
+import { patrimonioApi } from '../features/patrimonio/api';
 
 export const AdminLayout = () => {
   const { user, logout } = useAuthStore();
@@ -18,6 +19,7 @@ export const AdminLayout = () => {
   };
 
   const [blockchainActive, setBlockchainActive] = useState(false);
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
 
   useEffect(() => {
     const checkBlockchain = async () => {
@@ -26,6 +28,57 @@ export const AdminLayout = () => {
     };
     checkBlockchain();
     const interval = setInterval(checkBlockchain, 30000); // Check every 30s
+
+    // Sincronizar notificaciones de amortizacion pendientes
+    if (user && user.id) {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      patrimonioApi.sincronizarNotificacionesAmortizacion(user.id, user.email, `${user.nombre || ''} ${user.apellidoPaterno || ''}`.trim());
+
+      // Suscribirse al contador de notificaciones de amortización de activos pendientes
+      const fetchAdminUnread = async () => {
+        try {
+          const { data: config } = await supabase
+            .from('configuracion_cuotas')
+            .select('dias_recordatorio_activos')
+            .limit(1)
+            .maybeSingle();
+          const diasAviso = config?.dias_recordatorio_activos || 5;
+
+          const { data: planes } = await supabase
+            .from('plan_amortizacion')
+            .select('fechaVencimiento')
+            .eq('estado', 'pendiente');
+
+          if (!planes) {
+            setAdminUnreadCount(0);
+            return;
+          }
+
+          const hoy = new Date();
+          const count = planes.filter(p => {
+            const fechaVenc = new Date(p.fechaVencimiento);
+            const diffDias = Math.ceil((fechaVenc - hoy) / (1000 * 60 * 60 * 24));
+            return diffDias <= diasAviso;
+          }).length;
+
+          setAdminUnreadCount(count);
+        } catch (err) {
+          console.error('[AdminLayout] Error calculando notificaciones de amortización:', err);
+        }
+      };
+      fetchAdminUnread();
+      const notifChannel = supabase
+        .channel('admin-notif-count')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'plan_amortizacion' }, fetchAdminUnread)
+        .subscribe();
+      return () => {
+        clearInterval(interval);
+        supabase.removeChannel(notifChannel);
+      };
+    }
+
     return () => clearInterval(interval);
   }, []);
 
@@ -56,34 +109,38 @@ export const AdminLayout = () => {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <nav className="h-[calc(100vh-61px)] overflow-y-auto px-4 py-6 pb-20">
+        <nav className="h-[calc(100vh-61px)] overflow-y-auto no-scrollbar px-4 py-6 pb-20">
           
           {/* DASHBOARD PRINCIPAL */}
-          <div className="mb-6">
-            <ul className="space-y-1 text-sm">
-              <li>
-                <NavLink to="/admin/kpis" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                  <LineChart className="h-4 w-4" />
-                  Dashboard KPIs
-                </NavLink>
-              </li>
-            </ul>
-          </div>
+          {user?.rol !== 'secretario' && (
+            <div className="mb-6">
+              <ul className="space-y-1 text-sm">
+                <li>
+                  <NavLink to="/admin/kpis" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                    <LineChart className="h-4 w-4" />
+                    Dashboard KPIs
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
+          )}
 
           {/* PAQUETE ADMINISTRACIÓN */}
-          <div className="mb-6">
-            <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-              Administración
-            </h3>
-            <ul className="space-y-1 text-sm">
-              <li>
-                <NavLink to="/admin/miembros" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                  <Users className="h-4 w-4" />
-                  Miembros
-                </NavLink>
-              </li>
-            </ul>
-          </div>
+          {user?.rol !== 'secretario' && (
+            <div className="mb-6">
+              <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                Administración
+              </h3>
+              <ul className="space-y-1 text-sm">
+                <li>
+                  <NavLink to="/admin/miembros" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                    <Users className="h-4 w-4" />
+                    Miembros
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
+          )}
 
           {/* PAQUETE FINANZAS */}
           <div className="mb-6">
@@ -98,43 +155,70 @@ export const AdminLayout = () => {
                 </NavLink>
               </li>
               <li>
+                <NavLink to="/admin/historial-cuotas" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <History className="h-4 w-4" />
+                  Historial de Cuotas
+                </NavLink>
+              </li>
+              <li>
                 <NavLink to="/admin/egresos" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
                   <ArrowDownCircle className="h-4 w-4" />
                   Egresos
                 </NavLink>
               </li>
-              <li>
-                <NavLink to="/admin/tipos-transaccion" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                  <Tags className="h-4 w-4" />
-                  Tipos de Ingreso y Egreso
-                </NavLink>
-              </li>
+              {user?.rol !== 'secretario' && (
+                <li>
+                  <NavLink to="/admin/tipos-transaccion" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                    <Tags className="h-4 w-4" />
+                    Tipos de Ingreso y Egreso
+                  </NavLink>
+                </li>
+              )}
             </ul>
           </div>
 
           {/* PAQUETE PATRIMONIO */}
-          <div className="mb-6">
-            <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-              Patrimonio
-            </h3>
-            <ul className="space-y-1 text-sm">
-              <li>
-                <NavLink to="/admin/activos" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                  <LayoutGrid className="h-4 w-4" />
-                  Activos
-                </NavLink>
-              </li>
-              <li>
-                <NavLink to="/admin/tipos-activo" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                  <Tags className="h-4 w-4" />
-                  Tipos de Activos
-                </NavLink>
-              </li>
-            </ul>
-          </div>
+          {user?.rol !== 'secretario' && (
+            <div className="mb-6">
+              <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                Patrimonio
+              </h3>
+              <ul className="space-y-1 text-sm">
+                <li>
+                  <NavLink to="/admin/activos" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                    <LayoutGrid className="h-4 w-4" />
+                    Activos
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/tipos-activo" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                    <Tags className="h-4 w-4" />
+                    Tipos de Activos
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/activos/amortizacion" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                    <Calculator className="h-4 w-4" />
+                    Plan de Amortización
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/notificaciones" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                    <Bell className="h-4 w-4" />
+                    Notificaciones
+                    {adminUnreadCount > 0 && (
+                      <span className="ml-auto flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                        {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
+                      </span>
+                    )}
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
+          )}
 
           {/* PAQUETE ACADÉMICO */}
-          <div>
+          <div className="mb-6">
             <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
               Académico
             </h3>
@@ -151,23 +235,31 @@ export const AdminLayout = () => {
                   Tipos de Actividad
                 </NavLink>
               </li>
-            </ul>
-          </div>
-
-          {/* AUDITORIA */}
-          <div className="mb-6">
-            <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-              Auditoria
-            </h3>
-            <ul className="space-y-1 text-sm">
               <li>
-                <NavLink to="/admin/auditoria" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                  <ShieldCheck className="h-4 w-4" />
-                  Blockchain
+                <NavLink to="/admin/asignar-jurado" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <Users className="h-4 w-4" />
+                  Asignar Jurado
                 </NavLink>
               </li>
             </ul>
           </div>
+
+          {/* AUDITORIA */}
+          {user?.rol !== 'secretario' && (
+            <div className="mb-6">
+              <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                Auditoria
+              </h3>
+              <ul className="space-y-1 text-sm">
+                <li>
+                  <NavLink to="/admin/auditoria" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                    <ShieldCheck className="h-4 w-4" />
+                    Blockchain
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
+          )}
 
         </nav>
       </aside>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, FileText } from 'lucide-react';
+import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, FileText, RefreshCw } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { administracionApi } from '../../administracion/api';
 import { usePagos } from '../hooks';
@@ -39,9 +39,13 @@ export const RegistroCuotasPage = () => {
   const [modoIngreso, setModoIngreso] = useState('cuota'); // 'cuota' | 'extra'
   const ITEMS_PER_PAGE = 10;
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  const isSubmitDisabled = modoIngreso === 'cuota'
+    ? (!form.miembroBuscador || !form.monto || !form.fecha)
+    : (!form.tipo_ingreso_id || !form.monto || !form.fecha);
+
   useEffect(() => {
     if (!isCreateModalOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSocioSearch('');
       setIsDropdownOpen(false);
       setComprobantePreview(null);
@@ -56,6 +60,7 @@ export const RegistroCuotasPage = () => {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCreateModalOpen]);
   
   // Filtrado de cuotas
@@ -93,7 +98,6 @@ export const RegistroCuotasPage = () => {
   const esMembresiaOrdinaria = tipoSeleccionado?.nombre === 'Membresía Ordinaria' || tipoSeleccionado?.nombre === 'Cuota Mensual';
   const registroSocio = historialSocios.find(h => h.miembro.id === form.miembroBuscador);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     // En modo cuota: auto-rellenar cuando se selecciona un socio
     if (modoIngreso === 'cuota' && form.miembroBuscador) {
@@ -115,6 +119,7 @@ export const RegistroCuotasPage = () => {
             desc = `Cuota de membresía correspondiente a ${mes}.`;
           }
         }
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({
           ...prev,
           monto: String(configuracionCuotas?.monto_cuota || 150),
@@ -122,6 +127,7 @@ export const RegistroCuotasPage = () => {
           descripcion: desc
         }));
       } else if (registroSocio) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({ ...prev, monto: '0', fecha: '', descripcion: 'El socio se encuentra totalmente al día.' }));
       }
     } else if (modoIngreso !== 'cuota' && form.miembroBuscador && form.tipo_ingreso_id) {
@@ -132,6 +138,7 @@ export const RegistroCuotasPage = () => {
         let desc = partes
           ? `Cuota de membresía correspondiente a ${ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(partes[2]) - 1]} ${partes[1]}.`
           : `Cuota de membresía correspondiente a ${mes}.`;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({ ...prev, monto: String(configuracionCuotas?.monto_cuota || 150), fecha: registroSocio.proximaPendiente.fechaVencimientoAjustada, descripcion: desc }));
       }
     }
@@ -296,7 +303,6 @@ export const RegistroCuotasPage = () => {
                         <th className="px-4 py-3">Monto</th>
                         <th className="px-4 py-3">Estado</th>
                         <th className="px-4 py-3">Registrado</th>
-                        <th className="px-4 py-3">Blockchain</th>
                         <th className="px-4 py-3 text-right">Acciones</th>
                       </tr>
                     </thead>
@@ -329,16 +335,6 @@ export const RegistroCuotasPage = () => {
                               {cuota.registrado_por_rol && <p className="text-[10px] text-slate-400 capitalize">{cuota.registrado_por_rol}</p>}
                             </div>
                           </td>
-                          <td className="px-4 py-3">
-                            {cuota.blockchain_tx_id ? (
-                              <div className="flex items-center gap-1 text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 w-fit" title={cuota.blockchain_tx_id}>
-                                <ShieldCheck className="h-3 w-3" />
-                                {cuota.blockchain_tx_id.substring(0, 8)}...
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-slate-400">No sellado</span>
-                            )}
-                          </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-2">
                               <button 
@@ -352,10 +348,11 @@ export const RegistroCuotasPage = () => {
                                 <button 
                                   onClick={() => handleSellar(cuota.id)}
                                   disabled={submitting}
-                                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors disabled:opacity-50"
+                                  title="Reintentar sellar de forma manual"
                                 >
-                                  <ShieldCheck className="h-3.5 w-3.5" />
-                                  Sellar
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                  Reintentar
                                 </button>
                               )}
                             </div>
@@ -711,7 +708,13 @@ export const RegistroCuotasPage = () => {
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button variant="outline" type="button" onClick={() => setIsCreateModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={submitting}>Guardar ingreso</Button>
+            <Button 
+              type="submit" 
+              disabled={submitting || isSubmitDisabled}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+            >
+              Guardar ingreso
+            </Button>
           </div>
         </form>
       </Modal>

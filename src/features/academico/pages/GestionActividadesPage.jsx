@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarPlus, ClipboardList, Edit, Trash2, Camera, X, MapPin, Info, Users, ArrowRight, Tags, ChevronLeft, ChevronRight, Eye, FileType, FileText, FileSpreadsheet, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { CalendarPlus, ClipboardList, Edit, Trash2, Camera, X, MapPin, Info, Users, Tags, ChevronLeft, ChevronRight, Eye, EyeOff, FileType, FileText, FileSpreadsheet, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useActividades, useTiposActividad } from '../hooks';
 import { Button, Spinner, Modal, Input, ExportButtons } from '../../../components/ui';
 import { MapPicker } from '../../../components/ui/MapPicker';
@@ -26,15 +26,16 @@ export const GestionActividadesPage = () => {
     descripcion: '', 
     fecha: '', 
     hora: '19:00',
-    cupos: 0, 
+    cupos: '', 
     ubicacion: '', 
     latitud: '',
     longitud: '',
     modalidad: 'presencial',
-    costo: 0, 
+    costo: '', 
     requisitos: '',
     incluye_certificacion: false,
     estado: 'programado',
+    publicado: true,
     tipo_actividad_id: ''
   });
   const [selectedFile, setSelectedFile] = useState(null);
@@ -43,6 +44,37 @@ export const GestionActividadesPage = () => {
   const [imageModal, setImageModal] = useState({ open: false, url: null });
   const [detalleModal, setDetalleModal] = useState({ open: false, actividad: null });
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [confirmActionModal, setConfirmActionModal] = useState({ open: false });
+  const [generalConfirmModal, setGeneralConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    actionType: 'primary',
+    onConfirm: null
+  });
+
+  const isFormInvalid = !formData.nombre.trim() || !formData.tipo_actividad_id || !formData.fecha || !formData.hora;
+  
+  const isFormUnchanged = !!editingAct &&
+    formData.nombre === editingAct.nombre &&
+    formData.descripcion === (editingAct.descripcion || '') &&
+    formData.fecha === editingAct.fecha &&
+    formData.hora === (editingAct.hora ? editingAct.hora.substring(0, 5) : '19:00') &&
+    formData.cupos === (editingAct.cupos || '') &&
+    formData.ubicacion === (editingAct.ubicacion || '') &&
+    formData.latitud === (editingAct.latitud || '') &&
+    formData.longitud === (editingAct.longitud || '') &&
+    formData.modalidad === (editingAct.modalidad || 'presencial') &&
+    formData.costo === (editingAct.costo || '') &&
+    formData.requisitos === (editingAct.requisitos || '') &&
+    formData.incluye_certificacion === (editingAct.incluye_certificacion || false) &&
+    formData.estado === (editingAct.estado || 'programado') &&
+    formData.publicado === (editingAct.publicado ?? true) &&
+    formData.tipo_actividad_id === (editingAct.tipo_actividad_id || '') &&
+    !selectedFile;
+    
+  const isSubmitDisabled = isFormInvalid || isFormUnchanged;
   
   // Asistencia & Manual Enrollment States
   const [todosMiembros, setTodosMiembros] = useState([]);
@@ -88,15 +120,16 @@ export const GestionActividadesPage = () => {
       descripcion: '', 
       fecha: '', 
       hora: '19:00',
-      cupos: 0, 
+      cupos: '', 
       ubicacion: '', 
       latitud: '',
       longitud: '',
       modalidad: 'presencial',
-      costo: 0, 
+      costo: '', 
       requisitos: '',
       incluye_certificacion: false,
       estado: 'programado',
+      publicado: true,
       tipo_actividad_id: tipos[0]?.id || ''
     });
     setSelectedFile(null);
@@ -111,15 +144,16 @@ export const GestionActividadesPage = () => {
       descripcion: act.descripcion || '',
       fecha: act.fecha, 
       hora: act.hora ? act.hora.substring(0, 5) : '19:00',
-      cupos: act.cupos || 0,
+      cupos: act.cupos || '',
       ubicacion: act.ubicacion || '',
       latitud: act.latitud || '',
       longitud: act.longitud || '',
       modalidad: act.modalidad || 'presencial',
-      costo: act.costo || 0,
+      costo: act.costo || '',
       requisitos: act.requisitos || '',
       incluye_certificacion: act.incluye_certificacion || false,
       estado: act.estado || 'programado',
+      publicado: act.publicado ?? true,
       tipo_actividad_id: act.tipo_actividad_id || ''
     });
     setSelectedFile(null);
@@ -127,26 +161,70 @@ export const GestionActividadesPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar esta actividad?')) return;
-    try {
-      await academicoApi.eliminarActividad(id);
-      setActividades(actividades.filter(a => a.id !== id));
-      setResultModal({
-        open: true,
-        type: 'success',
-        text: '¡Actividad eliminada!',
-        details: 'La actividad y sus registros asociados han sido removidos con éxito de la base de datos.'
-      });
-    } catch (err) {
-      console.error(err);
-      setResultModal({
-        open: true,
-        type: 'error',
-        text: 'Error al eliminar',
-        details: err instanceof Error ? err.message : 'No se pudo eliminar la actividad de la base de datos.'
-      });
-    }
+  const handleDelete = (id) => {
+    setGeneralConfirmModal({
+      open: true,
+      title: 'Eliminar Actividad',
+      message: '¿Estás seguro de eliminar esta actividad? Esta acción no se puede deshacer y eliminará todos los registros asociados.',
+      confirmText: 'Sí, eliminar',
+      actionType: 'danger',
+      onConfirm: async () => {
+        setGeneralConfirmModal(prev => ({ ...prev, open: false }));
+        try {
+          await academicoApi.eliminarActividad(id);
+          setActividades(actividades.filter(a => a.id !== id));
+          setResultModal({
+            open: true,
+            type: 'success',
+            text: '¡Actividad eliminada!',
+            details: 'La actividad y sus registros asociados han sido removidos con éxito de la base de datos.'
+          });
+        } catch (err) {
+          console.error(err);
+          setResultModal({
+            open: true,
+            type: 'error',
+            text: 'Error al eliminar',
+            details: err instanceof Error ? err.message : 'No se pudo eliminar la actividad de la base de datos.'
+          });
+        }
+      }
+    });
+  };
+
+  const handleTogglePublicado = (act) => {
+    const nuevoEstado = act.publicado === false ? true : false;
+    const label = nuevoEstado ? 'publicar' : 'ocultar';
+    setGeneralConfirmModal({
+      open: true,
+      title: nuevoEstado ? 'Publicar Actividad' : 'Ocultar Actividad',
+      message: `¿Deseas ${label} esta actividad para los socios?`,
+      confirmText: nuevoEstado ? 'Sí, publicar' : 'Sí, ocultar',
+      actionType: 'primary',
+      onConfirm: async () => {
+        setGeneralConfirmModal(prev => ({ ...prev, open: false }));
+        try {
+          await academicoApi.togglePublicado(act.id, nuevoEstado);
+          setActividades(actividades.map(a => a.id === act.id ? { ...a, publicado: nuevoEstado } : a));
+          setResultModal({
+            open: true,
+            type: 'success',
+            text: nuevoEstado ? '¡Actividad publicada!' : '¡Actividad oculta!',
+            details: nuevoEstado 
+              ? 'La actividad ahora es visible para todos los socios.'
+              : 'La actividad ha sido ocultada del portal de socios.'
+          });
+        } catch (err) {
+          console.error(err);
+          setResultModal({
+            open: true,
+            type: 'error',
+            text: `Error al ${label}`,
+            details: err instanceof Error ? err.message : 'No se pudo cambiar la visibilidad de la actividad.'
+          });
+        }
+      }
+    });
   };
 
   const handleVerInscritos = async (act) => {
@@ -169,35 +247,47 @@ export const GestionActividadesPage = () => {
     }
   };
 
-  const handleManualInscribir = async (e) => {
+  const handleManualInscribir = (e) => {
     e.preventDefault();
     if (!selectedMiembroId || !inscritosModal.actividad) return;
-    setManualInscribiendo(true);
-    try {
-      await academicoApi.inscribirSocio(selectedMiembroId, inscritosModal.actividad.id);
-      // Reload inscritos list
-      const nuevosInscritos = await administracionApi.obtenerInscritosActividad(inscritosModal.actividad.id);
-      setInscritosModal(prev => ({ ...prev, inscritos: nuevosInscritos }));
-      setSelectedMiembroId('');
-      // Decrease cupos locally
-      setActividades(prev => prev.map(a => a.id === inscritosModal.actividad.id ? { ...a, cupos: Math.max(0, a.cupos - 1) } : a));
-      setResultModal({
-        open: true,
-        type: 'success',
-        text: '¡Socio inscrito con éxito!',
-        details: 'El socio ha sido inscrito manualmente en la actividad de manera correcta.'
-      });
-    } catch (err) {
-      console.error(err);
-      setResultModal({
-        open: true,
-        type: 'error',
-        text: 'Error de inscripción',
-        details: err.message || 'No se pudo completar la inscripción del socio.'
-      });
-    } finally {
-      setManualInscribiendo(false);
-    }
+    
+    setGeneralConfirmModal({
+      open: true,
+      title: 'Inscribir Socio',
+      message: '¿Estás seguro de que deseas inscribir a este socio manualmente en la actividad?',
+      confirmText: 'Sí, inscribir',
+      actionType: 'primary',
+      onConfirm: async () => {
+        setGeneralConfirmModal(prev => ({ ...prev, open: false }));
+        setManualInscribiendo(true);
+        try {
+          await academicoApi.inscribirSocio(selectedMiembroId, inscritosModal.actividad.id);
+          // Reload inscritos list
+          const nuevosInscritos = await administracionApi.obtenerInscritosActividad(inscritosModal.actividad.id);
+          setInscritosModal(prev => ({ ...prev, inscritos: nuevosInscritos }));
+          setSelectedMiembroId('');
+          setMemberSearchQuery('');
+          // Decrease cupos locally
+          setActividades(prev => prev.map(a => a.id === inscritosModal.actividad.id ? { ...a, cupos: Math.max(0, a.cupos - 1) } : a));
+          setResultModal({
+            open: true,
+            type: 'success',
+            text: '¡Socio inscrito con éxito!',
+            details: 'El socio ha sido inscrito manualmente en la actividad de manera correcta.'
+          });
+        } catch (err) {
+          console.error(err);
+          setResultModal({
+            open: true,
+            type: 'error',
+            text: 'Error de inscripción',
+            details: err.message || 'No se pudo completar la inscripción del socio.'
+          });
+        } finally {
+          setManualInscribiendo(false);
+        }
+      }
+    });
   };
 
   const handleReportActividadChange = async (actId) => {
@@ -311,7 +401,7 @@ export const GestionActividadesPage = () => {
           'Firma / Asistencia': { width: 45 }
         },
         margin: { top: 46, left: 14, right: 14, bottom: 20 },
-        didDrawPage: function (data) {
+        didDrawPage: function () {
           doc.setFontSize(8);
           doc.setTextColor(148, 163, 184); // slate-400
           const str = 'Página ' + doc.internal.getNumberOfPages();
@@ -326,8 +416,13 @@ export const GestionActividadesPage = () => {
     setAsistenciaModal(prev => ({ ...prev, open: false }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
+    setConfirmActionModal({ open: true });
+  };
+
+  const executeSubmit = async () => {
+    setConfirmActionModal({ open: false });
     setIsSubmitting(true);
     try {
       const payload = { ...formData, miembro_id: user?.id };
@@ -415,6 +510,13 @@ export const GestionActividadesPage = () => {
           title="Ver inscritos"
         >
           <Users className="h-4 w-4" />
+        </button>
+        <button 
+          onClick={() => handleTogglePublicado(act)}
+          className={`rounded p-1 transition-colors ${act.publicado === false ? 'text-slate-400 hover:bg-slate-100' : 'text-violet-600 hover:bg-violet-50'}`}
+          title={act.publicado === false ? 'Publicar actividad' : 'Ocultar actividad'}
+        >
+          {act.publicado === false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
         <button 
           onClick={() => handleOpenEdit(act)}
@@ -656,7 +758,7 @@ export const GestionActividadesPage = () => {
                 label="Costo (Bs)" 
                 type="number" 
                 value={formData.costo} 
-                onChange={(e) => setFormData({ ...formData, costo: parseFloat(e.target.value) || 0 })} 
+                onChange={(e) => setFormData({ ...formData, costo: e.target.value === '' ? '' : Number(e.target.value) })} 
               />
             </div>
           </div>
@@ -678,8 +780,14 @@ export const GestionActividadesPage = () => {
               className="h-20"
             />
             
-            <div className="grid grid-cols-2 gap-6 items-center">
-              <label className="flex items-center gap-3 cursor-pointer group">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
+              <Input 
+                label="Cupos disponibles" 
+                type="number" 
+                value={formData.cupos} 
+                onChange={(e) => setFormData({ ...formData, cupos: e.target.value === '' ? '' : parseInt(e.target.value) })} 
+              />
+              <label className="flex items-center gap-3 cursor-pointer group mt-4 sm:mt-0">
                 <div className={`h-6 w-11 rounded-full p-1 transition-colors ${formData.incluye_certificacion ? 'bg-emerald-600' : 'bg-slate-200'}`}>
                   <div className={`h-4 w-4 rounded-full bg-white transition-transform ${formData.incluye_certificacion ? 'translate-x-5' : 'translate-x-0'}`} />
                 </div>
@@ -689,15 +797,21 @@ export const GestionActividadesPage = () => {
                   checked={formData.incluye_certificacion} 
                   onChange={(e) => setFormData({ ...formData, incluye_certificacion: e.target.checked })} 
                 />
-                <span className="text-sm font-bold text-slate-700 group-hover:text-emerald-600">Incluye Certificación</span>
+                <span className="text-sm font-bold text-slate-700 group-hover:text-emerald-600">Incluye Certificado</span>
               </label>
 
-              <Input 
-                label="Cupos disponibles" 
-                type="number" 
-                value={formData.cupos} 
-                onChange={(e) => setFormData({ ...formData, cupos: parseInt(e.target.value) || 0 })} 
-              />
+              <label className="flex items-center gap-3 cursor-pointer group mt-4 sm:mt-0">
+                <div className={`h-6 w-11 rounded-full p-1 transition-colors ${formData.publicado ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                  <div className={`h-4 w-4 rounded-full bg-white transition-transform ${formData.publicado ? 'translate-x-5' : 'translate-x-0'}`} />
+                </div>
+                <input 
+                  type="checkbox" 
+                  className="hidden" 
+                  checked={formData.publicado} 
+                  onChange={(e) => setFormData({ ...formData, publicado: e.target.checked })} 
+                />
+                <span className="text-sm font-bold text-slate-700 group-hover:text-blue-600">Publicar Inmediatamente</span>
+              </label>
             </div>
           </div>
 
@@ -712,8 +826,12 @@ export const GestionActividadesPage = () => {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Guardando...' : 'Guardar Actividad'}
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || isSubmitDisabled}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+            >
+              {isSubmitting ? 'Guardando...' : editingAct ? 'Actualizar Actividad' : 'Guardar Actividad'}
             </Button>
           </div>
         </form>
@@ -764,7 +882,7 @@ export const GestionActividadesPage = () => {
               const availableMiembros = todosMiembros.filter(m => m.estado === 'activo' && !enrolledIds.has(m.id));
               
               return (
-                <form onSubmit={handleManualInscribir} className="mt-4 p-4 rounded-xl bg-blue-50/50 border border-blue-100 space-y-3">
+                <form onSubmit={handleManualInscribir} className={`mt-4 p-4 rounded-xl bg-blue-50/50 border border-blue-100 space-y-3 transition-all ${isMemberDropdownOpen ? 'pb-48' : ''}`}>
                   <h4 className="text-xs font-black text-blue-700 uppercase tracking-widest flex items-center gap-1.5">
                     <Users className="h-4 w-4" /> Inscribir Socio Manualmente
                   </h4>
@@ -980,7 +1098,7 @@ export const GestionActividadesPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Selector de Actividad y Selección de Columnas */}
             <div className="space-y-4">
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative">
+              <div className={`bg-slate-50 p-4 rounded-xl border border-slate-200 relative transition-all ${isActividadDropdownOpen ? 'pb-48' : ''}`}>
                 <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Seleccionar Actividad (Curso)</label>
                 <div className="relative">
                   <input
@@ -1197,6 +1315,96 @@ export const GestionActividadesPage = () => {
               onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
             >
               Entendido
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal General de Confirmación */}
+      <Modal
+        isOpen={generalConfirmModal.open}
+        onClose={() => setGeneralConfirmModal(prev => ({ ...prev, open: false }))}
+        title={
+          <div className={`flex items-center gap-2.5 ${generalConfirmModal.actionType === 'danger' ? 'text-red-600' : 'text-blue-600'}`}>
+            <Info className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>{generalConfirmModal.title}</span>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className={`flex items-start gap-3 p-3 rounded-lg text-sm border ${
+            generalConfirmModal.actionType === 'danger' 
+              ? 'bg-red-50 border-red-100 text-red-800' 
+              : 'bg-blue-50 border-blue-100 text-blue-800'
+          }`}>
+            <Info className={`h-5 w-5 shrink-0 mt-0.5 ${generalConfirmModal.actionType === 'danger' ? 'text-red-600' : 'text-blue-600'}`} />
+            <div>
+              <span>{generalConfirmModal.message}</span>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setGeneralConfirmModal(prev => ({ ...prev, open: false }))}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={generalConfirmModal.onConfirm}
+              variant={generalConfirmModal.actionType === 'danger' ? 'danger' : 'primary'}
+            >
+              {generalConfirmModal.confirmText}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal premium de confirmación de acción (Crear/Editar) */}
+      <Modal
+        isOpen={confirmActionModal.open}
+        onClose={() => setConfirmActionModal({ open: false })}
+        title={
+          <div className="flex items-center gap-2.5 text-blue-600">
+            <Info className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>Confirmar Acción</span>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-sm">
+            <Info className="h-5 w-5 shrink-0 text-blue-600 mt-0.5" />
+            <div>
+              <span>
+                ¿Estás seguro de que deseas <strong>{editingAct ? 'actualizar' : 'registrar'}</strong> esta actividad en el sistema?
+                Esta acción {editingAct 
+                  ? 'sobrescribirá la información anterior y actualizará el cronograma institucional para los socios.' 
+                  : 'creará un nuevo registro en la base de datos y notificará a los socios activos por correo (si aplica).'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmActionModal({ open: false })}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeSubmit}
+              disabled={isSubmitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner size="sm" /> Procesando...
+                </>
+              ) : (
+                'Sí, continuar'
+              )}
             </Button>
           </div>
         </div>

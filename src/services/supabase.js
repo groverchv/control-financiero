@@ -13,6 +13,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Cliente administrador (Solo para crear usuarios de forma segura sin afectar la sesión actual)
 export const supabaseAdmin = supabaseServiceKey 
   ? createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
+      auth: { 
+        autoRefreshToken: false, 
+        persistSession: false,
+        detectSessionInUrl: false,
+        storageKey: 'sb-admin-auth-token'
+      }
     })
   : null;

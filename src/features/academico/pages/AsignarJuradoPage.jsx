@@ -25,6 +25,8 @@ export const AsignarJuradoPage = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
 
+  const isSubmitDisabled = !form.miembro_id || (!form.actividad_id && !form.actividad_externa.trim());
+
   const cargarDatos = async () => {
     setLoading(true);
     try {
@@ -253,7 +255,11 @@ export const AsignarJuradoPage = () => {
  
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={submitting}>
+            <Button 
+              type="submit" 
+              disabled={submitting || isSubmitDisabled}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+            >
               {submitting ? <Spinner size="sm" /> : <Save className="h-4 w-4 mr-2" />}
               Guardar Asignación
             </Button>

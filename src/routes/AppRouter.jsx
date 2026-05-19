@@ -36,12 +36,12 @@ export const AppRouter = () => {
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/inicio" element={<LandingPage />} />
+          <Route path="/inicio" element={<LoginPage />} />
           <Route path="/actividades" element={<PublicActividadesPage />} />
           <Route path="/actividades/:id" element={<DetalleActividadPage />} />
           <Route path="/cursos" element={<PublicActividadesPage />} />
           <Route path="/cursos/:id" element={<DetalleActividadPage />} />
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<LoginPage />} />
 
           <Route
             path="/socio/perfil"

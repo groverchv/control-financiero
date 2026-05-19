@@ -48,21 +48,10 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-6 sm:gap-10 rounded-xl sm:rounded-md bg-white p-5 sm:p-8 shadow-sm lg:grid-cols-2">
-      <div className="flex flex-col justify-between gap-8">
-        <div>
-          <p className="text-sm font-semibold text-blue-600">Acceso institucional</p>
-          <h2 className="mt-2 text-3xl font-semibold text-slate-900">Inicia sesion en tu cuenta</h2>
-          <p className="mt-3 text-sm text-slate-500">
-            Gestiona la informacion institucional con seguridad y trazabilidad.
-          </p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-700">Soporte</p>
-          <p className="mt-1 text-sm text-slate-500">
-            Si necesitas ayuda, contacta al administrador de la institucion.
-          </p>
-        </div>
+    <div className="mx-auto w-full max-w-md rounded-xl bg-white p-6 sm:p-8 shadow-md border border-slate-100">
+      <div className="text-center mb-6">
+        <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">Acceso institucional</p>
+        <h2 className="mt-2 text-2xl font-bold text-slate-900">Inicia sesión</h2>
       </div>
 
       <div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight, X, Eye, CheckCircle2, AlertCircle } from 'lucide-react';
+import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight, X, Eye, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useActivos } from '../hooks';
 import { Button, Input, Spinner, Modal, Select, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -33,8 +33,11 @@ export const GestionActivosPage = () => {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
 
+  const isSubmitDisabled = !formData.nombre.trim() || !formData.tipo_activo_id || !formData.costo_total || !formData.fechaAdquisicion;
+
   useEffect(() => {
     if (detalleModal.activo) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingPlan(true);
       patrimonioApi.obtenerAmortizacion(detalleModal.activo.id)
         .then(plan => {
@@ -54,6 +57,7 @@ export const GestionActivosPage = () => {
 
   useEffect(() => {
     if (!isModalOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setImagePreview(null);
     }
   }, [isModalOpen]);
@@ -133,18 +137,6 @@ export const GestionActivosPage = () => {
       )
     },
     { key: 'fechaAdquisicion', label: 'Fecha' },
-    { 
-      key: 'blockchain_tx_id', 
-      label: 'Blockchain ID',
-      render: (val) => val ? (
-        <div className="flex items-center gap-1 text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 w-fit" title={val}>
-          <ShieldCheck className="h-3 w-3" />
-          {val.substring(0, 8)}...
-        </div>
-      ) : (
-        <span className="text-[10px] text-slate-400">No sellado</span>
-      )
-    },
     {
       key: 'id',
       label: 'Acciones',
@@ -163,12 +155,13 @@ export const GestionActivosPage = () => {
             <Button 
               size="xs" 
               variant="outline" 
-              className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-7"
+              className="text-amber-700 border-amber-200 hover:bg-amber-50 h-7 flex items-center gap-1 font-bold"
               onClick={() => handleSellar(id)}
               disabled={isSubmitting}
+              title="Reintentar sellar de forma manual"
             >
-              <ShieldCheck className="h-3 w-3 mr-1" />
-              Sellar
+              <RefreshCw className="h-3 w-3" />
+              Reintentar
             </Button>
           )}
         </div>
@@ -451,7 +444,11 @@ export const GestionActivosPage = () => {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || isSubmitDisabled}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+            >
               {isSubmitting ? 'Guardando...' : 'Guardar Activo'}
             </Button>
           </div>

@@ -1,6 +1,7 @@
 import { supabase, supabaseAdmin } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { brevoService } from '../../../services/brevo';
+import { encryptPassword, decryptPassword } from '../../../utils/encryption';
 
 export const administracionApi = {
   obtenerMiembros: async () => {
@@ -16,6 +17,9 @@ export const administracionApi = {
         rol, 
         estado, 
         creacion,
+        contrasena,
+        profesion,
+        biografia,
         archivos:archivo(url, tipo, estado)
       `);
 
@@ -24,6 +28,7 @@ export const administracionApi = {
     return (data || []).map(m => ({
       ...m,
       email: m.correoElectronico, // Mapeamos correoElectronico a email para la UI
+      contrasena: m.contrasena ? decryptPassword(m.contrasena) : '',
       foto: m.archivos?.find(a => a.tipo === 'foto' && a.estado === 'activo')?.url || null,
     }));
   },
@@ -53,7 +58,7 @@ export const administracionApi = {
     if (miembro.telefono) updates.telefono = miembro.telefono;
     if (miembro.apellidoPaterno) updates["apellidoPaterno"] = miembro.apellidoPaterno;
     if (miembro.apellidoMaterno) updates["apellidoMaterno"] = miembro.apellidoMaterno;
-    if (miembro.password) updates.contrasena = miembro.password;
+    if (miembro.password) updates.contrasena = encryptPassword(miembro.password);
 
     if (Object.keys(updates).length > 0) {
       await supabaseAdmin
@@ -85,12 +90,33 @@ export const administracionApi = {
 
     return {
       ...data,
-      email: data.correoElectronico
+      email: data.correoElectronico,
+      contrasena: data.contrasena ? decryptPassword(data.contrasena) : ''
     };
   },
 
   actualizarMiembro: async (id, updates) => {
-    // Si la UI envía 'email', lo mapeamos a 'correoElectronico'
+    if (!supabaseAdmin) {
+      throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
+    }
+
+    // 1. Si hay email o rol o nombre en los updates, también actualizamos en Auth
+    const authUpdates = {};
+    if (updates.email) {
+      authUpdates.email = updates.email;
+    }
+    if (updates.rol || updates.nombre) {
+      authUpdates.user_metadata = {};
+      if (updates.nombre) authUpdates.user_metadata.full_name = updates.nombre;
+      if (updates.rol) authUpdates.user_metadata.rol = updates.rol;
+    }
+
+    if (Object.keys(authUpdates).length > 0) {
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, authUpdates);
+      if (authError) throw authError;
+    }
+
+    // 2. Mapear 'email' a 'correoElectronico' para la tabla miembro
     const finalUpdates = { ...updates };
     if (updates.email) {
       finalUpdates.correoElectronico = updates.email;
@@ -101,11 +127,31 @@ export const administracionApi = {
       .from('miembro')
       .update(finalUpdates)
       .eq('id', id)
-      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado');
+      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, contrasena');
 
     if (error) throw error;
     const res = data?.[0];
-    return res ? { ...res, email: res.correoElectronico } : null;
+    return res ? { ...res, email: res.correoElectronico, contrasena: res.contrasena ? decryptPassword(res.contrasena) : '' } : null;
+  },
+
+  actualizarContrasena: async (id, newPassword) => {
+    if (!supabaseAdmin) throw new Error('Se requiere clave de administrador para cambiar contraseñas.');
+    
+    // 1. Actualizar en Supabase Auth
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+      password: newPassword
+    });
+    if (authError) throw authError;
+
+    // 2. Actualizar en public.miembro (encriptado)
+    const encrypted = encryptPassword(newPassword);
+    const { error: dbError } = await supabase
+      .from('miembro')
+      .update({ contrasena: encrypted })
+      .eq('id', id);
+    if (dbError) throw dbError;
+
+    return true;
   },
 
   eliminarMiembro: async (id) => {
@@ -346,5 +392,26 @@ export const administracionApi = {
       email: d.miembro?.correoElectronico,
       fechaInscripcion: d.fecha_inscripcion,
     }));
+  },
+
+  actualizarContrasena: async (id, newPassword) => {
+    if (!supabaseAdmin) {
+      throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
+    }
+
+    // 1. Actualizar en Supabase Auth
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+      password: newPassword
+    });
+    if (authError) throw authError;
+
+    // 2. Actualizar en la tabla miembro
+    const { error: dbError } = await supabaseAdmin
+      .from('miembro')
+      .update({ contrasena: newPassword })
+      .eq('id', id);
+
+    if (dbError) throw dbError;
+    return true;
   }
 };

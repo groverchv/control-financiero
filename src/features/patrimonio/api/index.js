@@ -221,5 +221,14 @@ export const patrimonioApi = {
 
     if (error) throw error;
     return data?.[0];
+  },
+
+  verificarTipoActivoEnUso: async (tipoId) => {
+    const { count, error } = await supabase
+      .from('activos')
+      .select('id', { count: 'exact', head: true })
+      .eq('tipo_activo_id', tipoId);
+    if (error) throw error;
+    return count > 0;
   }
 };

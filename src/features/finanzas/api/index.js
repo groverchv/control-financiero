@@ -524,5 +524,23 @@ export const finanzasApi = {
     const { data, error } = await supabase.from('egreso').select('*').eq('id', id).single();
     if (error) throw error;
     return await blockchainService.sellarYActualizar('egreso', data, registradoPor);
+  },
+
+  verificarTipoIngresoEnUso: async (tipoId) => {
+    const { count, error } = await supabase
+      .from('ingreso')
+      .select('id', { count: 'exact', head: true })
+      .eq('tipo_ingreso_id', tipoId);
+    if (error) throw error;
+    return count > 0;
+  },
+
+  verificarTipoEgresoEnUso: async (tipoId) => {
+    const { count, error } = await supabase
+      .from('egreso')
+      .select('id', { count: 'exact', head: true })
+      .eq('tipo_egreso_id', tipoId);
+    if (error) throw error;
+    return count > 0;
   }
 };

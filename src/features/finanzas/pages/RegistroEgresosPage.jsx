@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { patrimonioApi } from '../../patrimonio/api';
 import { useEgresos } from '../hooks';
@@ -34,10 +34,12 @@ export const RegistroEgresosPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [comprobantePreview, setComprobantePreview] = useState(null);
   const ITEMS_PER_PAGE = 10;
+
+  const isSubmitDisabled = !form.concepto.trim() || !form.monto || !form.tipo_egreso_id;
   
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!isCreateModalOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setComprobantePreview(null);
     }
   }, [isCreateModalOpen]);
@@ -254,7 +256,6 @@ export const RegistroEgresosPage = () => {
                         <th className="px-4 py-3">Tipo</th>
                         <th className="px-4 py-3">Monto</th>
                         <th className="px-4 py-3">Fecha Registro</th>
-                        <th className="px-4 py-3">Blockchain ID</th>
                         <th className="px-4 py-3 text-right">Acciones</th>
                       </tr>
                     </thead>
@@ -280,16 +281,6 @@ export const RegistroEgresosPage = () => {
                                 }) 
                               : new Date(egreso.fecha).toLocaleDateString('es-ES')}
                           </td>
-                          <td className="px-4 py-3">
-                            {egreso.blockchain_tx_id ? (
-                              <div className="flex items-center gap-1 text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 w-fit" title={egreso.blockchain_tx_id}>
-                                <ShieldCheck className="h-3 w-3" />
-                                {egreso.blockchain_tx_id.substring(0, 8)}...
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-slate-400">No sellado</span>
-                            )}
-                          </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-2">
                               <button 
@@ -303,10 +294,11 @@ export const RegistroEgresosPage = () => {
                                 <button 
                                   onClick={() => handleSellar(egreso.id)}
                                   disabled={submitting}
-                                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors disabled:opacity-50"
+                                  title="Reintentar sellar de forma manual"
                                 >
-                                  <ShieldCheck className="h-3.5 w-3.5" />
-                                  Sellar
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                  Reintentar
                                 </button>
                               )}
                             </div>
@@ -465,7 +457,13 @@ export const RegistroEgresosPage = () => {
           </div>
           <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
             <Button variant="outline" type="button" onClick={() => setIsCreateModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" disabled={submitting}>Registrar egreso</Button>
+            <Button 
+              type="submit" 
+              disabled={submitting || isSubmitDisabled}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+            >
+              Registrar egreso
+            </Button>
           </div>
         </form>
       </Modal>

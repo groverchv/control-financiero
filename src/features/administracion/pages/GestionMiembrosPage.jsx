@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2, UserCircle } from 'lucide-react';
 import { useMiembros } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
 import { Toast } from '../../../components/feedback';
 import { administracionApi } from '../api';
+import { supabase } from '../../../services/supabase';
 
 export const GestionMiembrosPage = () => {
   const { miembros, loading, error, setMiembros } = useMiembros();
@@ -15,6 +16,7 @@ export const GestionMiembrosPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showDetailPassword, setShowDetailPassword] = useState(false);
   const [formData, setFormData] = useState({ 
     nombre: '', 
     apellidoPaterno: '', 
@@ -30,7 +32,19 @@ export const GestionMiembrosPage = () => {
   const [talentSearchModal, setTalentSearchModal] = useState({ open: false, queryProf: '', queryDesc: '', results: [] });
   const [imageModal, setImageModal] = useState({ open: false, url: null });
   const [statusConfirmModal, setStatusConfirmModal] = useState({ open: false, miembro: null, nuevoEstado: 'activo' });
+  const [confirmActionModal, setConfirmActionModal] = useState({ open: false });
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+
+  const isFormUnchanged = !!editingMember && 
+    formData.nombre === editingMember.nombre &&
+    (formData.apellidoPaterno || '') === (editingMember.apellidoPaterno || '') &&
+    (formData.apellidoMaterno || '') === (editingMember.apellidoMaterno || '') &&
+    formData.email === editingMember.email &&
+    (formData.telefono || '') === (editingMember.telefono || '') &&
+    formData.password === '' &&
+    formData.confirmPassword === '' &&
+    formData.rol === editingMember.rol &&
+    formData.estado === editingMember.estado;
 
   const columns = [
     { key: 'foto_display', label: 'Foto' },
@@ -114,6 +128,7 @@ export const GestionMiembrosPage = () => {
   };
 
   const handleOpenDetail = async (miembro) => {
+    setShowDetailPassword(false);
     setDetailModal({ open: true, miembro, inscripciones: [], notificaciones: [], cvUrl: null, loading: true, tab: 'inscripciones' });
     try {
       const [inscripciones, notificaciones, cvUrl] = await Promise.all([
@@ -129,19 +144,23 @@ export const GestionMiembrosPage = () => {
   };
 
 
+
+
   const handleSearchTalent = (queryProf, queryDesc) => {
     if (!queryProf.trim() && !queryDesc.trim()) {
       setTalentSearchModal(prev => ({ ...prev, queryProf, queryDesc, results: [] }));
       return;
     }
     
-    const termsProf = queryProf.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-    const termsDesc = queryDesc.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    const normalize = (str) => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+    
+    const termsProf = normalize(queryProf).split(/\s+/).filter(t => t.length > 2);
+    const termsDesc = normalize(queryDesc).split(/\s+/).filter(t => t.length > 2);
     
     const scored = miembros.map(m => {
       let score = 0;
-      const prof = (m.profesion || '').toLowerCase();
-      const bio = (m.biografia || '').toLowerCase();
+      const prof = normalize(m.profesion);
+      const bio = normalize(m.biografia);
       
       termsProf.forEach(term => {
         if (prof.includes(term)) score += 5;
@@ -160,31 +179,91 @@ export const GestionMiembrosPage = () => {
   };
 
 
-  const handleSubmit = async (e) => {
+  const handlePreSubmit = (e) => {
     e.preventDefault();
 
-    if (!editingMember && formData.password !== formData.confirmPassword) {
-      setResultModal({
-        open: true,
-        type: 'error',
-        text: 'Error de validación',
-        details: 'Las contraseñas ingresadas no coinciden. Por favor, verifíquelas.'
-      });
-      return;
+    if (!editingMember) {
+      if (formData.password !== formData.confirmPassword) {
+        setResultModal({
+          open: true,
+          type: 'error',
+          text: 'Error de validación',
+          details: 'Las contraseñas ingresadas no coinciden. Por favor, verifíquelas.'
+        });
+        return;
+      }
+      if (formData.password.length < 4) {
+        setResultModal({
+          open: true,
+          type: 'error',
+          text: 'Contraseña insegura',
+          details: 'La contraseña debe tener al menos 4 caracteres por seguridad.'
+        });
+        return;
+      }
     }
 
+    if (editingMember && formData.password) {
+      if (formData.password !== formData.confirmPassword) {
+        setResultModal({
+          open: true,
+          type: 'error',
+          text: 'Error de validación',
+          details: 'Las contraseñas ingresadas no coinciden. Por favor, verifíquelas.'
+        });
+        return;
+      }
+      if (formData.password.length < 4) {
+        setResultModal({
+          open: true,
+          type: 'error',
+          text: 'Contraseña insegura',
+          details: 'La contraseña debe tener al menos 4 caracteres por seguridad.'
+        });
+        return;
+      }
+    }
+
+    setConfirmActionModal({ open: true });
+  };
+
+  const executeSubmit = async () => {
+    setConfirmActionModal({ open: false });
     setIsSubmitting(true);
     try {
       if (editingMember) {
         // ACTUALIZAR
-        const { password, confirmPassword, email, ...updates } = formData;
+        const { password, confirmPassword, ...updates } = formData;
+        
+        if (password) {
+          await administracionApi.actualizarContrasena(editingMember.id, password);
+        }
+
         const actualizado = await administracionApi.actualizarMiembro(editingMember.id, updates);
-        setMiembros(miembros.map(m => m.id === editingMember.id ? actualizado : m));
+        const miembroSincronizado = {
+          ...actualizado,
+          contrasena: password ? password : editingMember.contrasena
+        };
+
+        setMiembros(miembros.map(m => m.id === editingMember.id ? miembroSincronizado : m));
+
+        // Crear notificación del sistema (no por correo)
+        await supabase.from('notificacion').insert([{
+          miembro_id: editingMember.id,
+          titulo: password ? 'Credenciales de Acceso Actualizadas' : 'Actualización de Perfil',
+          descripcion: password 
+            ? 'Tu contraseña de acceso ha sido actualizada por la administración.'
+            : 'Tus datos personales o configuraciones de cuenta han sido actualizados por la administración.',
+          estado: 'pendiente'
+        }]);
+
         setResultModal({
           open: true,
           type: 'success',
           text: '¡Miembro actualizado con éxito!',
-          details: 'Los datos personales y de configuración del socio se han actualizado correctamente.'
+          details: password 
+            ? 'Los datos y la contraseña del socio se han actualizado correctamente en Supabase, y se ha registrado una notificación de sistema.'
+            : 'Los datos personales y de configuración del socio se han actualizado correctamente y se ha registrado una notificación de sistema.'
         });
       } else {
         // CREAR
@@ -203,11 +282,14 @@ export const GestionMiembrosPage = () => {
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
+      const errMsg = err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql.';
       setResultModal({
         open: true,
         type: 'error',
         text: editingMember ? 'No se pudo actualizar los datos' : 'No se pudo registrar el miembro',
-        details: err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql.'
+        details: errMsg.toLowerCase().includes('already registered') || errMsg.toLowerCase().includes('duplicate key') 
+          ? 'Ya existe un miembro registrado con este mismo correo electrónico. Por favor intente con otro.' 
+          : errMsg
       });
     } finally {
       setIsSubmitting(false);
@@ -420,7 +502,7 @@ export const GestionMiembrosPage = () => {
         onClose={() => setIsModalOpen(false)} 
         title={editingMember ? 'Editar miembro' : 'Registrar nuevo miembro'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handlePreSubmit} className="space-y-4">
           {/* Sección de Datos Personales */}
           <div className="space-y-3">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Datos Personales</h3>
@@ -457,7 +539,6 @@ export const GestionMiembrosPage = () => {
                 value={formData.email} 
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
                 required 
-                disabled={!!editingMember}
               />
               <Input 
                 label="Teléfono" 
@@ -467,38 +548,42 @@ export const GestionMiembrosPage = () => {
             </div>
           </div>
           
-          {/* Sección de Credenciales (Solo para Nuevos Miembros) */}
-          {!editingMember && (
-            <div className="space-y-3 pt-2">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Credenciales de Acceso</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative">
-                  <Input 
-                    label="Contraseña" 
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password} 
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
-                    required 
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+          {/* Sección de Credenciales */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              {editingMember ? 'Actualizar Credenciales (Dejar en blanco para mantener la actual)' : 'Credenciales de Acceso'}
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
                 <Input 
-                  label="Confirmar Contraseña" 
+                  label="Contraseña" 
                   type={showPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword} 
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
-                  required 
+                  value={formData.password} 
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                  required={!editingMember} 
+                  placeholder={editingMember ? 'Dejar en blanco para mantener la actual' : 'Mínimo 4 caracteres'}
+                  autoComplete="new-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
+              <Input 
+                label="Confirmar Contraseña" 
+                type={showPassword ? 'text' : 'password'}
+                value={formData.confirmPassword} 
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
+                required={!editingMember}
+                placeholder={editingMember ? 'Dejar en blanco para mantener la actual' : 'Mínimo 4 caracteres'}
+                autoComplete="new-password"
+              />
             </div>
-          )}
+          </div>
 
           {/* Sección de Configuración Administrativa */}
           <div className="space-y-3 pt-2">
@@ -536,7 +621,11 @@ export const GestionMiembrosPage = () => {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || isFormUnchanged}
+              className={isFormUnchanged ? "opacity-50 cursor-not-allowed" : ""}
+            >
               {isSubmitting ? 'Guardando...' : editingMember ? 'Actualizar' : 'Guardar Miembro'}
             </Button>
           </div>
@@ -550,12 +639,76 @@ export const GestionMiembrosPage = () => {
         title={`Detalle de: ${detailModal.miembro?.nombre || ''}`}
       >
         <div className="space-y-4">
-          {/* Info basica */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><span className="font-semibold text-slate-500">Correo:</span> <span className="text-slate-800">{detailModal.miembro?.email}</span></div>
-            <div><span className="font-semibold text-slate-500">Telefono:</span> <span className="text-slate-800">{detailModal.miembro?.telefono || '-'}</span></div>
-            <div><span className="font-semibold text-slate-500">Rol:</span> <span className="text-slate-800">{detailModal.miembro?.rol}</span></div>
-            <div><span className="font-semibold text-slate-500">Estado:</span> <span className="text-slate-800">{detailModal.miembro?.estado}</span></div>
+          {/* Cabecera y Detalles unificados */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5 bg-slate-50 rounded-xl border border-slate-100/80">
+            {/* Foto de Perfil y Nombre */}
+            <div className="flex flex-col items-center text-center space-y-3 p-4 bg-white rounded-xl border border-slate-100 shadow-sm md:col-span-1 justify-center">
+              <div 
+                className="h-28 w-28 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden border-2 border-slate-100 shadow-inner group relative cursor-pointer"
+                onClick={() => detailModal.miembro?.foto && setImageModal({ open: true, url: detailModal.miembro.foto })}
+                title="Haga clic para ver foto completa"
+              >
+                {detailModal.miembro?.foto ? (
+                  <img 
+                    src={detailModal.miembro.foto} 
+                    alt="Perfil" 
+                    className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" 
+                  />
+                ) : (
+                  <UserCircle className="h-16 w-16 text-slate-300" />
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-base leading-tight">
+                  {detailModal.miembro?.nombre}
+                </h3>
+                <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                  {detailModal.miembro?.apellidoPaterno} {detailModal.miembro?.apellidoMaterno}
+                </p>
+                <span className="inline-block mt-2 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase bg-blue-50 text-blue-600 border border-blue-100">
+                  {detailModal.miembro?.rol}
+                </span>
+              </div>
+            </div>
+
+            {/* Datos Personales */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2 text-sm">
+              <div>
+                <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Correo Electrónico</span> 
+                <span className="text-slate-800 font-medium break-all">{detailModal.miembro?.email}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Teléfono</span> 
+                <span className="text-slate-800 font-medium">{detailModal.miembro?.telefono || '-'}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Estado</span> 
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold uppercase mt-0.5 ${detailModal.miembro?.estado === 'activo' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-600'}`}>{detailModal.miembro?.estado}</span>
+              </div>
+              
+              <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Profesión / Título</span>
+                <span className="text-slate-800 font-medium">{detailModal.miembro?.profesion || '-'}</span>
+              </div>
+              <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Biografía / Habilidades</span>
+                <span className="text-slate-800 font-medium leading-relaxed">{detailModal.miembro?.biografia || '-'}</span>
+              </div>
+              <div className="sm:col-span-2 border-t border-slate-200/60 pt-3 flex items-center gap-2">
+                <span className="font-semibold text-slate-500">Contraseña:</span>
+                <span className="font-mono text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded shadow-sm">
+                  {showDetailPassword ? detailModal.miembro?.contrasena || 'No registrada' : '••••••••'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowDetailPassword(!showDetailPassword)}
+                  className="text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
+                  title={showDetailPassword ? 'Ocultar Contraseña' : 'Ver Contraseña'}
+                >
+                  {showDetailPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -701,6 +854,55 @@ export const GestionMiembrosPage = () => {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal premium de confirmación de acción (Crear/Editar) */}
+      <Modal
+        isOpen={confirmActionModal.open}
+        onClose={() => setConfirmActionModal({ open: false })}
+        title={
+          <div className="flex items-center gap-2.5 text-blue-600">
+            <Info className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>Confirmar Acción</span>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-sm">
+            <Info className="h-5 w-5 shrink-0 text-blue-600 mt-0.5" />
+            <div>
+              <span>
+                ¿Estás seguro de que deseas <strong>{editingMember ? 'actualizar' : 'registrar'}</strong> a este miembro en el sistema?
+                Esta acción {editingMember 
+                  ? 'sobrescribirá la información anterior y registrará una notificación de sistema en la cuenta del miembro (sin envío de correo).' 
+                  : 'creará un nuevo registro en la base de datos y le enviará un correo de bienvenida con sus credenciales de acceso.'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmActionModal({ open: false })}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeSubmit}
+              disabled={isSubmitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner size="sm" /> Procesando...
+                </>
+              ) : (
+                'Sí, continuar'
+              )}
+            </Button>
           </div>
         </div>
       </Modal>

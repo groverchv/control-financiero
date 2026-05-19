@@ -26,6 +26,14 @@ export const PerfilSocioPage = () => {
 
   const [initialData, setInitialData] = useState({});
 
+  const isFormUnchanged = isEditing &&
+    formData.nombre === (initialData.nombre || '') &&
+    formData.apellidoPaterno === (initialData.apellidoPaterno || '') &&
+    formData.apellidoMaterno === (initialData.apellidoMaterno || '') &&
+    formData.telefono === (initialData.telefono || '') &&
+    formData.profesion === (initialData.profesion || '') &&
+    formData.biografia === (initialData.biografia || '');
+
   useEffect(() => {
     const loadProfile = async () => {
       if (!user?.id) return;
@@ -347,7 +355,11 @@ export const PerfilSocioPage = () => {
                     <X className="h-4 w-4" />
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={isSaving} className="px-8 py-6 rounded-2xl shadow-xl shadow-blue-500/20">
+                  <Button 
+                    type="submit" 
+                    disabled={isSaving || isFormUnchanged} 
+                    className={`px-8 py-6 rounded-2xl shadow-xl shadow-blue-500/20 ${isFormUnchanged ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
                     {isSaving ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />

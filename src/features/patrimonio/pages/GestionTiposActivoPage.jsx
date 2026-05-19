@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Tags, Plus, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -13,12 +13,22 @@ export const GestionTiposActivoPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [tiposEnUso, setTiposEnUso] = useState({});
+
+  const isSubmitDisabled = !formData.nombre.trim();
 
   const fetchTipos = async () => {
     try {
       setLoading(true);
       const data = await patrimonioApi.obtenerTiposActivo();
       setTipos(data);
+
+      // Verificar uso
+      const uso = {};
+      for (const tipo of data) {
+        try { uso[tipo.id] = await patrimonioApi.verificarTipoActivoEnUso(tipo.id); } catch { uso[tipo.id] = false; }
+      }
+      setTiposEnUso(uso);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar tipos');
     } finally {
@@ -61,15 +71,28 @@ export const GestionTiposActivoPage = () => {
   const columns = [
     { key: 'nombre', label: 'Nombre' },
     { key: 'descripcion', label: 'Descripción' },
-    { key: 'creacion', label: 'Fecha Creación', render: (val) => new Date(val).toLocaleDateString() },
+    { key: 'estado_uso', label: 'Estado' },
   ];
+
+  const rows = tipos.map(tipo => ({
+    ...tipo,
+    estado_uso: tiposEnUso[tipo.id] ? (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
+        <Lock className="h-3 w-3" /> En uso
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
+        Disponible
+      </span>
+    )
+  }));
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Tipos de Activos</h1>
-          <p className="text-sm text-slate-500">Administra las categorias maestras de los activos.</p>
+          <p className="text-sm text-slate-500">Administra las categorias maestras de los activos. Los tipos en uso no pueden ser eliminados.</p>
         </div>
         <Button type="button" onClick={() => setIsModalOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -91,7 +114,7 @@ export const GestionTiposActivoPage = () => {
         ) : error ? (
           <Toast title="Error" message={error} variant="error" />
         ) : (
-          <Table columns={columns} rows={tipos} emptyMessage="No hay tipos de activos registrados." />
+          <Table columns={columns} rows={rows} emptyMessage="No hay tipos de activos registrados." />
         )}
       </section>
 
@@ -115,7 +138,11 @@ export const GestionTiposActivoPage = () => {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || isSubmitDisabled}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+            >
               {isSubmitting ? 'Guardando...' : 'Guardar Tipo'}
             </Button>
           </div>

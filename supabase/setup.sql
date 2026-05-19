@@ -33,7 +33,7 @@ CREATE TABLE public.miembro (
     "apellidoPaterno" text,
     "apellidoMaterno" text,
     "correoElectronico" text UNIQUE,
-    contrasena text, 
+    contrasena text,
     telefono text,
     profesion text,
     biografia text,
@@ -78,6 +78,7 @@ CREATE TABLE public.actividad (
     requisitos text,
     incluye_certificacion boolean DEFAULT false,
     estado text DEFAULT 'programado',
+    publicado boolean DEFAULT true,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );

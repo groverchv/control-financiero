@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Shield, ShieldCheck, ShieldAlert, Activity, Database, Link2, CheckCircle2, XCircle, AlertTriangle, ChevronRight, RefreshCw, Lock, ChevronLeft } from 'lucide-react';
+import { Shield, ShieldCheck, ShieldAlert, Activity, Database, Link2, CheckCircle2, XCircle, AlertTriangle, ChevronRight, RefreshCw, Lock, ChevronLeft, Network, Info } from 'lucide-react';
 import { auditoriaApi } from '../api';
 import { Button, Spinner, Modal } from '../../../components/ui';
-import { Toast } from '../../../components/feedback';
 
 const TABLAS = [
     { key: 'ingreso', label: 'Ingresos', color: 'emerald' },
@@ -22,6 +21,7 @@ export const AuditoriaPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
     const [detalleModal, setDetalleModal] = useState({ open: false, registro: null, resultado: null, loading: false });
+    const [redDetallesModal, setRedDetallesModal] = useState(false);
 
     const cargarDatos = async () => {
         setLoading(true);
@@ -40,6 +40,7 @@ export const AuditoriaPage = () => {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         cargarDatos();
     }, []);
 
@@ -74,6 +75,7 @@ export const AuditoriaPage = () => {
             const resultado = await auditoriaApi.verificarRegistro(tablaActiva, registro);
             setDetalleModal(prev => ({ ...prev, resultado, loading: false }));
         } catch (err) {
+            console.error('Error al verificar registro individual:', err);
             setDetalleModal(prev => ({ ...prev, loading: false }));
         }
     };
@@ -108,15 +110,24 @@ export const AuditoriaPage = () => {
 
             {/* Estado de la red */}
             <div className="grid gap-4 md:grid-cols-4">
-                <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Red Fabric</span>
-                        <div className={`h-2.5 w-2.5 rounded-full ${redOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Red Fabric</span>
+                            <div className={`h-2.5 w-2.5 rounded-full ${redOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                        </div>
+                        <p className={`text-lg font-bold ${redOnline ? 'text-emerald-700' : 'text-red-600'}`}>
+                            {redOnline ? 'Operativa' : 'Desconectada'}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">Hyperledger Fabric v2.5</p>
                     </div>
-                    <p className={`text-lg font-bold ${redOnline ? 'text-emerald-700' : 'text-red-600'}`}>
-                        {redOnline ? 'Operativa' : 'Desconectada'}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1">Hyperledger Fabric v2.5</p>
+                    <button 
+                        onClick={() => setRedDetallesModal(true)}
+                        className="mt-4 text-[10px] font-bold text-blue-600 uppercase tracking-wider hover:underline flex items-center gap-1 w-fit"
+                    >
+                        <Network className="h-3 w-3" />
+                        Ver detalles y nodos
+                    </button>
                 </div>
 
                 <div className="rounded-xl bg-white p-5 shadow-sm border border-slate-100">
@@ -420,6 +431,90 @@ export const AuditoriaPage = () => {
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            {/* Modal de Diagnostico de Red */}
+            <Modal
+                isOpen={redDetallesModal}
+                onClose={() => setRedDetallesModal(false)}
+                title="Topología y Diagnóstico de Red Fabric"
+                width="max-w-2xl"
+            >
+                <div className="space-y-6">
+                    <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 text-sm">
+                        <p className="text-slate-600 mb-2">
+                            El sistema utiliza una arquitectura de <strong>Blockchain Híbrido</strong>. Las transacciones se almacenan en la base de datos principal (Supabase) y simultáneamente se sellan criptográficamente en una red de <strong>Hyperledger Fabric</strong> para garantizar su inmutabilidad.
+                        </p>
+                        {redOnline ? (
+                            <div className="flex items-center gap-2 text-emerald-700 font-bold bg-emerald-100 px-3 py-2 rounded-lg mt-3">
+                                <CheckCircle2 className="h-4 w-4" /> La conexión de la API Gateway con los nodos está establecida correctamente.
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-red-700 font-bold bg-red-100 px-3 py-2 rounded-lg mt-3">
+                                <AlertTriangle className="h-4 w-4 shrink-0" /> 
+                                <span>La API Gateway está en <strong>MODO OFFLINE</strong> (Fallback en memoria local) debido a la pérdida de conexión con los nodos.</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 border-b pb-2 flex items-center gap-2">
+                            <Network className="h-4 w-4" /> Parámetros de Conexión
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">API Gateway Proxy</p>
+                                <p className="text-sm font-mono text-slate-800">http://localhost:3001</p>
+                                <p className="text-[10px] text-slate-500 mt-1">Intermediario REST hacia Fabric</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Nodo Peer</p>
+                                <p className="text-sm font-mono text-slate-800">peer0.org1 (Port: 7051)</p>
+                                <p className="text-[10px] text-slate-500 mt-1">Almacena el Ledger y Smart Contracts</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Canal (Channel)</p>
+                                <p className="text-sm font-mono text-slate-800">auditchannel</p>
+                                <p className="text-[10px] text-slate-500 mt-1">Subred privada de transacciones</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Smart Contract</p>
+                                <p className="text-sm font-mono text-slate-800">audit (Chaincode)</p>
+                                <p className="text-[10px] text-slate-500 mt-1">Lógica de sellado y verificación</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Identidad (MSP)</p>
+                                <p className="text-sm font-mono text-slate-800">Org1MSP</p>
+                                <p className="text-[10px] text-slate-500 mt-1">Autoridad criptográfica de validación</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Seguridad gRPC</p>
+                                <p className="text-sm font-mono text-emerald-600 font-bold">TLS v1.2 Activo</p>
+                                <p className="text-[10px] text-slate-500 mt-1">Comunicación encriptada con certificados</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 border-b pb-2 flex items-center gap-2">
+                            <Info className="h-4 w-4" /> Guía Rápida de Solución de Fallas
+                        </h4>
+                        <ul className="text-xs text-slate-600 space-y-3 list-disc pl-5">
+                            <li>
+                                <strong>La API no responde (Desconectada):</strong> Verifique que el servidor Node.js de la API esté ejecutándose. Abra la terminal y ejecute <code className="bg-slate-100 text-rose-600 px-1 py-0.5 rounded font-mono">npm run dev</code> en el directorio <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">blockchain/api</code>.
+                            </li>
+                            <li>
+                                <strong>Modo Offline Activo:</strong> Si la API se ejecuta pero el estado es offline, los contenedores Docker están caídos. Ejecute <code className="bg-slate-100 text-rose-600 px-1 py-0.5 rounded font-mono">./init-network.sh up</code> en <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">blockchain/scripts</code> para levantar la red Hyperledger Fabric.
+                            </li>
+                            <li>
+                                <strong>Fallo de credenciales (MSP):</strong> Asegúrese de que los certificados criptográficos en <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">blockchain/organizations</code> existan y coincidan con el archivo `.env` de la API Gateway.
+                            </li>
+                            <li>
+                                <strong>Error de CORS:</strong> Verifique que la variable <code className="bg-slate-100 text-rose-600 px-1 py-0.5 rounded font-mono">VITE_BLOCKCHAIN_API_URL</code> exista en su archivo <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">.env.local</code> del frontend.
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </Modal>
         </div>
     );

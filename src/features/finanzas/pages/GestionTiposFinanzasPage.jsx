@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, PlusCircle, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
@@ -11,6 +11,8 @@ export const GestionTiposFinanzasPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [tiposIngresoEnUso, setTiposIngresoEnUso] = useState({});
+  const [tiposEgresoEnUso, setTiposEgresoEnUso] = useState({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState('ingreso'); // 'ingreso' or 'egreso'
@@ -27,6 +29,19 @@ export const GestionTiposFinanzasPage = () => {
       ]);
       setTiposIngreso(ingresos);
       setTiposEgreso(egresos);
+
+      // Verificar uso de cada tipo
+      const ingresoUso = {};
+      for (const tipo of ingresos) {
+        try { ingresoUso[tipo.id] = await finanzasApi.verificarTipoIngresoEnUso(tipo.id); } catch { ingresoUso[tipo.id] = false; }
+      }
+      setTiposIngresoEnUso(ingresoUso);
+
+      const egresoUso = {};
+      for (const tipo of egresos) {
+        try { egresoUso[tipo.id] = await finanzasApi.verificarTipoEgresoEnUso(tipo.id); } catch { egresoUso[tipo.id] = false; }
+      }
+      setTiposEgresoEnUso(egresoUso);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar categorias');
     } finally {
@@ -81,18 +96,46 @@ export const GestionTiposFinanzasPage = () => {
   const columnasIngreso = [
     { key: 'nombre', label: 'Nombre' },
     { key: 'descripcion', label: 'Descripción' },
+    { key: 'estado_uso', label: 'Estado' },
   ];
 
   const columnasEgreso = [
     { key: 'nombre', label: 'Nombre' },
     { key: 'descripcion', label: 'Descripción' },
+    { key: 'estado_uso', label: 'Estado' },
   ];
+
+  const rowsIngreso = tiposIngreso.map(tipo => ({
+    ...tipo,
+    estado_uso: tiposIngresoEnUso[tipo.id] ? (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
+        <Lock className="h-3 w-3" /> En uso
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
+        Disponible
+      </span>
+    )
+  }));
+
+  const rowsEgreso = tiposEgreso.map(tipo => ({
+    ...tipo,
+    estado_uso: tiposEgresoEnUso[tipo.id] ? (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
+        <Lock className="h-3 w-3" /> En uso
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
+        Disponible
+      </span>
+    )
+  }));
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-semibold text-slate-900">Tipos de Ingreso y Egreso</h1>
-        <p className="text-sm text-slate-500">Gestiona las categorías utilizadas para las finanzas.</p>
+        <p className="text-sm text-slate-500">Gestiona las categorías utilizadas para las finanzas. Los tipos en uso no pueden ser eliminados.</p>
       </header>
 
       {message && (
@@ -126,7 +169,7 @@ export const GestionTiposFinanzasPage = () => {
             </div>
             <Table
               columns={columnasIngreso}
-              rows={tiposIngreso}
+              rows={rowsIngreso}
               emptyMessage="No hay tipos de ingreso registrados."
             />
           </section>
@@ -145,7 +188,7 @@ export const GestionTiposFinanzasPage = () => {
             </div>
             <Table
               columns={columnasEgreso}
-              rows={tiposEgreso}
+              rows={rowsEgreso}
               emptyMessage="No hay tipos de egreso registrados."
             />
           </section>
@@ -179,7 +222,11 @@ export const GestionTiposFinanzasPage = () => {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || !formData.nombre.trim()}
+              className={!formData.nombre.trim() ? "opacity-50 cursor-not-allowed" : ""}
+            >
               {isSubmitting ? 'Guardando...' : 'Guardar'}
             </Button>
           </div>

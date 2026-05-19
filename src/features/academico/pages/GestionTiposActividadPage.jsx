@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Tags, PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Tags, PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { useTiposActividad } from '../hooks';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
@@ -9,12 +9,36 @@ import { academicoApi } from '../api';
 export const GestionTiposActividadPage = () => {
   const { tipos, loading, error, setTipos } = useTiposActividad();
   const [message, setMessage] = useState(null);
+  const [tiposEnUso, setTiposEnUso] = useState({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTipo, setEditingTipo] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+
+  const isFormInvalid = !formData.nombre.trim();
+  const isFormUnchanged = !!editingTipo && 
+    formData.nombre === editingTipo.nombre && 
+    formData.descripcion === (editingTipo.descripcion || '');
+  const isSubmitDisabled = isFormInvalid || isFormUnchanged;
+
+  // Verificar qué tipos están en uso
+  useEffect(() => {
+    const verificarUso = async () => {
+      if (tipos.length === 0) return;
+      const uso = {};
+      for (const tipo of tipos) {
+        try {
+          uso[tipo.id] = await academicoApi.verificarTipoActividadEnUso(tipo.id);
+        } catch {
+          uso[tipo.id] = false;
+        }
+      }
+      setTiposEnUso(uso);
+    };
+    verificarUso();
+  }, [tipos]);
 
   const openCreateModal = () => {
     setEditingTipo(null);
@@ -23,6 +47,15 @@ export const GestionTiposActividadPage = () => {
   };
 
   const openEditModal = (tipo) => {
+    if (tiposEnUso[tipo.id]) {
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'No se puede editar',
+        details: `La categoría "${tipo.nombre}" está asociada a actividades existentes. Solo puede editarse si no tiene actividades vinculadas.`
+      });
+      return;
+    }
     setEditingTipo(tipo);
     setFormData({ nombre: tipo.nombre, descripcion: tipo.descripcion || '' });
     setIsModalOpen(true);
@@ -68,7 +101,17 @@ export const GestionTiposActividadPage = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar este tipo de actividad? Si hay actividades vinculadas, la operación podría fallar.')) return;
+    const tipo = tipos.find(t => t.id === id);
+    if (tiposEnUso[id]) {
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'No se puede eliminar',
+        details: `La categoría "${tipo?.nombre}" está asociada a actividades existentes. Elimine o reasigne las actividades vinculadas antes de intentar eliminar esta categoría.`
+      });
+      return;
+    }
+    if (!window.confirm('¿Estás seguro de eliminar este tipo de actividad?')) return;
     try {
       await academicoApi.eliminarTipoActividad(id);
       setTipos(tipos.filter(t => t.id !== id));
@@ -98,13 +141,23 @@ export const GestionTiposActividadPage = () => {
   const rows = tipos.map(tipo => ({
     ...tipo,
     acciones: (
-      <div className="flex gap-2">
-        <button onClick={() => openEditModal(tipo)} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
-          <Edit className="h-4 w-4" />
-        </button>
-        <button onClick={() => handleDelete(tipo.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
-          <Trash2 className="h-4 w-4" />
-        </button>
+      <div className="flex gap-2 items-center">
+        {tiposEnUso[tipo.id] ? (
+          <>
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100" title="Esta categoría está en uso por actividades existentes">
+              <Lock className="h-3 w-3" /> En uso
+            </span>
+          </>
+        ) : (
+          <>
+            <button onClick={() => openEditModal(tipo)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+              <Edit className="h-4 w-4" />
+            </button>
+            <button onClick={() => handleDelete(tipo.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Eliminar">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </>
+        )}
       </div>
     )
   }));
@@ -171,7 +224,11 @@ export const GestionTiposActividadPage = () => {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || isSubmitDisabled}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+            >
               {isSubmitting ? 'Guardando...' : 'Guardar'}
             </Button>
           </div>

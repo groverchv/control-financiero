@@ -56,6 +56,7 @@ export const academicoApi = {
         costo: actividad.costo || 0,
         requisitos: actividad.requisitos || '',
         incluye_certificacion: actividad.incluye_certificacion || false,
+        publicado: actividad.publicado ?? true,
         miembro_id: actividad.miembro_id,
         tipo_actividad_id: actividad.tipo_actividad_id
       }])
@@ -130,15 +131,21 @@ export const academicoApi = {
       hora: preparedUpdates.hora,
       cupos: preparedUpdates.cupos,
       ubicacion: preparedUpdates.ubicacion,
-      latitud: preparedUpdates.latitud,
-      longitud: preparedUpdates.longitud,
+      latitud: preparedUpdates.latitud || null,
+      longitud: preparedUpdates.longitud || null,
       modalidad: preparedUpdates.modalidad,
       costo: preparedUpdates.costo,
       requisitos: preparedUpdates.requisitos,
       incluye_certificacion: preparedUpdates.incluye_certificacion,
+      publicado: preparedUpdates.publicado,
       estado: preparedUpdates.estado,
       tipo_actividad_id: preparedUpdates.tipo_actividad_id
     };
+
+    // Remove undefined/null keys to avoid sending bad data to Supabase
+    Object.keys(finalUpdates).forEach(key => {
+      if (finalUpdates[key] === undefined) delete finalUpdates[key];
+    });
 
     const { data, error } = await supabase
       .from('actividad')
@@ -160,6 +167,25 @@ export const academicoApi = {
     }
 
     return { ...data[0], nombre: data[0].titulo };
+  },
+
+  togglePublicado: async (id, publicado) => {
+    const { data, error } = await supabase
+      .from('actividad')
+      .update({ publicado })
+      .eq('id', id)
+      .select();
+    if (error) throw error;
+    return { ...data[0], nombre: data[0].titulo };
+  },
+
+  verificarTipoActividadEnUso: async (tipoId) => {
+    const { count, error } = await supabase
+      .from('actividad')
+      .select('id', { count: 'exact', head: true })
+      .eq('tipo_actividad_id', tipoId);
+    if (error) throw error;
+    return count > 0;
   },
 
   eliminarActividad: async (id) => {

@@ -41,12 +41,20 @@ export const PublicLayout = () => {
       setUnreadCount(count || 0);
     };
     fetchUnread();
+
+    // Listen to custom window events for immediate update in the UI
+    window.addEventListener('notificacion_leida', fetchUnread);
+
     // Realtime subscription
     const channel = supabase
       .channel('notif-count')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacion', filter: `miembro_id=eq.${user.id}` }, fetchUnread)
       .subscribe();
-    return () => supabase.removeChannel(channel);
+
+    return () => {
+      window.removeEventListener('notificacion_leida', fetchUnread);
+      supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
   return (
@@ -129,36 +137,32 @@ export const PublicLayout = () => {
             </nav>
           </div>
 
-          <div className="hidden items-center gap-4 md:flex">
+          <div className="hidden items-center gap-4 md:flex min-w-0 shrink-0">
             {isAuthenticated ? (
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="hidden lg:flex flex-col items-end mr-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{user?.nombre || 'Usuario'}</span>
-                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-600 border border-blue-100">
-                          {user?.rol}
-                        </span>
-                      </div>
-                      <span className="text-xs text-slate-500">{user?.email}</span>
-                    </div>
-                    <div className="h-10 w-10 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm shrink-0">
-                      {user?.foto ? (
-                        <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center text-slate-400">
-                          <UserIcon className="h-5 w-5" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="flex flex-col items-end text-right hidden lg:flex min-w-0 mr-2">
+                  <span className="text-sm font-bold text-slate-900 truncate max-w-[120px] sm:max-w-[180px]">
+                    {user?.nombre || 'Usuario'}
+                  </span>
+                  <span className="text-xs text-slate-500 truncate max-w-[120px] sm:max-w-[180px]">{user?.email}</span>
                 </div>
-
-                
+                <div className="flex flex-col items-center gap-1 shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm">
+                    {user?.foto ? (
+                      <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-slate-400">
+                        <UserIcon className="h-5 w-5" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-extrabold uppercase tracking-wider text-blue-600 border border-blue-100">
+                    {user?.rol}
+                  </span>
+                </div>
                 <button 
                   onClick={handleLogout}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                   title="Cerrar Sesión"
                 >
                   <LogOut className="h-5 w-5" />
@@ -175,19 +179,34 @@ export const PublicLayout = () => {
           </div>
 
           {/* Mobile: Show login button or logout icon */}
-          <div className="flex items-center gap-2 md:hidden">
+          <div className="flex items-center gap-2 md:hidden min-w-0">
             {isAuthenticated ? (
-              <button 
-                onClick={handleLogout}
-                className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                title="Cerrar Sesión"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
+              <>
+                <div className="flex flex-col items-end mr-1 text-right hidden min-[380px]:flex min-w-0">
+                  <span className="text-xs font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[150px]">{user?.nombre} {user?.apellidoPaterno || ''}</span>
+                  <span className="text-[9px] text-slate-500 truncate max-w-[100px] sm:max-w-[150px]">{user?.email}</span>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shadow-sm shrink-0">
+                  {user?.foto ? (
+                    <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-slate-400">
+                      <UserIcon className="h-4 w-4" />
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 shrink-0"
+                  title="Cerrar Sesión"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
+              </>
             ) : (
               <Link
                 to="/login"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white whitespace-nowrap"
               >
                 Ingresar
               </Link>

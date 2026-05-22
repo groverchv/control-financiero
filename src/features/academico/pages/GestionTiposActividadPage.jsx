@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Tags, PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { useTiposActividad } from '../hooks';
-import { Button, Input, Spinner, Modal } from '../../../components/ui';
+import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
 import { Table } from '../../../components/data-display';
 import { academicoApi } from '../api';
@@ -163,16 +163,28 @@ export const GestionTiposActividadPage = () => {
   }));
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Tipos de Actividades</h1>
-          <p className="text-sm text-slate-500">Define las categorías (Seminarios, Talleres, Eventos Sociales, etc.)</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Tipos de Actividades</h1>
+          <p className="text-xs sm:text-sm text-slate-500">Define las categorías (Seminarios, Talleres, Eventos Sociales, etc.)</p>
         </div>
-        <Button onClick={openCreateModal}>
-          <PlusCircle className="h-4 w-4" />
-          Nuevo Tipo
-        </Button>
+        <div className="flex items-center gap-3">
+          <ExportButtons 
+            data={tipos.map(t => ({
+              Nombre: t.nombre,
+              Descripción: t.descripcion || '—',
+              'Fecha Creación': new Date(t.created_at).toLocaleDateString()
+            }))}
+            filename="tipos_actividades"
+            title="Catálogo de Tipos de Actividades"
+          />
+          <Button onClick={openCreateModal} className="h-9 flex items-center justify-center gap-2 px-4">
+            <PlusCircle className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden text-xs">Nuevo</span>
+            <span className="hidden sm:inline text-sm">Nuevo Tipo</span>
+          </Button>
+        </div>
       </header>
 
       {message && (
@@ -183,21 +195,25 @@ export const GestionTiposActividadPage = () => {
         />
       )}
 
-      <section className="rounded-md bg-white p-6 shadow-sm">
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-slate-500 py-8">
-            <Spinner size="sm" />
-            Cargando tipos...
+      <section className="rounded-md bg-white p-4 sm:p-6 shadow-sm overflow-hidden text-sm sm:text-base">
+        <div className="-mx-4 sm:mx-0 overflow-x-auto">
+          <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+            {loading ? (
+              <div className="flex items-center gap-2 text-sm text-slate-500 py-8">
+                <Spinner size="sm" />
+                Cargando tipos...
+              </div>
+            ) : error ? (
+              <Toast title="Error" message={error} variant="error" />
+            ) : (
+              <Table
+                columns={columns}
+                rows={rows}
+                emptyMessage="No hay tipos de actividad registrados."
+              />
+            )}
           </div>
-        ) : error ? (
-          <Toast title="Error" message={error} variant="error" />
-        ) : (
-          <Table
-            columns={columns}
-            rows={rows}
-            emptyMessage="No hay tipos de actividad registrados."
-          />
-        )}
+        </div>
       </section>
 
       <Modal

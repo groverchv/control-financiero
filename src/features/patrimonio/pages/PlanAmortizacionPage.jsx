@@ -89,9 +89,14 @@ export const PlanAmortizacionPage = () => {
         fechaActual.setFullYear(fechaActual.getFullYear() + 1);
       }
 
+      const year = fechaActual.getFullYear();
+      const month = String(fechaActual.getMonth() + 1).padStart(2, '0');
+      const day = String(fechaActual.getDate()).padStart(2, '0');
+      const localDateStr = `${year}-${month}-${day}`;
+
       nuevoPlan.push({
         numero: i,
-        fechaVencimiento: new Date(fechaActual).toISOString().split('T')[0],
+        fechaVencimiento: localDateStr,
         monto: montoCuota,
         estado: 'pendiente'
       });

@@ -41,6 +41,7 @@ export const academicoApi = {
   },
 
   crearActividad: async (actividad, imagenFile = null) => {
+    const parsedCosto = (actividad.costo === '' || actividad.costo === null || actividad.costo === undefined) ? 0 : Number(actividad.costo);
     const { data, error } = await supabase
       .from('actividad')
       .insert([{
@@ -53,7 +54,7 @@ export const academicoApi = {
         latitud: actividad.latitud || null,
         longitud: actividad.longitud || null,
         modalidad: actividad.modalidad || 'presencial',
-        costo: actividad.costo || 0,
+        costo: parsedCosto,
         requisitos: actividad.requisitos || '',
         incluye_certificacion: actividad.incluye_certificacion || false,
         publicado: actividad.publicado ?? true,
@@ -76,6 +77,16 @@ export const academicoApi = {
     }
 
     try {
+      let tipoNombre = 'General';
+      if (actividad.tipo_actividad_id) {
+        const { data: tipoInfo } = await supabase
+          .from('tipo_actividad')
+          .select('nombre')
+          .eq('id', actividad.tipo_actividad_id)
+          .maybeSingle();
+        if (tipoInfo?.nombre) tipoNombre = tipoInfo.nombre;
+      }
+
       const { data: socios } = await supabase
         .from('miembro')
         .select('id, nombre, "correoElectronico"')
@@ -89,12 +100,14 @@ export const academicoApi = {
         brevoService.notificarNuevoCurso({
           destinatarios,
           curso: { 
-            nombre: actividad.nombre, 
+            nombre: actividad.nombre || actividad.titulo, 
             fecha: actividad.fecha, 
+            hora: actividad.hora,
             modalidad: actividad.modalidad,
             costo: actividad.costo, 
             cupos: actividad.cupos,
-            descripcion: actividad.descripcion 
+            descripcion: actividad.descripcion,
+            tipo_nombre: tipoNombre
           }
         }).catch(err => console.error('[Brevo] Error notificando nueva actividad:', err));
       }
@@ -124,6 +137,25 @@ export const academicoApi = {
     const preparedUpdates = { ...updates };
     if (updates.nombre) preparedUpdates.titulo = updates.nombre;
 
+    // Fetch existing details for change detection comparison
+    const { data: currentAct } = await supabase
+      .from('actividad')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (currentAct) {
+      const courseStart = new Date(`${currentAct.fecha}T${currentAct.hora}`);
+      const now = new Date();
+      const oneHour = 60 * 60 * 1000;
+      const courseEndEnrollment = new Date(courseStart.getTime() + oneHour);
+      if (now > courseEndEnrollment) {
+        throw new Error('No se puede modificar una actividad que ya ha finalizado.');
+      }
+    }
+
+    const parsedCosto = (preparedUpdates.costo === '' || preparedUpdates.costo === null || preparedUpdates.costo === undefined) ? 0 : Number(preparedUpdates.costo);
+
     const finalUpdates = {
       titulo: preparedUpdates.titulo,
       descripcion: preparedUpdates.descripcion,
@@ -134,7 +166,7 @@ export const academicoApi = {
       latitud: preparedUpdates.latitud || null,
       longitud: preparedUpdates.longitud || null,
       modalidad: preparedUpdates.modalidad,
-      costo: preparedUpdates.costo,
+      costo: parsedCosto,
       requisitos: preparedUpdates.requisitos,
       incluye_certificacion: preparedUpdates.incluye_certificacion,
       publicado: preparedUpdates.publicado,
@@ -142,7 +174,7 @@ export const academicoApi = {
       tipo_actividad_id: preparedUpdates.tipo_actividad_id
     };
 
-    // Remove undefined/null keys to avoid sending bad data to Supabase
+    // Remove undefined keys to avoid sending bad data to Supabase
     Object.keys(finalUpdates).forEach(key => {
       if (finalUpdates[key] === undefined) delete finalUpdates[key];
     });
@@ -166,10 +198,150 @@ export const academicoApi = {
       }]);
     }
 
+    // Send change-detection notifications if the activity has enrolled members
+    if (currentAct) {
+      const changesList = [];
+      const changesSimple = [];
+      let shouldUnenroll = false;
+
+      if (finalUpdates.titulo !== undefined && finalUpdates.titulo !== currentAct.titulo) {
+        changesList.push(`<li>El título de la actividad cambió de "<strong>${currentAct.titulo}</strong>" a "<strong>${finalUpdates.titulo}</strong>".</li>`);
+        changesSimple.push(`Título ("${currentAct.titulo}" -> "${finalUpdates.titulo}")`);
+        shouldUnenroll = true;
+      }
+      if (finalUpdates.descripcion !== undefined && finalUpdates.descripcion !== currentAct.descripcion) {
+        changesList.push(`<li>La descripción de la actividad fue actualizada.</li>`);
+        changesSimple.push(`Descripción actualizada`);
+        shouldUnenroll = true;
+      }
+      if (finalUpdates.requisitos !== undefined && finalUpdates.requisitos !== currentAct.requisitos) {
+        changesList.push(`<li>Los requisitos de la actividad fueron actualizados.</li>`);
+        changesSimple.push(`Requisitos actualizados`);
+        shouldUnenroll = true;
+      }
+      if (finalUpdates.fecha !== undefined && finalUpdates.fecha !== currentAct.fecha) {
+        const oldFecha = new Date(currentAct.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+        const newFecha = new Date(finalUpdates.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+        changesList.push(`<li>La fecha cambió de <strong>${oldFecha}</strong> a <strong>${newFecha}</strong>.</li>`);
+        changesSimple.push(`Fecha (${oldFecha} -> ${newFecha})`);
+        shouldUnenroll = true;
+      }
+      if (finalUpdates.hora !== undefined && finalUpdates.hora !== currentAct.hora) {
+        changesList.push(`<li>La hora de inicio cambió de <strong>${currentAct.hora ? currentAct.hora.substring(0, 5) : '--:--'} Hrs</strong> a <strong>${finalUpdates.hora ? finalUpdates.hora.substring(0, 5) : '--:--'} Hrs</strong>.</li>`);
+        changesSimple.push(`Hora (${currentAct.hora ? currentAct.hora.substring(0, 5) : '--:--'} -> ${finalUpdates.hora ? finalUpdates.hora.substring(0, 5) : '--:--'})`);
+        shouldUnenroll = true;
+      }
+      if (finalUpdates.ubicacion !== undefined && finalUpdates.ubicacion !== currentAct.ubicacion) {
+        changesList.push(`<li>La ubicación cambió de "<strong>${currentAct.ubicacion || 'Sin especificar'}</strong>" a "<strong>${finalUpdates.ubicacion || 'Sin especificar'}</strong>".</li>`);
+        changesSimple.push(`Ubicación ("${currentAct.ubicacion || 'Sin especificar'}" -> "${finalUpdates.ubicacion || 'Sin especificar'}")`);
+        shouldUnenroll = true;
+      }
+      if (finalUpdates.modalidad !== undefined && finalUpdates.modalidad !== currentAct.modalidad) {
+        changesList.push(`<li>La modalidad cambió de <strong style="text-transform:capitalize;">${currentAct.modalidad}</strong> a <strong style="text-transform:capitalize;">${finalUpdates.modalidad}</strong>.</li>`);
+        changesSimple.push(`Modalidad (${currentAct.modalidad} -> ${finalUpdates.modalidad})`);
+        shouldUnenroll = true;
+      }
+      if (finalUpdates.costo !== undefined && Number(finalUpdates.costo) !== Number(currentAct.costo)) {
+        changesList.push(`<li>El costo de inscripción cambió de <strong>Bs. ${currentAct.costo}</strong> a <strong>Bs. ${finalUpdates.costo}</strong>.</li>`);
+        changesSimple.push(`Costo (Bs. ${currentAct.costo} -> Bs. ${finalUpdates.costo})`);
+        shouldUnenroll = true;
+      }
+      if (finalUpdates.cupos !== undefined && Number(finalUpdates.cupos) !== Number(currentAct.cupos)) {
+        changesList.push(`<li>La cantidad de cupos cambió de <strong>${currentAct.cupos}</strong> a <strong>${finalUpdates.cupos}</strong>.</li>`);
+        changesSimple.push(`Cupos (${currentAct.cupos} -> ${finalUpdates.cupos})`);
+        // NOT setting shouldUnenroll = true for cupos change
+      }
+
+      if (changesList.length > 0) {
+        // Fetch enrolled users
+        const { data: inscritos, error: insErr } = await supabase
+          .from('inscripcion')
+          .select('miembro_id, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado)')
+          .eq('actividad_id', id);
+
+        if (!insErr && inscritos && inscritos.length > 0) {
+          const destinatarios = inscritos
+            .filter(ins => ins.miembro && ins.miembro.estado !== 'inactivo' && ins.miembro.correoElectronico)
+            .map(ins => ({
+              id: ins.miembro.id,
+              email: ins.miembro.correoElectronico,
+              nombre: `${ins.miembro.nombre} ${ins.miembro.apellidoPaterno || ''}`.trim()
+            }));
+
+          if (destinatarios.length > 0) {
+            const newDateVal = finalUpdates.fecha || currentAct.fecha;
+            const fechaFormateada = new Date(newDateVal && typeof newDateVal === 'string' && newDateVal.includes('-') ? newDateVal.split('T')[0] + 'T00:00:00' : newDateVal).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            
+            if (shouldUnenroll) {
+              changesList.push(`<li><b>Importante:</b> Debido a estos cambios se ha anulado su registro. Si sigue de acuerdo con la actividad, por favor vuelva a inscribirse.</li>`);
+            }
+
+            brevoService.notificarCambioActividad({
+              destinatarios,
+              curso: {
+                nombre: finalUpdates.titulo || currentAct.titulo,
+                fecha: fechaFormateada,
+                hora: finalUpdates.hora || currentAct.hora,
+                ubicacion: finalUpdates.ubicacion || currentAct.ubicacion,
+                modalidad: finalUpdates.modalidad || currentAct.modalidad,
+                costo: finalUpdates.costo !== undefined ? finalUpdates.costo : currentAct.costo,
+                cambiosSimple: changesSimple.join(', '),
+                detalles: `<ul style="margin:0;padding-left:20px;line-height:1.6;font-size:14px;color:#475569;">${changesList.join('')}</ul>`,
+                unenrollment: shouldUnenroll
+              }
+            }).catch(err => console.error('[Brevo] Error al enviar notificaciones de cambio de actividad:', err));
+
+            if (shouldUnenroll) {
+              // Delete enrollments and related active debt due to changes
+              const membersIds = inscritos.map(ins => ins.miembro_id);
+              if (membersIds.length > 0) {
+                // Delete active debts associated with this activity 
+                const activoNombrePrefix = `Inscripción Curso: ${currentAct.titulo}`;
+                await supabase
+                  .from('activos')
+                  .delete()
+                  .in('miembro_id', membersIds)
+                  .like('nombre', `${activoNombrePrefix}%`);
+
+                // Delete the enrollments
+                await supabase
+                  .from('inscripcion')
+                  .delete()
+                  .in('miembro_id', membersIds)
+                  .eq('actividad_id', id);
+
+                // Update cupos in activity
+                await supabase
+                  .from('actividad')
+                  .update({ cupos: currentAct.cupos + inscritos.length })
+                  .eq('id', id);
+              }
+            }
+          }
+        }
+      }
+    }
+
     return { ...data[0], nombre: data[0].titulo };
   },
 
   togglePublicado: async (id, publicado) => {
+    const { data: currentAct } = await supabase
+      .from('actividad')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (currentAct) {
+      const courseStart = new Date(`${currentAct.fecha}T${currentAct.hora}`);
+      const now = new Date();
+      const oneHour = 60 * 60 * 1000;
+      const courseEndEnrollment = new Date(courseStart.getTime() + oneHour);
+      if (now > courseEndEnrollment) {
+        throw new Error('No se puede modificar la visibilidad de una actividad que ya ha finalizado.');
+      }
+    }
+
     const { data, error } = await supabase
       .from('actividad')
       .update({ publicado })
@@ -189,6 +361,39 @@ export const academicoApi = {
   },
 
   eliminarActividad: async (id) => {
+    const { data: currentAct } = await supabase
+      .from('actividad')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (currentAct) {
+      const courseStart = new Date(`${currentAct.fecha}T${currentAct.hora}`);
+      const now = new Date();
+      const oneHour = 60 * 60 * 1000;
+      const courseEndEnrollment = new Date(courseStart.getTime() + oneHour);
+      if (now > courseEndEnrollment) {
+        throw new Error('No se puede eliminar una actividad que ya ha finalizado.');
+      }
+
+      // Eliminar las deudas de inscripción pendientes de dicho curso antes de borrar
+      const { data: inscritos } = await supabase
+        .from('inscripcion')
+        .select('miembro_id')
+        .eq('actividad_id', id);
+
+      if (inscritos && inscritos.length > 0) {
+        const membersIds = inscritos.map(ins => ins.miembro_id);
+        const activoNombrePrefix = `Inscripción Curso: ${currentAct.titulo}`;
+        
+        await supabase
+          .from('activos')
+          .delete()
+          .in('miembro_id', membersIds)
+          .like('nombre', `${activoNombrePrefix}%`);
+      }
+    }
+
     const { error } = await supabase
       .from('actividad')
       .delete()
@@ -198,7 +403,7 @@ export const academicoApi = {
     return true;
   },
 
-  asignarJurado: async (asignacion) => {
+  asignarJurado: async () => {
     return null;
   },
 
@@ -206,7 +411,7 @@ export const academicoApi = {
     return [];
   },
 
-  buscarTalento: async (criterio) => {
+  buscarTalento: async () => {
     return [];
   },
 
@@ -251,14 +456,29 @@ export const academicoApi = {
   },
 
   inscribirSocio: async (miembroId, actividadId) => {
-    // Primero, verificamos si hay cupos
+    // Primero, verificamos si hay cupos y la fecha/hora
     const { data: itemData, error: itemError } = await supabase
       .from('actividad')
-      .select('cupos')
+      .select('cupos, fecha, hora')
       .eq('id', actividadId)
       .single();
       
     if (itemError) throw itemError;
+
+    // Validamos el límite de tiempo para inscripción (1 hora desde el inicio)
+    if (itemData.fecha && itemData.hora) {
+      const startStr = `${itemData.fecha}T${itemData.hora}`;
+      const courseStart = new Date(startStr);
+      if (!isNaN(courseStart.getTime())) {
+        const now = new Date();
+        const oneHour = 60 * 60 * 1000; // 1 hora en ms
+        const courseEndEnrollment = new Date(courseStart.getTime() + oneHour);
+        if (now > courseEndEnrollment) {
+          throw new Error('La inscripción a esta actividad ya no está permitida porque ha finalizado.');
+        }
+      }
+    }
+
     if (itemData.cupos <= 0) {
       throw new Error('No hay cupos disponibles para esta actividad.');
     }
@@ -288,14 +508,18 @@ export const academicoApi = {
       if (miembro?.correoElectronico) {
         const { data: itemInfo } = await supabase
           .from('actividad')
-          .select('titulo, fecha, hora, ubicacion, modalidad')
+          .select('titulo, fecha, hora, ubicacion, modalidad, costo, tipo_actividad:tipo_actividad_id(nombre)')
           .eq('id', actividadId)
           .single();
 
         brevoService.notificarInscripcionCurso({
           email: miembro.correoElectronico,
           nombre: miembro.nombre,
-          curso: { ...itemInfo, nombre: itemInfo.titulo },
+          curso: { 
+            ...itemInfo, 
+            nombre: itemInfo.titulo,
+            tipo_nombre: itemInfo.tipo_actividad?.nombre || 'General'
+          },
           miembroId
         }).catch(err => console.error('[Brevo] Error en email de inscripcion:', err));
       }

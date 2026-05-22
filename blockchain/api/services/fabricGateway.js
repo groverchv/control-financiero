@@ -20,7 +20,72 @@ const TLS_CERT_PATH = path.join(CRYPTO_PATH, 'peers', 'peer0.org1.controlfinanci
 let gateway = null;
 let contract = null;
 let isOfflineMode = false;
+const MOCK_LEDGER_FILE = path.join(__dirname, 'mockLedger.json');
 let mockLedger = [];
+
+// Mapas de indexación en memoria para búsquedas instantáneas O(1)
+const selloCache = new Map();
+const historialCache = new Map();
+const tipoCache = new Map();
+
+// Reconstruye eficientemente los índices en memoria cuando se carga o muta el ledger
+function reconstruirCaches() {
+    selloCache.clear();
+    historialCache.clear();
+    tipoCache.clear();
+    
+    for (const sello of mockLedger) {
+        // Almacenar el último sello de cada registro
+        selloCache.set(sello.idRegistro, sello);
+        
+        // Historial completo por idRegistro
+        if (!historialCache.has(sello.idRegistro)) {
+            historialCache.set(sello.idRegistro, []);
+        }
+        historialCache.get(sello.idRegistro).push(sello);
+        
+        // Agrupación por tipo de tabla
+        if (!tipoCache.has(sello.tipoTabla)) {
+            tipoCache.set(sello.tipoTabla, []);
+        }
+        tipoCache.get(sello.tipoTabla).push(sello);
+    }
+}
+
+try {
+    if (fs.existsSync(MOCK_LEDGER_FILE)) {
+        mockLedger = JSON.parse(fs.readFileSync(MOCK_LEDGER_FILE, 'utf8'));
+        reconstruirCaches();
+        console.log(`[Fabric-Mock] Ledger local cargado e indexado en caché O(1) con ${mockLedger.length} transacciones.`);
+    }
+} catch (err) {
+    console.error('[Fabric-Mock] Error cargando ledger local:', err.message);
+}
+
+// Cola de escritura asíncrona no bloqueante para proteger el ciclo de eventos (Event Loop)
+let isWriting = false;
+let pendingWrite = false;
+
+async function guardarMockLedgerAsync() {
+    if (isWriting) {
+        pendingWrite = true;
+        return;
+    }
+    isWriting = true;
+    try {
+        const data = JSON.stringify(mockLedger, null, 2);
+        await fs.promises.writeFile(MOCK_LEDGER_FILE, data, 'utf8');
+    } catch (err) {
+        console.error('[Fabric-Mock] Error al persistir ledger local de forma asíncrona:', err.message);
+    } finally {
+        isWriting = false;
+        if (pendingWrite) {
+            pendingWrite = false;
+            // Ejecutar la escritura acumulada pendiente
+            guardarMockLedgerAsync();
+        }
+    }
+}
 
 function getFirstFile(dirPath) {
     const files = fs.readdirSync(dirPath);
@@ -51,10 +116,10 @@ async function inicializar() {
         const network = gateway.getNetwork(CHANNEL_NAME);
         contract = network.getContract(CHAINCODE_NAME);
 
-        console.log('[Fabric] Conexion establecida con la red Hyperledger Fabric');
+        console.log('[Fabric] Conexión establecida con la red Hyperledger Fabric');
         return contract;
     } catch (err) {
-        console.warn('[Fabric] Error conectando a Fabric. Habilitando MODO OFFLINE (memoria local):', err.message);
+        console.warn('[Fabric] Error conectando a Fabric. Habilitando MODO OFFLINE (persistencia JSON optimizada):', err.message);
         isOfflineMode = true;
         return true;
     }
@@ -79,7 +144,26 @@ function sellarMock(tipoTabla, idRegistro, hashCalculado, idUsuario) {
     const timestamp = new Date().toISOString();
     const txId = crypto.createHash('sha256').update(timestamp + hashCalculado).digest('hex');
     const sello = { txId, tipoTabla, idRegistro, hashCalculado, idUsuario, timestamp };
+    
+    // Agregar al arreglo en memoria
     mockLedger.push(sello);
+    
+    // Actualizar cachés e índices O(1) de manera inmediata
+    selloCache.set(idRegistro, sello);
+    
+    if (!historialCache.has(idRegistro)) {
+        historialCache.set(idRegistro, []);
+    }
+    historialCache.get(idRegistro).push(sello);
+    
+    if (!tipoCache.has(tipoTabla)) {
+        tipoCache.set(tipoTabla, []);
+    }
+    tipoCache.get(tipoTabla).push(sello);
+    
+    // Guardar en disco sin bloquear usando la cola asíncrona
+    guardarMockLedgerAsync();
+    
     return { success: true, txId, timestamp };
 }
 
@@ -99,34 +183,34 @@ async function consultarSello(idRegistro) {
 }
 
 function consultarSelloMock(idRegistro) {
-    const sellos = mockLedger.filter(s => s.idRegistro === idRegistro);
-    if (sellos.length === 0) throw new Error('No existe el sello');
-    return sellos[sellos.length - 1];
+    const sello = selloCache.get(idRegistro);
+    if (!sello) throw new Error('No existe el sello');
+    return sello;
 }
 
 async function obtenerHistorial(idRegistro) {
     try {
         const c = await inicializar();
-        if (isOfflineMode) return mockLedger.filter(s => s.idRegistro === idRegistro);
+        if (isOfflineMode) return historialCache.get(idRegistro) || [];
         const resultado = await c.evaluateTransaction('ObtenerHistorial', idRegistro);
         return JSON.parse(resultado.toString());
     } catch (err) {
         console.warn('[Fabric] Error en obtenerHistorial, activando MODO OFFLINE:', err.message);
         isOfflineMode = true;
-        return mockLedger.filter(s => s.idRegistro === idRegistro);
+        return historialCache.get(idRegistro) || [];
     }
 }
 
 async function consultarPorTipo(tipoTabla) {
     try {
         const c = await inicializar();
-        if (isOfflineMode) return mockLedger.filter(s => s.tipoTabla === tipoTabla);
+        if (isOfflineMode) return tipoCache.get(tipoTabla) || [];
         const resultado = await c.evaluateTransaction('ConsultarPorTipo', tipoTabla);
         return JSON.parse(resultado.toString());
     } catch (err) {
         console.warn('[Fabric] Error en consultarPorTipo, activando MODO OFFLINE:', err.message);
         isOfflineMode = true;
-        return mockLedger.filter(s => s.tipoTabla === tipoTabla);
+        return tipoCache.get(tipoTabla) || [];
     }
 }
 

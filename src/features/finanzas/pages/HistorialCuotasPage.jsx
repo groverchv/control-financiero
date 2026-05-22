@@ -1,18 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   History, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   CheckCircle2, AlertCircle, PauseCircle, PlayCircle, Clock, 
   User, Phone, Calendar, TrendingUp, AlertTriangle,
-  Loader2, RefreshCw
+  Loader2, RefreshCw, DollarSign
 } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
+import { formatCurrency } from '../../../utils/formatters';
+
 
 const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 const MiembroRow = ({ registro }) => {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
   const { miembro, cronograma, mesesPagados, proximaPendiente } = registro;
 
   const nombreCompleto = `${miembro.nombre} ${miembro.apellidoPaterno || ''} ${miembro.apellidoMaterno || ''}`.trim();
@@ -122,9 +126,9 @@ const MiembroRow = ({ registro }) => {
               <TrendingUp className="h-3.5 w-3.5" />
               Cronograma de cuotas de membresía
             </p>
-            <div className="overflow-x-auto pb-2">
+            <div className="overflow-x-auto pb-4">
               <div className="flex gap-2 min-w-max">
-                {cronograma.map((c, idx) => {
+                {cronograma.filter(c => !c.pagado).map((c, idx) => {
                   let labelPrincipal;
                   let labelSecundario;
                   
@@ -140,31 +144,52 @@ const MiembroRow = ({ registro }) => {
                   return (
                     <div 
                       key={c.mes + '-' + idx} 
-                      title={c.pagado ? `Pagado el ${c.fecha_pago ? new Date(c.fecha_pago + 'T00:00:00').toLocaleDateString('es-ES') : '—'}\nMonto: Bs. ${c.monto_pagado}` : `Pendiente — Vence: ${new Date(c.fechaVencimientoAjustada + 'T00:00:00').toLocaleDateString('es-ES')}`}
-                      className={`flex flex-col items-center justify-center min-w-16 h-16 px-2 rounded-lg border-2 cursor-default transition-all text-center ${
-                        c.pagado 
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800' 
-                          : idx === 0 || (idx > 0 && cronograma[idx-1].pagado)
-                            ? 'bg-red-50 border-red-400 text-red-800 ring-2 ring-red-300 ring-offset-1'
-                            : 'bg-orange-50 border-orange-200 text-orange-800'
+                      title={`Pendiente — Vence: ${new Date(c.fechaVencimientoAjustada + 'T00:00:00').toLocaleDateString('es-ES')}`}
+                      className={`flex flex-col items-center justify-center min-w-[125px] h-24 px-3 py-2 rounded-xl border-2 transition-all text-center relative group ${
+                        idx === 0
+                          ? 'bg-red-50 border-red-400 text-red-800 ring-2 ring-red-300 ring-offset-1 shadow-sm hover:shadow-md'
+                          : 'bg-orange-50 border-orange-200 text-orange-800 shadow-sm hover:shadow-md'
                       }`}
                     >
                       <span className="text-[10px] font-bold uppercase truncate max-w-full">{labelPrincipal}</span>
-                      {labelSecundario && <span className="text-xs font-bold">{labelSecundario}</span>}
-                      {c.pagado 
-                        ? <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-500" />
-                        : <AlertCircle className="h-4 w-4 mt-0.5 text-red-500" />
-                      }
+                      {labelSecundario && <span className="text-xs font-bold leading-none mt-0.5">{labelSecundario}</span>}
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                        <span className="text-xs font-black tracking-tight">
+                          {formatCurrency(c.monto_esperado || 150)}
+                        </span>
+                      </div>
+                      
+                      {idx === 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/admin/ingresos', {
+                              state: {
+                                autoOpenCreate: true,
+                                isCuota: true,
+                                socioId: miembro.id,
+                                socioNombre: nombreCompleto,
+                                socioCorreo: miembro.correoElectronico,
+                                monto: c.monto_esperado || 150,
+                                descripcion: `Cuota de membresía correspondiente a ${labelPrincipal} ${labelSecundario}`.trim()
+                              }
+                            });
+                          }}
+                          className={`absolute -bottom-3 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-slate-200 text-xs px-2 py-1 rounded-full shadow flex items-center gap-1 hover:bg-slate-50 hover:text-indigo-600 font-semibold z-10`}
+                        >
+                          <DollarSign className="w-3 h-3" /> Pagar ahora
+                        </button>
+                      )}
                     </div>
                   );
                 })}
-                {cronograma.length === 0 && (
-                  <p className="text-sm text-slate-400 italic py-4">No hay cuotas generadas aún.</p>
+                {cronograma.filter(c => !c.pagado).length === 0 && (
+                  <p className="text-sm text-slate-400 italic py-4">No hay cuotas pendientes. ¡Al día! ✓</p>
                 )}
               </div>
             </div>
             <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-500">
-              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-emerald-300 inline-block" /> Pagado</span>
               <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-red-400 inline-block" /> Pendiente prioritario</span>
               <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-orange-300 inline-block" /> Pendiente</span>
             </div>
@@ -395,6 +420,21 @@ export const HistorialCuotasPage = () => {
       {/* Filtros y Exportación */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div className="flex flex-wrap items-center gap-3 flex-1">
+          <ExportButtons 
+            data={filtrado.map(r => ({
+              Nombre: r.miembro.nombre,
+              Apellidos: `${r.miembro.apellidoPaterno || ''} ${r.miembro.apellidoMaterno || ''}`.trim(),
+              Correo: r.miembro.correoElectronico,
+              Telefono: r.miembro.telefono,
+              Rol: r.miembro.rol,
+              Estado: r.mesesDeuda > 0 ? 'Con deuda' : 'Al día',
+              MesesPagados: r.mesesPagados,
+              MesesDeuda: r.mesesDeuda,
+              CuotasGeneradas: r.cronograma.length
+            }))}
+            filename="historial_cuotas_miembros"
+            title="Historial de Cuotas de Membresía"
+          />
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
@@ -418,22 +458,6 @@ export const HistorialCuotasPage = () => {
             ))}
           </div>
         </div>
-        
-        <ExportButtons 
-          data={filtrado.map(r => ({
-            Nombre: r.miembro.nombre,
-            Apellidos: `${r.miembro.apellidoPaterno || ''} ${r.miembro.apellidoMaterno || ''}`.trim(),
-            Correo: r.miembro.correoElectronico,
-            Telefono: r.miembro.telefono,
-            Rol: r.miembro.rol,
-            Estado: r.mesesDeuda > 0 ? 'Con deuda' : 'Al día',
-            MesesPagados: r.mesesPagados,
-            MesesDeuda: r.mesesDeuda,
-            CuotasGeneradas: r.cronograma.length
-          }))}
-          filename="historial_cuotas_miembros"
-          title="Historial de Cuotas de Membresía"
-        />
       </div>
 
       {/* Lista */}

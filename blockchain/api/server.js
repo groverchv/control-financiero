@@ -8,9 +8,14 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const fabricGateway = require('./services/fabricGateway');
 const auditRoutes = require('./routes/audit');
+const keepAlive = require('./services/keepAlive');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Inicializar Keep-Alive para Supabase
+keepAlive.inicializarKeepAlive();
+
 
 app.use(helmet());
 app.use(cors({

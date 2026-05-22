@@ -5,6 +5,7 @@ import { Button, Input, Spinner, Modal, ExportButtons } from '../../../component
 import { Table } from '../../../components/data-display';
 import { Toast } from '../../../components/feedback';
 import { administracionApi } from '../api';
+import { finanzasApi } from '../../finanzas/api';
 import { supabase } from '../../../services/supabase';
 
 export const GestionMiembrosPage = () => {
@@ -28,7 +29,19 @@ export const GestionMiembrosPage = () => {
     rol: 'socio', 
     estado: 'activo' 
   });
-  const [detailModal, setDetailModal] = useState({ open: false, miembro: null, inscripciones: [], notificaciones: [], cvUrl: null, loading: false, tab: 'inscripciones' });
+  const [detailModal, setDetailModal] = useState({ 
+    open: false, 
+    miembro: null, 
+    inscripciones: [], 
+    notificaciones: [], 
+    cvUrl: null, 
+    loading: false, 
+    tab: 'inscripciones',
+    cronograma: [],
+    inscripcionesCuenta: []
+  });
+  const [pageDetailCuotas, setPageDetailCuotas] = useState(1);
+  const [pageDetailActs, setPageDetailActs] = useState(1);
   const [talentSearchModal, setTalentSearchModal] = useState({ open: false, queryProf: '', queryDesc: '', results: [] });
   const [imageModal, setImageModal] = useState({ open: false, url: null });
   const [statusConfirmModal, setStatusConfirmModal] = useState({ open: false, miembro: null, nuevoEstado: 'activo' });
@@ -129,14 +142,52 @@ export const GestionMiembrosPage = () => {
 
   const handleOpenDetail = async (miembro) => {
     setShowDetailPassword(false);
-    setDetailModal({ open: true, miembro, inscripciones: [], notificaciones: [], cvUrl: null, loading: true, tab: 'inscripciones' });
+    setPageDetailCuotas(1);
+    setPageDetailActs(1);
+    setDetailModal({ 
+      open: true, 
+      miembro, 
+      inscripciones: [], 
+      notificaciones: [], 
+      cvUrl: null, 
+      loading: true, 
+      tab: 'inscripciones',
+      cronograma: [],
+      inscripcionesCuenta: []
+    });
     try {
-      const [inscripciones, notificaciones, cvUrl] = await Promise.all([
+      const [inscripciones, notificaciones, cvUrl, historialCuotas, { data: inscripcionesCuenta }] = await Promise.all([
         administracionApi.obtenerInscripcionesMiembro(miembro.id),
         administracionApi.obtenerNotificacionesMiembro(miembro.id),
         administracionApi.obtenerDocumentoMiembro(miembro.id),
+        finanzasApi.obtenerHistorialCuotasMiembro(),
+        supabase
+          .from('inscripcion')
+          .select(`
+            id,
+            estado,
+            fecha_inscripcion,
+            actividad:actividad_id(
+              id, titulo, costo, fecha, hora, modalidad,
+              tipo_actividad:tipo_actividad_id(nombre)
+            )
+          `)
+          .eq('miembro_id', miembro.id)
+          .order('fecha_inscripcion', { ascending: false })
       ]);
-      setDetailModal(prev => ({ ...prev, inscripciones, notificaciones, cvUrl, loading: false }));
+
+      const miRegistroCuotas = historialCuotas.find(h => h.miembro?.id === miembro.id);
+      const cronograma = miRegistroCuotas ? miRegistroCuotas.cronograma : [];
+
+      setDetailModal(prev => ({ 
+        ...prev, 
+        inscripciones, 
+        notificaciones, 
+        cvUrl, 
+        cronograma,
+        inscripcionesCuenta: inscripcionesCuenta || [],
+        loading: false 
+      }));
     } catch (err) {
       console.error('Error cargando detalle:', err);
       setDetailModal(prev => ({ ...prev, loading: false }));
@@ -397,14 +448,128 @@ export const GestionMiembrosPage = () => {
     )
   }));
 
+  // --- Formatters and variables for Member Detail Account Statement ---
+  const formatCurrency = (val) => `Bs ${Number(val || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    const d = new Date(dateString);
+    return d.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const totalPagesDetailCuotas = Math.ceil((detailModal.cronograma || []).length / ITEMS_PER_PAGE);
+  const paginatedDetailCuotas = (detailModal.cronograma || []).slice((pageDetailCuotas - 1) * ITEMS_PER_PAGE, pageDetailCuotas * ITEMS_PER_PAGE);
+
+  const filteredDetailActs = (detailModal.inscripcionesCuenta || []).filter(i => i.actividad && Number(i.actividad.costo) > 0);
+  const totalPagesDetailActs = Math.ceil(filteredDetailActs.length / ITEMS_PER_PAGE);
+  const paginatedDetailActs = filteredDetailActs.slice((pageDetailActs - 1) * ITEMS_PER_PAGE, pageDetailActs * ITEMS_PER_PAGE);
+
+  const cuotasColumns = [
+    { key: 'periodo', label: 'Periodo' },
+    { key: 'fecha_generacion', label: 'Generación' },
+    { key: 'monto_display', label: 'Monto' },
+    { key: 'estado_display', label: 'Estado' },
+  ];
+
+  const cuotasRows = paginatedDetailCuotas.map((c, idx) => ({
+    id: c.mes + '-' + idx,
+    periodo: <span className="font-semibold text-slate-800 text-xs">{c.mes}</span>,
+    fecha_generacion: <span className="text-xs text-slate-600">{formatDate(c.fechaGeneracion)}</span>,
+    monto_display: (
+      <span className={`font-bold text-xs ${c.pagado ? 'text-emerald-600' : 'text-red-600'}`}>
+        {c.pagado ? formatCurrency(c.monto_pagado || c.monto_esperado) : formatCurrency(c.monto_esperado)}
+      </span>
+    ),
+    estado_display: c.pagado ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+        <CheckCircle2 className="h-2.5 w-2.5" /> PAGADA
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] font-bold text-red-700">
+        <AlertTriangle className="h-2.5 w-2.5" /> PENDIENTE
+      </span>
+    ),
+  }));
+
+  const actsColumns = [
+    { key: 'actividad', label: 'Actividad' },
+    { key: 'tipo', label: 'Tipo' },
+    { key: 'costo_display', label: 'Costo' },
+    { key: 'estado_display', label: 'Estado' },
+  ];
+
+  const actsRows = paginatedDetailActs.map((ins, idx) => ({
+    id: ins.id || idx,
+    actividad: (
+      <div className="flex flex-col">
+        <span className="font-semibold text-slate-800 text-xs">{ins.actividad?.titulo || 'Sin nombre'}</span>
+        <span className="text-[9px] text-slate-400">
+          {ins.actividad?.fecha ? new Date(ins.actividad.fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+        </span>
+      </div>
+    ),
+    tipo: (
+      <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-600 uppercase">
+        {ins.actividad?.tipo_actividad?.nombre || 'General'}
+      </span>
+    ),
+    costo_display: (
+      <span className="font-bold text-xs text-slate-800">
+        {formatCurrency(ins.actividad?.costo || 0)}
+      </span>
+    ),
+    estado_display: ins.estado === 'pagado' ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+        <CheckCircle2 className="h-2.5 w-2.5" /> PAGADO
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+        <AlertTriangle className="h-2.5 w-2.5" /> PENDIENTE
+      </span>
+    ),
+  }));
+
+  const ModalPagination = ({ current, total, onPageChange, filteredCount, label = 'registros' }) => {
+    if (total <= 1) return null;
+    return (
+      <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-3 mt-3">
+        <p className="text-[10px] text-slate-500">
+          Mostrando <span className="font-semibold text-slate-900">{((current - 1) * ITEMS_PER_PAGE) + 1}</span> a{' '}
+          <span className="font-semibold text-slate-900">{Math.min(current * ITEMS_PER_PAGE, filteredCount)}</span> de{' '}
+          <span className="font-semibold text-slate-900">{filteredCount}</span> {label}
+        </p>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.max(1, current - 1))}
+            disabled={current === 1}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
+          >
+            <ChevronLeft className="h-3 w-3" />
+          </button>
+          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
+            {current} / {total}
+          </span>
+          <button
+            type="button"
+            onClick={() => onPageChange(Math.min(total, current + 1))}
+            disabled={current === total}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
+          >
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Gestion de miembros</h1>
           <p className="text-sm text-slate-500">Administra el registro institucional de socios.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ExportButtons 
             data={miembros.map(m => ({ 
               'Nombre Completo': `${m.nombre} ${m.apellidoPaterno || ''} ${m.apellidoMaterno || ''}`.trim(), 
@@ -416,13 +581,24 @@ export const GestionMiembrosPage = () => {
             filename="lista_miembros" 
             title="Listado de Miembros Institucionales" 
           />
-          <Button variant="outline" type="button" onClick={() => setTalentSearchModal({ open: true, query: '', results: [] })}>
-            <Lightbulb className="h-4 w-4 mr-1 text-yellow-500" />
-            Buscador de Talentos
+          <Button 
+            variant="outline" 
+            type="button" 
+            onClick={() => setTalentSearchModal({ open: true, query: '', results: [] })}
+            className="flex-1 sm:flex-none whitespace-nowrap h-9 flex items-center justify-center gap-2 px-3"
+          >
+            <Lightbulb className="h-4 w-4 shrink-0 text-yellow-500" />
+            <span className="hidden sm:inline text-sm">Buscador de Talentos</span>
+            <span className="sm:hidden text-xs">Talentos</span>
           </Button>
-          <Button type="button" onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4" />
-            Nuevo miembro
+          <Button 
+            type="button" 
+            onClick={handleOpenCreate}
+            className="flex-1 sm:flex-none whitespace-nowrap h-9 flex items-center justify-center gap-2 px-3"
+          >
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline text-sm">Nuevo miembro</span>
+            <span className="sm:hidden text-xs">Nuevo</span>
           </Button>
         </div>
       </header>
@@ -722,6 +898,14 @@ export const GestionMiembrosPage = () => {
               Inscripciones ({detailModal.inscripciones.length})
             </button>
             <button
+              onClick={() => setDetailModal(prev => ({ ...prev, tab: 'estado_cuenta' }))}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                detailModal.tab === 'estado_cuenta' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Estado de Cuenta
+            </button>
+            <button
               onClick={() => setDetailModal(prev => ({ ...prev, tab: 'notificaciones' }))}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
                 detailModal.tab === 'notificaciones' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -793,6 +977,57 @@ export const GestionMiembrosPage = () => {
               ) : (
                 <p className="text-sm text-slate-400 text-center py-6">El socio no ha subido su CV.</p>
               )}
+            </div>
+          ) : detailModal.tab === 'estado_cuenta' ? (
+            <div className="space-y-5">
+              {/* KPIs */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Monto Cuota Base</span>
+                  <span className="text-lg font-black text-slate-700">{formatCurrency(detailModal.cronograma?.[0]?.monto_esperado || 150)}</span>
+                </div>
+                <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-4 shadow-sm">
+                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block mb-1">Deuda Acumulada</span>
+                  <span className="text-lg font-black text-amber-700">
+                    {formatCurrency(
+                      detailModal.cronograma.filter(c => !c.pagado).reduce((sum, c) => sum + Number(c.monto_esperado || 0), 0) +
+                      detailModal.inscripcionesCuenta.filter(i => i.estado !== 'pagado').reduce((sum, i) => sum + Number(i.actividad?.costo || 0), 0)
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Seccion Cuotas */}
+              <div className="rounded-xl border border-slate-100 bg-white p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Historial de Cuotas</h4>
+                  <span className="text-[10px] text-slate-400 font-semibold">{detailModal.cronograma.length} registros</span>
+                </div>
+                <Table columns={cuotasColumns} rows={cuotasRows} emptyMessage="No hay cuotas registradas." />
+                <ModalPagination
+                  current={pageDetailCuotas}
+                  total={totalPagesDetailCuotas}
+                  onPageChange={setPageDetailCuotas}
+                  filteredCount={detailModal.cronograma.length}
+                  label="cuotas"
+                />
+              </div>
+
+              {/* Seccion Actividades */}
+              <div className="rounded-xl border border-slate-100 bg-white p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Historial de Actividades</h4>
+                  <span className="text-[10px] text-slate-400 font-semibold">{filteredDetailActs.length} registros</span>
+                </div>
+                <Table columns={actsColumns} rows={actsRows} emptyMessage="No hay actividades registradas." />
+                <ModalPagination
+                  current={pageDetailActs}
+                  total={totalPagesDetailActs}
+                  onPageChange={setPageDetailActs}
+                  filteredCount={filteredDetailActs.length}
+                  label="inscripciones"
+                />
+              </div>
             </div>
           ) : null}
         </div>

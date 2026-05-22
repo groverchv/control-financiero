@@ -18,6 +18,7 @@ export const AdminLayout = () => {
   };
 
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
+  const [generalUnreadCount, setGeneralUnreadCount] = useState(0);
 
   useEffect(() => {
     // Sincronizar notificaciones de amortizacion pendientes
@@ -49,7 +50,7 @@ export const AdminLayout = () => {
 
           const hoy = new Date();
           const count = planes.filter(p => {
-            const fechaVenc = new Date(p.fechaVencimiento);
+            const fechaVenc = new Date(p.fechaVencimiento + 'T00:00:00');
             const diffDias = Math.ceil((fechaVenc - hoy) / (1000 * 60 * 60 * 24));
             return diffDias <= diasAviso;
           }).length;
@@ -59,13 +60,35 @@ export const AdminLayout = () => {
           console.error('[AdminLayout] Error calculando notificaciones de amortización:', err);
         }
       };
+
+      const fetchGeneralUnread = async () => {
+        try {
+          const { count } = await supabase
+            .from('notificacion')
+            .select('id', { count: 'exact', head: true })
+            .eq('miembro_id', user.id)
+            .neq('estado', 'leida');
+          setGeneralUnreadCount(count || 0);
+        } catch (err) {
+          console.error('[AdminLayout] Error fetching general notifications:', err);
+        }
+      };
+
       fetchAdminUnread();
+      fetchGeneralUnread();
+
       const notifChannel = supabase
         .channel('admin-notif-count')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'plan_amortizacion' }, fetchAdminUnread)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacion', filter: `miembro_id=eq.${user.id}` }, fetchGeneralUnread)
         .subscribe();
+
+      // Listen to custom window events for immediate update in the UI
+      window.addEventListener('notificacion_leida', fetchGeneralUnread);
+
       return () => {
         supabase.removeChannel(notifChannel);
+        window.removeEventListener('notificacion_leida', fetchGeneralUnread);
       };
     }
   }, [user]);
@@ -100,34 +123,34 @@ export const AdminLayout = () => {
         <nav className="h-[calc(100vh-61px)] overflow-y-auto no-scrollbar px-4 py-6 pb-20">
           
           {/* DASHBOARD PRINCIPAL */}
-          {user?.rol !== 'secretario' && (
-            <div className="mb-6">
-              <ul className="space-y-1 text-sm">
-                <li>
-                  <NavLink to="/admin/kpis" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                    <LineChart className="h-4 w-4" />
-                    Dashboard KPIs
-                  </NavLink>
-                </li>
-              </ul>
-            </div>
+          {user?.rol === 'admin' && (
+          <div className="mb-6">
+            <ul className="space-y-1 text-sm">
+              <li>
+                <NavLink to="/admin/kpis" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <LineChart className="h-4 w-4" />
+                  Dashboard KPIs
+                </NavLink>
+              </li>
+            </ul>
+          </div>
           )}
 
           {/* PAQUETE ADMINISTRACIÓN */}
-          {user?.rol !== 'secretario' && (
-            <div className="mb-6">
-              <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-                Administración
-              </h3>
-              <ul className="space-y-1 text-sm">
-                <li>
-                  <NavLink to="/admin/miembros" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                    <Users className="h-4 w-4" />
-                    Miembros
-                  </NavLink>
-                </li>
-              </ul>
-            </div>
+          {user?.rol === 'admin' && (
+          <div className="mb-6">
+            <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              Administración
+            </h3>
+            <ul className="space-y-1 text-sm">
+              <li>
+                <NavLink to="/admin/miembros" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <Users className="h-4 w-4" />
+                  Miembros
+                </NavLink>
+              </li>
+            </ul>
+          </div>
           )}
 
           {/* PAQUETE FINANZAS */}
@@ -154,55 +177,55 @@ export const AdminLayout = () => {
                   Historial de Cuotas
                 </NavLink>
               </li>
-              {user?.rol !== 'secretario' && (
-                <li>
-                  <NavLink to="/admin/tipos-transaccion" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                    <Tags className="h-4 w-4" />
-                    Tipos de Ingreso y Egreso
-                  </NavLink>
-                </li>
+              {user?.rol === 'admin' && (
+              <li>
+                <NavLink to="/admin/tipos-transaccion" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <Tags className="h-4 w-4" />
+                  Tipos de Ingreso y Egreso
+                </NavLink>
+              </li>
               )}
             </ul>
           </div>
 
           {/* PAQUETE PATRIMONIO */}
-          {user?.rol !== 'secretario' && (
-            <div className="mb-6">
-              <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-                Patrimonio
-              </h3>
-              <ul className="space-y-1 text-sm">
-                <li>
-                  <NavLink to="/admin/activos" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                    <LayoutGrid className="h-4 w-4" />
-                    Activos
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink to="/admin/activos/amortizacion" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                    <Calculator className="h-4 w-4" />
-                    Plan de Amortización
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink to="/admin/notificaciones" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                    <Bell className="h-4 w-4" />
-                    Notificaciones
-                    {adminUnreadCount > 0 && (
-                      <span className="ml-auto flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                        {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
-                      </span>
-                    )}
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink to="/admin/tipos-activo" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                    <Tags className="h-4 w-4" />
-                    Tipos de Activos
-                  </NavLink>
-                </li>
-              </ul>
-            </div>
+          {user?.rol === 'admin' && (
+          <div className="mb-6">
+            <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              Patrimonio
+            </h3>
+            <ul className="space-y-1 text-sm">
+              <li>
+                <NavLink to="/admin/activos" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <LayoutGrid className="h-4 w-4" />
+                  Activos
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/admin/activos/amortizacion" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <Calculator className="h-4 w-4" />
+                  Plan de Amortización
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/admin/notificaciones" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <Bell className="h-4 w-4" />
+                  Notificaciones
+                  {adminUnreadCount > 0 && (
+                    <span className="ml-auto flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                      {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
+                    </span>
+                  )}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/admin/tipos-activo" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <Tags className="h-4 w-4" />
+                  Tipos de Activos
+                </NavLink>
+              </li>
+            </ul>
+          </div>
           )}
 
           {/* PAQUETE ACADÉMICO */}
@@ -218,35 +241,43 @@ export const AdminLayout = () => {
                 </NavLink>
               </li>
               <li>
+                <NavLink to="/admin/historial-actividades" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <History className="h-4 w-4" />
+                  Historial de Actividades
+                </NavLink>
+              </li>
+              <li>
                 <NavLink to="/admin/asignar-jurado" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
                   <Users className="h-4 w-4" />
                   Asignar Jurado
                 </NavLink>
               </li>
+              {user?.rol === 'admin' && (
               <li>
                 <NavLink to="/admin/tipos-actividad" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
                   <Tags className="h-4 w-4" />
                   Tipos de Actividad
                 </NavLink>
               </li>
+              )}
             </ul>
           </div>
 
           {/* AUDITORIA */}
-          {user?.rol !== 'secretario' && (
-            <div className="mb-6">
-              <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-                Auditoria
-              </h3>
-              <ul className="space-y-1 text-sm">
-                <li>
-                  <NavLink to="/admin/auditoria" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                    <ShieldCheck className="h-4 w-4" />
-                    Blockchain
-                  </NavLink>
-                </li>
-              </ul>
-            </div>
+          {user?.rol === 'admin' && (
+          <div className="mb-6">
+            <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              Auditoria
+            </h3>
+            <ul className="space-y-1 text-sm">
+              <li>
+                <NavLink to="/admin/auditoria" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
+                  <ShieldCheck className="h-4 w-4" />
+                  Blockchain
+                </NavLink>
+              </li>
+            </ul>
+          </div>
           )}
 
         </nav>
@@ -266,7 +297,7 @@ export const AdminLayout = () => {
 
               <div className="flex items-center gap-4 group relative">
                 <button 
-                  className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 hover:opacity-80 transition-all"
+                  className="text-sm sm:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 hover:opacity-80 transition-all"
                   onClick={() => setIsNavOpen(!isNavOpen)}
                 >
                   Control<span className="text-blue-600">Financiero</span>
@@ -294,11 +325,11 @@ export const AdminLayout = () => {
             
             {/* Desktop Profile Block */}
             <div className="hidden items-center gap-3 sm:gap-4 min-w-0 shrink-0 md:flex">
-              <div className="flex flex-col items-end text-right hidden lg:flex min-w-0 mr-2">
-                <span className="text-sm font-bold text-slate-900 truncate max-w-[120px] sm:max-w-[180px]">
+              <div className="flex flex-col items-end text-right flex min-w-0 mr-2">
+                <span className="text-sm font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[180px]">
                   {user?.nombre || 'Usuario'}
                 </span>
-                <span className="text-xs text-slate-500 truncate max-w-[120px] sm:max-w-[180px]">{user?.email}</span>
+                <span className="text-[10px] text-slate-500 truncate max-w-[100px] sm:max-w-[180px]">{user?.email}</span>
               </div>
               <div className="flex flex-col items-center gap-1 shrink-0">
                 <div className="h-10 w-10 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm">
@@ -324,33 +355,33 @@ export const AdminLayout = () => {
             </div>
 
             {/* Mobile Profile Block */}
-            <div className="flex items-center gap-2 md:hidden min-w-0 shrink-0">
-              <div className="flex flex-col items-end mr-1 text-right hidden min-[380px]:flex min-w-0">
-                <span className="text-xs font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[150px]">
-                  {user?.nombre || 'Usuario'}
+            <div className="flex items-center gap-2 md:hidden min-w-0 shrink-0 ml-auto">
+              <div className="flex flex-col items-end text-right min-w-0">
+                <span className="text-[10px] font-bold text-slate-900 truncate max-w-[60px]">
+                  {user?.nombre?.split(' ')[0] || 'Admin'}
                 </span>
-                <span className="text-[9px] text-slate-500 truncate max-w-[100px] sm:max-w-[150px]">{user?.email}</span>
+                <span className="text-[8px] text-slate-500 truncate max-w-[60px]">
+                  {user?.email}
+                </span>
               </div>
-              <div className="flex flex-col items-center gap-1 shrink-0">
-                <div className="h-8 w-8 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shadow-sm">
-                  {user?.foto ? (
-                    <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-slate-400">
-                      <UserIcon className="h-4 w-4" />
-                    </div>
-                  )}
-                </div>
-                <span className="rounded-full bg-blue-50 px-1 py-0.5 text-[7px] font-extrabold uppercase tracking-wider text-blue-600 border border-blue-100">
-                  {user?.rol}
+              <div className="h-8 w-8 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shadow-sm shrink-0 relative">
+                {user?.foto ? (
+                  <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-slate-400 font-bold text-[10px]">
+                    {user?.nombre?.substring(0, 1) || 'A'}
+                  </div>
+                )}
+                <span className="absolute -bottom-1 -right-1 rounded-full bg-blue-50 px-1 py-0.5 text-[6px] font-black uppercase tracking-wider text-blue-600 border border-blue-100 shadow-sm shadow-blue-500/10">
+                  {user?.rol?.substring(0, 5) || 'Admin'}
                 </span>
               </div>
               <button 
                 onClick={handleLogout}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 shrink-0 transition-colors"
+                className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 shrink-0 transition-colors"
                 title="Cerrar Sesión"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
               </button>
             </div>
           </div>

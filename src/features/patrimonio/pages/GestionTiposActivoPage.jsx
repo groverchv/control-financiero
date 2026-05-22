@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, Plus, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2 } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -11,9 +11,11 @@ export const GestionTiposActivoPage = () => {
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingTipo, setEditingTipo] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
   const [tiposEnUso, setTiposEnUso] = useState({});
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState({ open: false, id: null, nombre: '' });
 
   const isSubmitDisabled = !formData.nombre.trim();
 
@@ -26,7 +28,11 @@ export const GestionTiposActivoPage = () => {
       // Verificar uso
       const uso = {};
       for (const tipo of data) {
-        try { uso[tipo.id] = await patrimonioApi.verificarTipoActivoEnUso(tipo.id); } catch { uso[tipo.id] = false; }
+        try { 
+          uso[tipo.id] = await patrimonioApi.verificarTipoActivoEnUso(tipo.id); 
+        } catch { 
+          uso[tipo.id] = false; 
+        }
       }
       setTiposEnUso(uso);
     } catch (err) {
@@ -41,27 +47,107 @@ export const GestionTiposActivoPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  const handleOpenCreate = () => {
+    setEditingTipo(null);
+    setFormData({ nombre: '', descripcion: '' });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (tipo) => {
+    setEditingTipo(tipo);
+    setFormData({ nombre: tipo.nombre, descripcion: tipo.descripcion || '' });
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteClick = (tipo) => {
+    setConfirmDeleteModal({ open: true, id: tipo.id, nombre: tipo.nombre });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = confirmDeleteModal;
+    setConfirmDeleteModal({ open: false, id: null, nombre: '' });
+    
+    // Programmatic Blockade for active category
+    if (tiposEnUso[id]) {
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Acción Bloqueada',
+        details: 'Esta categoría de activo no puede ser eliminada bajo ninguna circunstancia porque está asignada a uno o más activos.'
+      });
+      return;
+    }
+
+    setLoading(true);
     try {
-      await patrimonioApi.crearTipoActivo(formData);
-      await fetchTipos();
+      await patrimonioApi.eliminarTipoActivo(id);
       setResultModal({
         open: true,
         type: 'success',
-        text: '¡Categoría de activo registrada!',
-        details: `La nueva categoría patrimonial "${formData.nombre}" ha sido dada de alta con éxito en el sistema.`
+        text: '¡Categoría de activo eliminada!',
+        details: 'La categoría patrimonial ha sido removida con éxito del sistema.'
       });
-      setIsModalOpen(false);
-      setFormData({ nombre: '', descripcion: '' });
+      await fetchTipos();
     } catch (err) {
       console.error(err);
       setResultModal({
         open: true,
         type: 'error',
-        text: 'Error al registrar categoría',
-        details: err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql.'
+        text: 'Error al eliminar',
+        details: err instanceof Error ? err.message : 'No se pudo eliminar la categoría de la base de datos.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Programmatic Blockade for active category
+    if (editingTipo && tiposEnUso[editingTipo.id]) {
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Acción Bloqueada',
+        details: 'Esta categoría de activo no puede ser modificada bajo ninguna circunstancia porque está asignada a uno o más activos.'
+      });
+      setIsModalOpen(false);
+      setFormData({ nombre: '', descripcion: '' });
+      setEditingTipo(null);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (editingTipo) {
+        await patrimonioApi.actualizarTipoActivo(editingTipo.id, formData);
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Categoría de activo actualizada!',
+          details: `La categoría patrimonial "${formData.nombre}" ha sido modificada con éxito.`
+        });
+      } else {
+        await patrimonioApi.crearTipoActivo(formData);
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Categoría de activo registrada!',
+          details: `La nueva categoría patrimonial "${formData.nombre}" ha sido dada de alta con éxito en el sistema.`
+        });
+      }
+      await fetchTipos();
+      setIsModalOpen(false);
+      setFormData({ nombre: '', descripcion: '' });
+      setEditingTipo(null);
+    } catch (err) {
+      console.error(err);
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error al guardar categoría',
+        details: err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos.'
       });
     } finally {
       setIsSubmitting(false);
@@ -72,29 +158,61 @@ export const GestionTiposActivoPage = () => {
     { key: 'nombre', label: 'Nombre' },
     { key: 'descripcion', label: 'Descripción' },
     { key: 'estado_uso', label: 'Estado' },
+    { key: 'acciones', label: 'Acciones' },
   ];
 
-  const rows = tipos.map(tipo => ({
-    ...tipo,
-    estado_uso: tiposEnUso[tipo.id] ? (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
-        <Lock className="h-3 w-3" /> En uso
-      </span>
-    ) : (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
-        Disponible
-      </span>
-    )
-  }));
+  const rows = tipos.map(tipo => {
+    const inUse = tiposEnUso[tipo.id];
+    return {
+      ...tipo,
+      estado_uso: inUse ? (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
+          <Lock className="h-3 w-3" /> En uso
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
+          Disponible
+        </span>
+      ),
+      acciones: (
+        <div className="flex gap-2 items-center">
+          <button 
+            onClick={() => handleOpenEdit(tipo)}
+            disabled={inUse}
+            className={`rounded p-1 transition-all ${
+              inUse 
+                ? 'text-slate-300 cursor-not-allowed opacity-50' 
+                : 'text-amber-600 hover:bg-amber-50'
+            }`}
+            title={inUse ? 'No se puede editar porque está en uso' : 'Editar'}
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          <button 
+            onClick={() => handleDeleteClick(tipo)}
+            disabled={inUse}
+            className={`rounded p-1 transition-all ${
+              inUse 
+                ? 'text-slate-300 cursor-not-allowed opacity-50' 
+                : 'text-red-600 hover:bg-red-50'
+            }`}
+            title={inUse ? 'No se puede eliminar porque está en uso' : 'Eliminar'}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      )
+    };
+  });
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Tipos de Activos</h1>
-          <p className="text-sm text-slate-500">Administra las categorias maestras de los activos. Los tipos en uso no pueden ser eliminados.</p>
+          <p className="text-sm text-slate-500">Administra las categorias maestras de los activos. Los tipos en uso no pueden ser modificados ni eliminados.</p>
         </div>
-        <Button type="button" onClick={() => setIsModalOpen(true)}>
+        <Button type="button" onClick={handleOpenCreate}>
           <Plus className="h-4 w-4" />
           Nuevo Tipo
         </Button>
@@ -118,7 +236,14 @@ export const GestionTiposActivoPage = () => {
         )}
       </section>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nuevo Tipo de Activo">
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTipo(null);
+        }} 
+        title={editingTipo ? 'Editar Tipo de Activo' : 'Nuevo Tipo de Activo'}
+      >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input 
             label="Nombre del Tipo" 
@@ -135,7 +260,14 @@ export const GestionTiposActivoPage = () => {
           />
           
           <div className="mt-6 flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingTipo(null);
+              }}
+            >
               Cancelar
             </Button>
             <Button 
@@ -143,10 +275,50 @@ export const GestionTiposActivoPage = () => {
               disabled={isSubmitting || isSubmitDisabled}
               className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
             >
-              {isSubmitting ? 'Guardando...' : 'Guardar Tipo'}
+              {isSubmitting ? 'Guardando...' : editingTipo ? 'Guardar Cambios' : 'Guardar Tipo'}
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal General de Confirmación de Eliminación */}
+      <Modal
+        isOpen={confirmDeleteModal.open}
+        onClose={() => setConfirmDeleteModal({ open: false, id: null, nombre: '' })}
+        title={
+          <div className="flex items-center gap-2.5 text-red-600">
+            <AlertCircle className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>Eliminar Categoría de Activo</span>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-lg text-red-800 text-sm">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+            <div>
+              <span>
+                ¿Estás seguro de que deseas eliminar la categoría <strong>"{confirmDeleteModal.nombre}"</strong>?
+                Esta acción no se puede deshacer y removerá la categoría de la base de datos de manera definitiva.
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteModal({ open: false, id: null, nombre: '' })}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              variant="danger"
+            >
+              Sí, eliminar
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       <Modal 

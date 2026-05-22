@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, MapPin, Users, Wallet, CheckCircle2, Share2, Info, GraduationCap, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, BookOpen, MapPin, Users, Wallet, CheckCircle2, Share2, Info, GraduationCap, AlertTriangle, CalendarDays, Clock } from 'lucide-react';
 import { academicoApi } from '../api';
 import { Spinner, Button, Modal } from '../../../components/ui';
 import { useAuthStore } from '../../../store/authStore';
+import { getDynamicEstado } from '../../../utils/formatters';
 
 export const DetalleActividadPage = () => {
   const { id } = useParams();
@@ -15,6 +16,46 @@ export const DetalleActividadPage = () => {
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [modalMessage, setModalMessage] = useState(null); // { title, type, text, action }
+  const [currentEstado, setCurrentEstado] = useState('programado');
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    if (!actividad?.fecha || !actividad?.hora) return;
+
+    const calculateTime = () => {
+      const startStr = `${actividad.fecha}T${actividad.hora}`;
+      const courseStart = new Date(startStr);
+      if (isNaN(courseStart.getTime())) {
+        setCurrentEstado('programado');
+        setTimeLeft('');
+        return;
+      }
+
+      const now = new Date();
+      const oneHour = 60 * 60 * 1000; // 1 hour in ms
+      const courseEndEnrollment = new Date(courseStart.getTime() + oneHour);
+
+      if (now < courseStart) {
+        setCurrentEstado('programado');
+        setTimeLeft('');
+      } else if (now >= courseStart && now <= courseEndEnrollment) {
+        setCurrentEstado('en_curso');
+        const diffMs = courseEndEnrollment - now;
+        const totalSecs = Math.max(0, Math.floor(diffMs / 1000));
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        setTimeLeft(`${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`);
+      } else {
+        setCurrentEstado('finalizado');
+        setTimeLeft('');
+      }
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+
+    return () => clearInterval(interval);
+  }, [actividad]);
 
   useEffect(() => {
     academicoApi.obtenerActividadPorId(id)
@@ -37,6 +78,15 @@ export const DetalleActividadPage = () => {
         type: 'error',
         text: 'Debe iniciar sesión para inscribirse en esta actividad.',
         action: () => navigate('/login')
+      });
+      return;
+    }
+
+    if (currentEstado === 'finalizado') {
+      setModalMessage({
+        title: 'Actividad Finalizada',
+        type: 'error',
+        text: 'Lo sentimos, ya no es posible inscribirse en esta actividad porque ha finalizado.'
       });
       return;
     }
@@ -102,36 +152,49 @@ export const DetalleActividadPage = () => {
                 <GraduationCap className="h-20 w-20 text-white/20" />
               </div>
             )}
-            <div className="absolute top-4 right-4 sm:top-6 sm:right-6 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-white/50 text-emerald-600 font-black uppercase tracking-widest text-[10px] sm:text-xs">
-              {actividad.estado || 'Programada'}
+            <div className={`absolute top-4 right-4 sm:top-6 sm:right-6 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-white/50 font-black uppercase tracking-widest text-[10px] sm:text-xs ${
+              currentEstado === 'finalizado' ? 'text-slate-500' : 'text-emerald-600'
+            }`}>
+              {currentEstado === 'en_curso' ? 'En proceso' : currentEstado === 'finalizado' ? 'Finalizado' : 'Programada'}
             </div>
           </div>
 
           <div className="bg-white rounded-2xl sm:rounded-[3rem] p-5 sm:p-8 md:p-12 shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2 mb-4">
-              <BookOpen className="h-5 w-5 text-emerald-500" />
-              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{actividad.tipo_nombre || 'Actividad Institucional'}</span>
+            <div className="flex flex-wrap gap-2 items-center mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <BookOpen className="h-3.5 w-3.5" />
+                {actividad.tipo_nombre || 'Actividad Institucional'}
+              </span>
             </div>
             
             <h1 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-4 sm:mb-6">{actividad.nombre}</h1>
             
-            <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 sm:mb-10">
               <div className="flex items-start gap-4 p-4 rounded-2xl bg-emerald-50/50">
                 <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shrink-0">
-                  <Calendar className="h-5 w-5" />
+                  <CalendarDays className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inicio</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha del Evento</p>
                   <p className="font-bold text-slate-900">
-                    {new Date(actividad.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-black uppercase tracking-tighter">
-                      {actividad.hora?.substring(0, 5) || '19:00'}
-                    </span>
+                    {new Date(actividad.fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 p-4 rounded-2xl bg-teal-50/50">
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-blue-50/50">
+                <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Horario / Hora de Inicio</p>
+                  <p className="font-bold text-slate-900">
+                    {actividad.hora?.substring(0, 5) || '19:00'} Hrs
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-4 rounded-2xl bg-teal-50/50 md:col-span-2">
                 <div className="h-10 w-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shrink-0">
                   {actividad.modalidad === 'virtual' ? <Info className="h-5 w-5" /> : <MapPin className="h-5 w-5" />}
                 </div>
@@ -220,18 +283,39 @@ export const DetalleActividadPage = () => {
               </div>
             </div>
 
+            {currentEstado === 'en_curso' && (
+              <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center animate-pulse flex flex-col items-center justify-center">
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block mb-1">
+                  TIEMPO LÍMITE DE INSCRIPCIÓN
+                </span>
+                <p className="text-sm font-bold text-amber-200">
+                  Aún puede inscribirse, quedan <span className="font-mono text-base font-black text-amber-400 bg-slate-950 px-2 py-0.5 rounded-md border border-white/5 ml-1">{timeLeft}</span> min
+                </p>
+              </div>
+            )}
+
             <Button 
               onClick={handleInscripcion}
-              disabled={isEnrolling || isInscrito || actividad.cupos <= 0}
+              disabled={isEnrolling || isInscrito || actividad.cupos <= 0 || currentEstado === 'finalizado'}
               className={`w-full h-14 rounded-2xl text-base font-black shadow-lg ${
                 isInscrito 
                   ? 'bg-slate-700 text-slate-300 cursor-not-allowed shadow-none' 
-                  : actividad.cupos <= 0
-                    ? 'bg-red-600 text-white cursor-not-allowed shadow-red-900/20'
-                    : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'
+                  : currentEstado === 'finalizado'
+                    ? 'bg-slate-700 text-slate-300 cursor-not-allowed shadow-none'
+                    : actividad.cupos <= 0
+                      ? 'bg-red-600 text-white cursor-not-allowed shadow-red-900/20'
+                      : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'
               }`}
             >
-              {isEnrolling ? 'Procesando...' : isInscrito ? 'YA ESTÁS INSCRITO' : actividad.cupos <= 0 ? 'CUPOS AGOTADOS' : 'INSCRIBIRME AHORA'}
+              {isEnrolling 
+                ? 'Procesando...' 
+                : isInscrito 
+                  ? 'YA ESTÁS INSCRITO' 
+                  : currentEstado === 'finalizado'
+                    ? 'CURSO FINALIZADO'
+                    : actividad.cupos <= 0 
+                      ? 'CUPOS AGOTADOS' 
+                      : 'INSCRIBIRME AHORA'}
             </Button>
           </div>
         </div>
@@ -286,5 +370,3 @@ export const DetalleActividadPage = () => {
     </div>
   );
 };
-
-const Calendar = ({ className }) => <BookOpen className={className} />;

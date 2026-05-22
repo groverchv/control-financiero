@@ -6,6 +6,34 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
+const parseLocalDate = (val) => {
+  if (!val) return new Date();
+  if (val instanceof Date) return val;
+  if (typeof val === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      return new Date(val + 'T00:00:00');
+    }
+    const parts = val.split('/');
+    if (parts.length === 3) {
+      return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+    if (val.includes('T')) {
+      return new Date(val);
+    }
+    // Handle YYYY-MM-DD with hours or other formats
+    if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
+      return new Date(val.replace(/^(\d{4}-\d{2}-\d{2})/, '$1T00:00:00'));
+    }
+  }
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? new Date() : d;
+};
+
+const getLocalTodayString = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Institucional' }) => {
   const [isOpen, setIsOpen] = useState(false);
   
@@ -40,11 +68,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
       let uniqueYears = [];
       if (type === 'date') {
         uniqueYears = Array.from(new Set(values.map(v => {
-          let d = new Date(v);
-          if (isNaN(d.getTime()) && typeof v === 'string') {
-            const parts = v.split('/');
-            if (parts.length === 3) d = new Date(parts[2], parts[1]-1, parts[0]);
-          }
+          let d = parseLocalDate(v);
           return d.getFullYear();
         }).filter(y => !isNaN(y)))).sort();
       }
@@ -59,8 +83,16 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
   }, [data, allHeaders]);
 
   useEffect(() => {
-    setSelectedColumns(allHeaders.reduce((acc, h) => ({ ...acc, [h]: true }), {}));
+    // Todos los campos desmarcados por defecto
+    setSelectedColumns(allHeaders.reduce((acc, h) => ({ ...acc, [h]: false }), {}));
     setFilters(allHeaders.reduce((acc, h) => ({ ...acc, [h]: { mode: 'all', value1: '', value2: '' } }), {}));
+  }, [allHeaders]);
+
+  const filteredHeaders = useMemo(() => {
+    return allHeaders.filter(h => {
+      const lower = h.toLowerCase();
+      return !lower.includes('blockchain') && !lower.includes('tx');
+    });
   }, [allHeaders]);
 
   const toggleColumn = (col) => {
@@ -93,11 +125,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
         const meta = columnMetadata[header];
 
         if (meta.type === 'date') {
-          let d = new Date(cellVal);
-          if (isNaN(d.getTime()) && typeof cellVal === 'string') {
-            const parts = cellVal.split('/');
-            if (parts.length === 3) d = new Date(parts[2], parts[1]-1, parts[0]);
-          }
+          let d = parseLocalDate(cellVal);
           if (isNaN(d.getTime())) return false;
           
           const y = String(d.getFullYear());
@@ -123,8 +151,8 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
              return y === filterState.value1 && sem === filterState.value2;
           }
           if (filterState.mode === 'range') {
-            const start = filterState.value1 ? new Date(filterState.value1) : null;
-            const end = filterState.value2 ? new Date(filterState.value2) : null;
+            const start = filterState.value1 ? parseLocalDate(filterState.value1) : null;
+            const end = filterState.value2 ? parseLocalDate(filterState.value2) : null;
             if (end) end.setHours(23, 59, 59, 999);
             
             if (start && end && !isNaN(start) && !isNaN(end)) return d >= start && d <= end;
@@ -227,7 +255,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
       
       worksheet['!cols'] = activeHeaders.map(key => ({ wch: max_width[key] + 2 }));
       
-      XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.writeFile(workbook, `${filename}_${getLocalTodayString()}.xlsx`);
     } 
     else if (format === 'txt') {
       const txtContent = [
@@ -244,7 +272,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${filename}_${new Date().toISOString().split('T')[0]}.txt`;
+      link.download = `${filename}_${getLocalTodayString()}.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -287,7 +315,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
         }
       });
       
-      doc.save(`${filename}_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`${filename}_${getLocalTodayString()}.pdf`);
     }
     setIsOpen(false);
   };
@@ -308,10 +336,11 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
         variant="outline" 
         size="sm" 
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+        className="flex items-center gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 flex-1 sm:flex-none whitespace-nowrap"
       >
-        <Filter className="h-4 w-4" />
-        Configurar Reporte
+        <Filter className="h-4 w-4 shrink-0" />
+        <span className="hidden sm:inline">Configurar Reporte</span>
+        <span className="sm:hidden text-xs text-blue-700 font-bold">Configurar</span>
       </Button>
 
       <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Configuración de Reporte" width="max-w-5xl">
@@ -325,7 +354,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
                   <FileText className="h-4 w-4 text-blue-600" /> Atributos a exportar
                 </h3>
                 <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                  {allHeaders.map(header => (
+                  {filteredHeaders.map(header => (
                     <label key={header} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-100 p-1 rounded">
                       <input 
                         type="checkbox" 
@@ -353,7 +382,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
                       className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
                     >
                       <option value="">(Sin orden específico)</option>
-                      {allHeaders.map(header => (
+                      {filteredHeaders.map(header => (
                         <option key={header} value={header}>{header}</option>
                       ))}
                     </select>
@@ -380,10 +409,10 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
                 <Filter className="h-4 w-4 text-emerald-600" /> Filtros dinámicos
               </h3>
               <div className="space-y-4 max-h-[340px] overflow-y-auto pr-2">
-                {allHeaders.filter(h => selectedColumns[h]).length === 0 ? (
+                {filteredHeaders.filter(h => selectedColumns[h]).length === 0 ? (
                   <p className="text-sm text-slate-500 italic py-4">Seleccione atributos para habilitar sus opciones de filtrado.</p>
                 ) : (
-                  allHeaders.filter(h => selectedColumns[h]).map(header => {
+                  filteredHeaders.filter(h => selectedColumns[h]).map(header => {
                     const meta = columnMetadata[header];
                     const filterState = filters[header] || { mode: 'all', value1: '', value2: '' };
                     

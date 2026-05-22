@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../store/authStore';
+import { toast } from 'react-toastify';
 
 export const useAuth = () => {
   const { setUser, setLoading, user } = useAuthStore();
@@ -52,6 +53,30 @@ export const useAuth = () => {
         foto: archivos?.url || null,
         created_at: sessionUser.created_at || '',
       });
+
+      // Validar si el usuario cuenta con la notificación de bienvenida
+      setTimeout(async () => {
+        try {
+          const { data: hasWelcome } = await supabase
+            .from('notificacion')
+            .select('id')
+            .eq('miembro_id', sessionUser.id)
+            .eq('titulo', '¡Bienvenido a Control Financiero!')
+            .limit(1)
+            .maybeSingle();
+
+          if (!hasWelcome) {
+            await supabase.from('notificacion').insert({
+              miembro_id: sessionUser.id,
+              titulo: '¡Bienvenido a Control Financiero!',
+              descripcion: 'Te damos la bienvenida al sistema de Control Financiero. Aquí podrás gestionar cuotas, ingresos, egresos, patrimonio y ver tu estado de cuenta en tiempo real.',
+              estado: 'pendiente'
+            });
+          }
+        } catch (err) {
+          console.error('Error al validar o insertar notificación de bienvenida:', err);
+        }
+      }, 1500);
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -74,6 +99,59 @@ export const useAuth = () => {
 
     return () => subscription?.unsubscribe();
   }, [setUser, setLoading]);
+
+  useEffect(() => {
+    if (!user || !user.id) return;
+
+    // Solicitar permiso de notificaciones de escritorio si está en default
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    // Suscribirse a inserciones de notificaciones en tiempo real para el usuario actual
+    const channel = supabase
+      .channel(`miembro-notificaciones-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notificacion',
+          filter: `miembro_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const { titulo, descripcion } = payload.new;
+
+          // 1. Mostrar Toast en pantalla
+          toast.info(`${titulo}\n${descripcion}`, {
+            position: 'top-right',
+            autoClose: 6000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            style: { whiteSpace: 'pre-line' },
+          });
+
+          // 2. Mostrar Notificación PUSH Nativa de Escritorio
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(titulo, {
+                body: descripcion,
+                icon: user.foto || '/favicon.ico',
+              });
+            } catch (err) {
+              console.error('Error al disparar notificación push nativa:', err);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   return { user, isAuthenticated: !!user };
 };

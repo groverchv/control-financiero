@@ -36,11 +36,11 @@ export const LoginPage = () => {
       });
 
       if (role === 'admin') {
-        navigate('/admin/miembros');
+        navigate('/admin/kpis');
       } else if (role === 'secretario') {
         navigate('/admin/ingresos');
       } else {
-        navigate('/inicio');
+        navigate('/socio/portal');
       }
     }
 

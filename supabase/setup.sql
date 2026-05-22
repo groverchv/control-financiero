@@ -13,12 +13,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA public;
 
 -- ==========================================
--- 1.5. STORAGE BUCKETS
+-- 1.5. ALMACENAMIENTO DE ARCHIVOS (CLOUDINARY)
 -- ==========================================
--- Nota: Asegúrate de tener habilitado el servicio de Storage en Supabase
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('archivos', 'archivos', true)
-ON CONFLICT (id) DO NOTHING;
+-- No se utiliza el Storage de Supabase para evitar consumir espacio y ancho de banda
+-- del plan gratuito. En su lugar, el sistema está acoplado a Cloudinary, el cual
+-- procesa los archivos y guarda directamente la URL pública en la tabla "archivo".
 
 -- Borrar cualquier usuario trabado en el sistema de autenticación
 DELETE FROM auth.identities;
@@ -48,7 +47,6 @@ CREATE TABLE public.notificacion (
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
     titulo text NOT NULL,
     descripcion text,
-    fecha date DEFAULT current_date,
     estado text DEFAULT 'pendiente',
     creacion timestamptz DEFAULT now()
 );
@@ -79,6 +77,9 @@ CREATE TABLE public.actividad (
     incluye_certificacion boolean DEFAULT false,
     estado text DEFAULT 'programado',
     publicado boolean DEFAULT true,
+    hash_anterior text,
+    hash_actual text,
+    blockchain_tx_id text,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
@@ -146,7 +147,6 @@ CREATE TABLE public.egreso (
     activo_id uuid REFERENCES public.activos(id) ON DELETE SET NULL,
     concepto text NOT NULL,
     monto numeric(12,2) NOT NULL,
-    fecha date NOT NULL,
     descripcion text,
     hash_anterior text,
     hash_actual text,
@@ -310,6 +310,14 @@ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
   
+  -- Insert welcome notification
+  INSERT INTO public.notificacion (miembro_id, titulo, descripcion)
+  VALUES (
+    new.id,
+    '¡Bienvenido!',
+    'Te damos la bienvenida al sistema.'
+  );
+  
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -333,7 +341,7 @@ BEGIN
     NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
 
     NEW.hash_actual := encode(extensions.digest(
-      convert_to(NEW.id::text || NEW.monto::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
+      convert_to(NEW.id::text || NEW.monto::text || NEW.creacion::text || NEW.hash_anterior, 'utf8'),
       'sha256'
     ), 'hex');
 
@@ -359,7 +367,7 @@ BEGIN
     NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
 
     NEW.hash_actual := encode(extensions.digest(
-      convert_to(NEW.id::text || NEW.monto::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
+      convert_to(NEW.id::text || NEW.monto::text || NEW.creacion::text || NEW.hash_anterior, 'utf8'),
       'sha256'
     ), 'hex');
 
@@ -432,6 +440,33 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tr_blockchain_archivo
 BEFORE INSERT ON public.archivo
 FOR EACH ROW EXECUTE FUNCTION public.sellar_archivo();
+
+-- Sellado: actividad
+CREATE OR REPLACE FUNCTION public.sellar_actividad()
+RETURNS trigger AS $$
+DECLARE
+    v_hash_anterior TEXT;
+BEGIN
+    IF NEW.hash_actual IS NULL THEN
+        SELECT hash_actual INTO v_hash_anterior
+        FROM public.actividad
+        WHERE hash_actual IS NOT NULL
+        ORDER BY creacion DESC
+        LIMIT 1;
+
+        NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
+        NEW.hash_actual := encode(extensions.digest(
+          convert_to(NEW.id::text || NEW.titulo || NEW.costo::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
+          'sha256'
+        ), 'hex');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_blockchain_actividad
+BEFORE INSERT ON public.actividad
+FOR EACH ROW EXECUTE FUNCTION public.sellar_actividad();
 
 -- ==========================================
 -- 4. SEGURIDAD DE FILAS (RLS)

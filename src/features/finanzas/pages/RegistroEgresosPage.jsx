@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle, RefreshCw, DollarSign } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { patrimonioApi } from '../../patrimonio/api';
 import { useEgresos } from '../hooks';
@@ -7,11 +8,11 @@ import { useAuthStore } from '../../../store/authStore';
 import { Button, Input, Select, Spinner, ExportButtons, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
 import { cloudinaryService } from '../../../services/cloudinary';
-import { useEffect } from 'react';
 
 export const RegistroEgresosPage = () => {
   const { egresos, loading, error, setEgresos } = useEgresos();
   const { user } = useAuthStore();
+  const location = useLocation();
   const [form, setForm] = useState({
     concepto: '',
     monto: '',
@@ -37,10 +38,54 @@ export const RegistroEgresosPage = () => {
 
   const isSubmitDisabled = !form.concepto.trim() || !form.monto || !form.tipo_egreso_id;
   
+  // Manejar redirección automática desde Gestión de Activos
+  useEffect(() => {
+    if (location.state && location.state.autoOpenCreate && location.state.activoId) {
+      const state = location.state;
+      
+      const setupAutoFill = async () => {
+        try {
+          const dataTipos = await finanzasApi.obtenerTiposEgreso();
+          setTiposEgreso(dataTipos);
+          
+          let tipoEgresoId = '';
+          const tipoCompra = dataTipos.find(t => t.nombre.toLowerCase().includes('compra') || t.nombre.toLowerCase().includes('adquisición') || t.nombre.toLowerCase().includes('activo'));
+          if (tipoCompra) tipoEgresoId = tipoCompra.id;
+          else if (dataTipos.length > 0) tipoEgresoId = dataTipos[0].id;
+          
+          setIsCreateModalOpen(true);
+          
+          setForm(prev => ({
+            ...prev,
+            activo_id: state.activoId,
+            tipo_egreso_id: tipoEgresoId,
+            monto: String(state.monto),
+            concepto: state.descripcion || 'Pago de cuota/saldo de activo',
+            descripcion: state.descripcion || 'Pago de cuota de plan de amortización o saldo pendiente.',
+          }));
+          
+        } catch (err) {
+          console.error('[RegistroEgresos] Error pre-rellenando pago desde activos:', err);
+        }
+      };
+      
+      setupAutoFill();
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   useEffect(() => {
     if (!isCreateModalOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setComprobantePreview(null);
+      setForm({
+        concepto: '',
+        monto: '',
+        tipo_egreso_id: '',
+        activo_id: '',
+        descripcion: '',
+        comprobante: null,
+      });
     }
   }, [isCreateModalOpen]);
   
@@ -132,7 +177,7 @@ export const RegistroEgresosPage = () => {
       }
 
       await finanzasApi.registrarEgreso({
-        registradoPor: user?.id,
+        miembro_id: user?.id || null,
         tipo_egreso_id: form.tipo_egreso_id,
         activo_id: form.activo_id,
         concepto: form.concepto,
@@ -187,22 +232,23 @@ export const RegistroEgresosPage = () => {
           <h1 className="text-2xl font-semibold text-slate-900">Registro de egresos</h1>
           <p className="text-sm text-slate-500">Controla los egresos operativos de la institucion.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Nuevo egreso
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
           <ExportButtons 
             data={filteredEgresos.map(e => ({ 
               Concepto: e.concepto, 
               'Registrado Por': e.registrado_por_nombre || 'Sistema',
               Monto: e.monto, 
-              Fecha: e.fecha, 
-              Categoria: e.categoria,
-              'Tx Blockchain': e.blockchain_tx_id || 'No sellado'
+              Fecha: e.creacion ? new Date(e.creacion).toLocaleDateString('es-ES') : '', 
+              Categoria: e.categoria
             }))} 
             filename="historial_egresos" 
             title="Reporte de Egresos Institucionales" 
           />
+          <Button onClick={() => setIsCreateModalOpen(true)} className="flex-1 sm:flex-none h-9 flex items-center justify-center gap-2 px-4 whitespace-nowrap">
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden text-xs">Nuevo</span>
+            <span className="hidden sm:inline text-sm">Nuevo egreso</span>
+          </Button>
         </div>
       </header>
 
@@ -279,7 +325,7 @@ export const RegistroEgresosPage = () => {
                                   day: '2-digit', month: '2-digit', year: 'numeric', 
                                   hour: '2-digit', minute: '2-digit', hour12: true 
                                 }) 
-                              : new Date(egreso.fecha).toLocaleDateString('es-ES')}
+                              : '—'}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-2">
@@ -551,10 +597,6 @@ export const RegistroEgresosPage = () => {
                 <p className="text-slate-700">{detalleModal.egreso.categoria}</p>
               </div>
               <div>
-                <p className="text-[10px] text-slate-400 font-medium mb-1">Fecha Lógica</p>
-                <p className="text-slate-700">{new Date(detalleModal.egreso.fecha).toLocaleDateString('es-ES')}</p>
-              </div>
-              <div>
                 <p className="text-[10px] text-slate-400 font-medium mb-1">Fecha de Registro</p>
                 <p className="text-slate-700">
                   {detalleModal.egreso.creacion 
@@ -562,7 +604,7 @@ export const RegistroEgresosPage = () => {
                         day: '2-digit', month: '2-digit', year: 'numeric', 
                         hour: '2-digit', minute: '2-digit', hour12: true 
                       }) 
-                    : new Date(detalleModal.egreso.fecha).toLocaleDateString('es-ES')}
+                    : '—'}
                 </p>
               </div>
               <div>

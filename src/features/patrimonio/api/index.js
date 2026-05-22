@@ -116,6 +116,23 @@ export const patrimonioApi = {
     if (error) throw error;
     return data?.[0];
   },
+  actualizarTipoActivo: async (id, tipo) => {
+    const { data, error } = await supabase
+      .from('tipo_activo')
+      .update(tipo)
+      .eq('id', id)
+      .select();
+    if (error) throw error;
+    return data?.[0];
+  },
+  eliminarTipoActivo: async (id) => {
+    const { error } = await supabase
+      .from('tipo_activo')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return true;
+  },
 
   sellarActivo: async (id, registradoPor) => {
     const { data, error } = await supabase.from('activos').select('*').eq('id', id).single();
@@ -162,7 +179,7 @@ export const patrimonioApi = {
       const hoy = new Date();
 
       for (const p of planes) {
-        const fechaVenc = new Date(p.fechaVencimiento);
+        const fechaVenc = new Date(p.fechaVencimiento + 'T00:00:00');
         const diffDias = Math.ceil((fechaVenc - hoy) / (1000 * 60 * 60 * 24));
 
         if (diffDias <= diasAviso) {
@@ -205,18 +222,23 @@ export const patrimonioApi = {
     const { data, error } = await supabase
       .from('configuracion_cuotas')
       .select('*')
+      .order('creacion', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     
     if (error) throw error;
     return data;
   },
   
   actualizarConfiguracion: async (configuracion) => {
+    const cleanConfig = { ...configuracion };
+    delete cleanConfig.id;
+    delete cleanConfig.creacion;
+    delete cleanConfig.actualizacion;
+
     const { data, error } = await supabase
       .from('configuracion_cuotas')
-      .update(configuracion)
-      .eq('id', configuracion.id)
+      .insert([cleanConfig])
       .select();
 
     if (error) throw error;

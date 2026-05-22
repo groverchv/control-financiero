@@ -222,7 +222,7 @@ export const brevoService = {
   },
 
   notificarNuevoEvento: async ({ destinatarios, evento }) => {
-    const fechaFormateada = new Date(evento.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const fechaFormateada = new Date(evento.fecha && typeof evento.fecha === 'string' && evento.fecha.includes('-') ? evento.fecha.split('T')[0] + 'T00:00:00' : evento.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const content = `
       <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Nuevo Evento Institucional</h2>
       <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
@@ -278,7 +278,7 @@ export const brevoService = {
   },
 
   notificarNuevoCurso: async ({ destinatarios, curso }) => {
-    const fechaFormateada = new Date(curso.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const fechaFormateada = new Date(curso.fecha && typeof curso.fecha === 'string' && curso.fecha.includes('-') ? curso.fecha.split('T')[0] + 'T00:00:00' : curso.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const content = `
       <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Nueva Actividad Academica Disponible</h2>
       <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
@@ -290,8 +290,16 @@ export const brevoService = {
             <h3 style="margin:0 0 12px;color:#047857;font-size:18px;font-weight:800;">${curso.nombre}</h3>
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Tipo de Actividad</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.tipo_nombre || 'General'}</td>
+              </tr>
+              <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha de inicio</td>
                 <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaFormateada}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Hora de Evento</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.hora ? curso.hora.substring(0, 5) : '19:00'} Hrs</td>
               </tr>
               <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Modalidad</td>
@@ -322,10 +330,14 @@ export const brevoService = {
         continue;
       }
 
-      await guardarNotificacionDB(dest.id, 'Nuevo curso: ' + curso.nombre, `Se ha registrado la actividad "${curso.nombre}" para el ${fechaFormateada}. Modalidad: ${curso.modalidad || 'Presencial'}. Costo: ${curso.costo > 0 ? 'Bs. ' + curso.costo : 'Sin costo'}.`);
+      await guardarNotificacionDB(
+        dest.id, 
+        'Nueva actividad: ' + curso.nombre, 
+        `Se ha registrado la actividad de tipo (${curso.tipo_nombre || 'General'}) "${curso.nombre}" para el ${fechaFormateada} a las ${curso.hora ? curso.hora.substring(0, 5) : '19:00'} Hrs. Modalidad: ${curso.modalidad || 'Presencial'}. Costo: ${curso.costo > 0 ? 'Bs. ' + curso.costo : 'Sin costo'}.`
+      );
       const result = await enviarEmail({
         to: { email: dest.email, name: dest.nombre },
-        subject: `Nueva actividad academica: ${curso.nombre}`,
+        subject: `Nueva actividad academica (${curso.tipo_nombre || 'General'}): ${curso.nombre}`,
         htmlContent: baseTemplate('Nueva Actividad Academica', content, '#059669'),
       });
       results.push(result);
@@ -339,7 +351,7 @@ export const brevoService = {
       if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
     }
 
-    const fechaFormateada = new Date(evento.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const fechaFormateada = new Date(evento.fecha && typeof evento.fecha === 'string' && evento.fecha.includes('-') ? evento.fecha.split('T')[0] + 'T00:00:00' : evento.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const content = `
       <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Inscripcion Confirmada</h2>
       <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
@@ -385,7 +397,7 @@ export const brevoService = {
       if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
     }
 
-    const fechaFormateada = new Date(curso.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const fechaFormateada = new Date(curso.fecha && typeof curso.fecha === 'string' && curso.fecha.includes('-') ? curso.fecha.split('T')[0] + 'T00:00:00' : curso.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const content = `
       <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Inscripcion Academica Confirmada</h2>
       <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
@@ -397,32 +409,122 @@ export const brevoService = {
             <h3 style="margin:0 0 12px;color:#047857;font-size:18px;font-weight:800;">${curso.nombre}</h3>
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Tipo de Actividad</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.tipo_nombre || 'General'}</td>
+              </tr>
+              <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha de inicio</td>
                 <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaFormateada}</td>
               </tr>
-              ${curso.hora ? `
               <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Hora</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.hora.substring(0, 5)}</td>
-              </tr>` : ''}
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Hora de Evento</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.hora ? curso.hora.substring(0, 5) : '19:00'} Hrs</td>
+              </tr>
               <tr>
                 <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Modalidad</td>
                 <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;text-transform:capitalize;">${curso.modalidad || 'Presencial'}</td>
+              </tr>
+              ${curso.costo > 0 ? `
+              <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Costo de Inscripcion</td>
+                <td style="padding:6px 0;color:#dc2626;font-size:14px;font-weight:800;text-align:right;">Bs. ${curso.costo}</td>
+              </tr>` : `
+              <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Costo de Inscripcion</td>
+                <td style="padding:6px 0;color:#16a34a;font-size:13px;font-weight:700;text-align:right;">Sin costo</td>
+              </tr>`}
+            </table>
+          </td>
+        </tr>
+      </table>
+      ${curso.costo > 0 ? `
+      <div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
+        <p style="margin:0;color:#b91c1c;font-size:13px;font-weight:700;">
+          ⚠️ Esta actividad tiene un costo de <strong>Bs. ${curso.costo}</strong>. 
+          Por favor, acercarse a secretaria para regularizar el pago correspondiente.
+        </p>
+      </div>` : ''}
+      <p style="margin:0;color:#64748b;font-size:13px;">Le deseamos exito en su capacitacion. Recuerde revisar los requisitos previos.</p>
+    `;
+
+    await guardarNotificacionDB(
+      miembroId,
+      'Inscripcion confirmada: ' + curso.nombre,
+      `Su inscripcion a la actividad de tipo (${curso.tipo_nombre || 'General'}) "${curso.nombre}" ha sido confirmada. Fecha: ${fechaFormateada} a las ${curso.hora ? curso.hora.substring(0, 5) : '19:00'} Hrs. Modalidad: ${curso.modalidad || 'Presencial'}.${curso.costo > 0 ? ` Costo pendiente: Bs. ${curso.costo}. Por favor regularice el pago en secretaria.` : ' Sin costo.'}`
+    );
+
+    return enviarEmail({
+      to: { email, name: nombre },
+      subject: `Inscripcion confirmada (${curso.tipo_nombre || 'General'}) - ${curso.nombre}`,
+      htmlContent: baseTemplate('Inscripcion Academica', content, '#059669'),
+    });
+  },
+
+  notificarCambioActividad: async ({ destinatarios, curso }) => {
+    const content = `
+      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Modificación de Actividad Académica</h2>
+      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
+        Le informamos que la actividad académica <strong>"${curso.nombre}"</strong> en la que se encuentra inscrito ha sido actualizada por el administrador.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;margin-bottom:24px;">
+        <tr>
+          <td style="padding:20px;">
+            <h3 style="margin:0 0 12px;color:#b45309;font-size:15px;font-weight:800;">Detalles de la Actualización:</h3>
+            <p style="margin:0 0 16px;color:#475569;font-size:14px;line-height:1.6;">
+              Se han realizado las siguientes modificaciones en la actividad:
+            </p>
+            ${curso.detalles}
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #fef3c7;margin-top:16px;padding-top:12px;">
+              <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nueva Fecha</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.fecha || 'Sin cambios'}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nueva Hora</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.hora ? curso.hora.substring(0, 5) : 'Sin cambios'} Hrs</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nueva Ubicación</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.ubicacion || 'Sin cambios'}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nueva Modalidad</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;text-transform:capitalize;">${curso.modalidad || 'Sin cambios'}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nuevo Costo</td>
+                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">Bs. ${curso.costo}</td>
               </tr>
             </table>
           </td>
         </tr>
       </table>
-      <p style="margin:0;color:#64748b;font-size:13px;">Le deseamos exito en su capacitacion. Recuerde revisar los requisitos previos.</p>
+      <p style="margin:0;color:#64748b;font-size:13px;">Por favor tome nota de estos cambios. Ingrese al portal para ver más detalles.</p>
     `;
 
-    await guardarNotificacionDB(miembroId, 'Inscripcion confirmada: ' + curso.nombre, `Su inscripcion a la actividad "${curso.nombre}" ha sido confirmada. Fecha: ${fechaFormateada}. Modalidad: ${curso.modalidad || 'Presencial'}.`);
+    const results = [];
+    for (const dest of destinatarios) {
+      // Verificar si el destinatario está activo
+      const { data } = await supabase.from('miembro').select('estado').eq('id', dest.id).maybeSingle();
+      if (data && data.estado === 'inactivo') {
+        console.warn(`[Brevo] Evitando notificar cambio de curso a miembro inactivo: ${dest.id}`);
+        continue;
+      }
 
-    return enviarEmail({
-      to: { email, name: nombre },
-      subject: `Inscripcion confirmada - ${curso.nombre}`,
-      htmlContent: baseTemplate('Inscripcion Academica', content, '#059669'),
-    });
+      await guardarNotificacionDB(
+        dest.id, 
+        'Actividad modificada: ' + curso.nombre, 
+        `Se han actualizado detalles de la actividad "${curso.nombre}". Cambios: ${curso.cambiosSimple}.${curso.unenrollment ? ' IMPORTANTE: Debido a estos cambios se ha anulado su registro. Si sigue de acuerdo con la actividad, por favor vuelva a inscribirse.' : ''}`
+      );
+      
+      const result = await enviarEmail({
+        to: { email: dest.email, name: dest.nombre },
+        subject: `ACTUALIZACIÓN: Actividad académica "${curso.nombre}"`,
+        htmlContent: baseTemplate('Actividad Actualizada', content, '#d97706'),
+      });
+      results.push(result);
+    }
+    return results;
   },
 
   enviarNotificacionGeneral: async ({ email, nombre, titulo, mensaje, tipo = 'info', miembroId }) => {

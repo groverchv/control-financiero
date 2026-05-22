@@ -1,16 +1,18 @@
-import { useState } from 'react';
-import { CalendarPlus, ClipboardList, Edit, Trash2, Camera, X, MapPin, Info, Users, Tags, ChevronLeft, ChevronRight, Eye, EyeOff, FileType, FileText, FileSpreadsheet, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { CalendarPlus, ClipboardList, Edit, Trash2, Camera, X, MapPin, Info, Users, Tags, ChevronLeft, ChevronRight, Eye, EyeOff, FileType, FileText, FileSpreadsheet, Search, CheckCircle2, AlertCircle, ShieldCheck, Shield, Loader2 } from 'lucide-react';
 import { useActividades, useTiposActividad } from '../hooks';
 import { Button, Spinner, Modal, Input, ExportButtons } from '../../../components/ui';
 import { MapPicker } from '../../../components/ui/MapPicker';
 import { Table } from '../../../components/data-display';
 import { Toast } from '../../../components/feedback';
 import { academicoApi } from '../api';
+import { blockchainService } from '../../../services/blockchain';
 import { administracionApi } from '../../administracion/api';
 import { useAuthStore } from '../../../store/authStore';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { getDynamicEstado } from '../../../utils/formatters';
 
 export const GestionActividadesPage = () => {
   const { actividades, loading, error, setActividades } = useActividades();
@@ -94,6 +96,93 @@ export const GestionActividadesPage = () => {
   const [actividadSearchQuery, setActividadSearchQuery] = useState('');
   const [isActividadDropdownOpen, setIsActividadDropdownOpen] = useState(false);
 
+  // ── Blockchain sealing state ────────────────────────────────────────────────
+  // Tracks which activity IDs are currently being sealed (to show spinner)
+  const [sealingIds, setSealingIds] = useState(new Set());
+  // Ref to avoid running auto-seal more than once per load
+  const autoSealRanRef = useRef(false);
+
+  // Auto-seal finalized activities that lack a blockchain_tx_id
+  useEffect(() => {
+    if (!actividades.length || autoSealRanRef.current) return;
+    autoSealRanRef.current = true;
+
+    const pending = actividades.filter(
+      (act) => getDynamicEstado(act.fecha, act.hora) === 'finalizado' && !act.blockchain_tx_id
+    );
+
+    if (!pending.length) return;
+
+    // Fire-and-forget: seal each in background, then update local state
+    pending.forEach(async (act) => {
+      setSealingIds((prev) => new Set([...prev, act.id]));
+      try {
+        const txId = await blockchainService.sellarYActualizar(
+          'actividad',
+          act,
+          user?.id || 'sistema'
+        );
+        if (txId) {
+          setActividades((prev) =>
+            prev.map((a) => (a.id === act.id ? { ...a, blockchain_tx_id: txId } : a))
+          );
+        }
+      } catch (err) {
+        console.error('[Blockchain] Auto-seal failed for actividad', act.id, err);
+      } finally {
+        setSealingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(act.id);
+          return next;
+        });
+      }
+    });
+  }, [actividades, user?.id]);
+
+  // Manual seal handler
+  const handleSellarBlockchain = async (act) => {
+    setSealingIds((prev) => new Set([...prev, act.id]));
+    try {
+      const txId = await blockchainService.sellarYActualizar(
+        'actividad',
+        act,
+        user?.id || 'sistema'
+      );
+      if (txId) {
+        setActividades((prev) =>
+          prev.map((a) => (a.id === act.id ? { ...a, blockchain_tx_id: txId } : a))
+        );
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Actividad sellada en Blockchain!',
+          details: `La actividad "${act.nombre}" ha sido registrada de forma inmutable en Hyperledger Fabric. TX: ${txId}`,
+        });
+      } else {
+        setResultModal({
+          open: true,
+          type: 'error',
+          text: 'Sellado no completado',
+          details: 'El servicio de blockchain no devolvió un TX ID. Verifique que la API del blockchain esté activa en http://localhost:3001.',
+        });
+      }
+    } catch (err) {
+      console.error('[Blockchain] Manual seal error:', err);
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error al sellar en Blockchain',
+        details: err.message || 'No se pudo conectar con el servicio de Hyperledger Fabric.',
+      });
+    } finally {
+      setSealingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(act.id);
+        return next;
+      });
+    }
+  };
+
   const columns = [
     { key: 'nro', label: 'Nº' },
     { key: 'imagen_display', label: 'Imagen' },
@@ -102,6 +191,7 @@ export const GestionActividadesPage = () => {
     { key: 'fecha_hora', label: 'Fecha/Hora' },
     { key: 'ubicacion_display', label: 'Ubicación' },
     { key: 'cupos', label: 'Cupos' },
+    { key: 'blockchain_display', label: 'Blockchain' },
     { key: 'acciones', label: 'Acciones' },
   ];
 
@@ -351,7 +441,7 @@ export const GestionActividadesPage = () => {
         `PLANILLA DE ASISTENCIA - ${act.nombre.toUpperCase()}`,
         '='.repeat(act.nombre.length + 24),
         `Modalidad: ${act.modalidad.toUpperCase()}`,
-        `Fecha de Actividad: ${new Date(act.fecha).toLocaleDateString()}`,
+        `Fecha de Actividad: ${new Date(act.fecha + 'T00:00:00').toLocaleDateString()}`,
         `Fecha de Reporte: ${new Date().toLocaleString()}`,
         `Total de Alumnos: ${inscritos.length}`,
         '',
@@ -383,7 +473,7 @@ export const GestionActividadesPage = () => {
       
       doc.setFontSize(9);
       doc.setTextColor(100, 116, 139); // slate-500
-      doc.text(`Fecha: ${new Date(act.fecha).toLocaleDateString()}  |  Hora: ${act.hora?.substring(0,5)}  |  Modalidad: ${act.modalidad.toUpperCase()}`, 14, 34);
+      doc.text(`Fecha: ${new Date(act.fecha + 'T00:00:00').toLocaleDateString()}  |  Hora: ${act.hora?.substring(0,5)}  |  Modalidad: ${act.modalidad.toUpperCase()}`, 14, 34);
       doc.text(`Lugar/Enlace: ${act.ubicacion}  |  Total alumnos inscritos: ${inscritos.length}`, 14, 40);
       
       const tableData = reportData.map(row => activeHeaders.map(h => row[h]));
@@ -470,7 +560,7 @@ export const GestionActividadesPage = () => {
     nro: <span className="font-bold text-slate-500">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</span>,
     fecha_hora: (
       <div className="flex flex-col">
-        <span className="font-bold text-slate-900">{new Date(act.fecha).toLocaleDateString()}</span>
+        <span className="font-bold text-slate-900">{new Date(act.fecha + 'T00:00:00').toLocaleDateString()}</span>
         <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{act.hora?.substring(0, 5) || '--:--'}</span>
       </div>
     ),
@@ -495,135 +585,225 @@ export const GestionActividadesPage = () => {
         )}
       </div>
     ),
-    acciones: (
-      <div className="flex gap-2 items-center">
-        <button 
-          onClick={() => setDetalleModal({ open: true, actividad: act })}
-          className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+    blockchain_display: (() => {
+      const esFinalizado = getDynamicEstado(act.fecha, act.hora) === 'finalizado';
+      const isSealing = sealingIds.has(act.id);
+
+      if (!esFinalizado) {
+        // Activity not yet finished — no sealing applicable
+        return (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
+            <Shield className="h-3.5 w-3.5" />
+            Pendiente
+          </span>
+        );
+      }
+
+      if (act.blockchain_tx_id) {
+        // Already sealed
+        return (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700 cursor-default"
+            title={`TX: ${act.blockchain_tx_id}`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+            Sellado
+          </span>
+        );
+      }
+
+      if (isSealing) {
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-700">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Sellando…
+          </span>
+        );
+      }
+
+      // Finalized but not sealed — show manual button
+      return (
+        <button
+          onClick={() => handleSellarBlockchain(act)}
+          className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-700 hover:bg-amber-100 transition-colors"
+          title="Sellar esta actividad en Hyperledger Fabric"
         >
-          <Eye className="h-3.5 w-3.5" />
-          Detalle
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Sellar Ahora
         </button>
-        <button 
-          onClick={() => handleVerInscritos(act)}
-          className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
-          title="Ver inscritos"
-        >
-          <Users className="h-4 w-4" />
-        </button>
-        <button 
-          onClick={() => handleTogglePublicado(act)}
-          className={`rounded p-1 transition-colors ${act.publicado === false ? 'text-slate-400 hover:bg-slate-100' : 'text-violet-600 hover:bg-violet-50'}`}
-          title={act.publicado === false ? 'Publicar actividad' : 'Ocultar actividad'}
-        >
-          {act.publicado === false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-        <button 
-          onClick={() => handleOpenEdit(act)}
-          className="rounded p-1 text-amber-600 hover:bg-amber-50"
-          title="Editar"
-        >
-          <Edit className="h-4 w-4" />
-        </button>
-        <button 
-          onClick={() => handleDelete(act.id)}
-          className="rounded p-1 text-red-600 hover:bg-red-50"
-          title="Eliminar"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-    )
+      );
+    })(),
+    acciones: (() => {
+      const esFinalizado = getDynamicEstado(act.fecha, act.hora) === 'finalizado';
+      return (
+        <div className="flex gap-1.5 sm:gap-2 items-center">
+          <button 
+            onClick={() => setDetalleModal({ open: true, actividad: act })}
+            className="inline-flex items-center gap-1 sm:gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Detalle</span>
+          </button>
+          <button 
+            onClick={() => handleVerInscritos(act)}
+            className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+            title="Ver inscritos"
+          >
+            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </button>
+          <button 
+            onClick={() => {
+              if (esFinalizado) return;
+              handleTogglePublicado(act);
+            }}
+            disabled={esFinalizado}
+            className={`rounded p-1 transition-all ${
+              esFinalizado 
+                ? 'text-slate-300 opacity-50 cursor-not-allowed' 
+                : act.publicado === false 
+                  ? 'text-slate-400 hover:bg-slate-100' 
+                  : 'text-violet-600 hover:bg-violet-50'
+            }`}
+            title={esFinalizado ? "No se puede publicar/ocultar una actividad finalizada" : act.publicado === false ? 'Publicar actividad' : 'Ocultar actividad'}
+          >
+            {act.publicado === false ? <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+          </button>
+          <button 
+            onClick={() => {
+              if (esFinalizado) return;
+              handleOpenEdit(act);
+            }}
+            disabled={esFinalizado}
+            className={`rounded p-1 transition-all ${
+              esFinalizado 
+                ? 'text-slate-300 opacity-50 cursor-not-allowed' 
+                : 'text-amber-600 hover:bg-amber-50'
+            }`}
+            title={esFinalizado ? "No se puede editar un curso finalizado" : "Editar"}
+          >
+            <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </button>
+          <button 
+            onClick={() => {
+              if (esFinalizado) return;
+              handleDelete(act.id);
+            }}
+            disabled={esFinalizado}
+            className={`rounded p-1 transition-all ${
+              esFinalizado 
+                ? 'text-slate-300 opacity-50 cursor-not-allowed' 
+                : 'text-red-600 hover:bg-red-50'
+            }`}
+            title={esFinalizado ? "No se puede eliminar un curso finalizado" : "Eliminar"}
+          >
+            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </button>
+        </div>
+      );
+    })()
   }));
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-4 sm:space-y-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Gestión de Actividades</h1>
-          <p className="text-sm text-slate-500">Planifica y registra eventos, cursos y otras actividades institucionales.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Gestión de Actividades</h1>
+          <p className="text-xs sm:text-sm text-slate-500">Planifica y registra eventos, cursos y otras actividades institucionales.</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setAsistenciaModal(prev => ({ ...prev, open: true, selectedActividadId: '', inscritos: [] }))}
-            className="flex items-center gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-9 font-bold"
-          >
-            <ClipboardList className="h-4 w-4" />
-            Reporte de Asistencia
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
           <ExportButtons 
             data={actividades.map(a => ({ Actividad: a.nombre, Tipo: a.tipo_nombre, Fecha: a.fecha, Hora: a.hora, Ubicacion: a.ubicacion, Modalidad: a.modalidad, Cupos: a.cupos }))} 
             filename="lista_actividades" 
             title="Cronograma de Actividades" 
           />
-          <Button type="button" onClick={handleOpenCreate} className="h-9">
-            <CalendarPlus className="h-4 w-4" />
-            Nueva actividad
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setAsistenciaModal(prev => ({ ...prev, open: true, selectedActividadId: '', inscritos: [] }))}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-9 font-bold px-3"
+          >
+            <ClipboardList className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden text-xs">Asistencia</span>
+            <span className="hidden sm:inline text-sm">Reporte de Asistencia</span>
+          </Button>
+          <Button 
+            type="button" 
+            onClick={handleOpenCreate} 
+            className="flex-1 sm:flex-none h-9 flex items-center justify-center gap-2 px-3"
+          >
+            <CalendarPlus className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden text-xs">Nuevo</span>
+            <span className="hidden sm:inline text-sm">Nueva actividad</span>
           </Button>
         </div>
       </header>
 
-      <section className="rounded-md bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-2">
+      <section className="rounded-md bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 mb-4">
           <ClipboardList className="h-4 w-4 text-blue-600" />
-          <h2 className="text-base font-semibold text-slate-900">Listado de actividades</h2>
+          <h2 className="text-sm sm:text-base font-bold text-slate-900">Listado de actividades</h2>
         </div>
-        <div className="mt-4">
-          {loading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <Spinner size="sm" />
-              Cargando actividades...
-            </div>
-          ) : error ? (
-            <Toast title="Error" message={error} variant="error" />
-          ) : (
-            <>
-              <Table columns={columns} rows={rows} emptyMessage="No hay actividades registradas." />
-              
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-4">
-                  <p className="text-xs text-slate-500">
-                    Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, actividades.length)} de {actividades.length} actividades
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Button 
-                      variant="outline" 
-                      className="h-8 px-2 text-xs" 
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Anterior
-                    </Button>
-                    
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? "primary" : "outline"}
-                        className={`h-8 w-8 p-0 text-xs ${currentPage === page ? 'bg-blue-600 text-white' : ''}`}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </Button>
-                    ))}
+        
+        <div className="-mx-4 sm:mx-0 overflow-x-auto">
+          <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+            {loading ? (
+              <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
+                <Spinner size="sm" />
+                Cargando actividades...
+              </div>
+            ) : error ? (
+              <Toast title="Error" message={error} variant="error" />
+            ) : (
+              <Table 
+                columns={columns} 
+                rows={rows} 
+                emptyMessage="No hay actividades registradas." 
+              />
+            )}
+          </div>
+        </div>
 
-                    <Button 
-                      variant="outline" 
-                      className="h-8 px-2 text-xs" 
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    >
-                      Siguiente
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        {!loading && !error && totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 pt-4 mt-4 gap-4">
+            <p className="text-[10px] sm:text-xs text-slate-500">
+              Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, actividades.length)} de {actividades.length} actividades
+            </p>
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="outline" 
+                className="h-8 px-2 text-[10px] sm:text-xs" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Anterior
+              </Button>
+              
+              <div className="flex items-center gap-1 mx-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "primary" : "outline"}
+                    className={`h-7 w-7 sm:h-8 sm:w-8 p-0 text-[10px] sm:text-xs ${currentPage === page ? 'bg-blue-600 text-white' : ''}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+
+              <Button 
+                variant="outline" 
+                className="h-8 px-2 text-[10px] sm:text-xs" 
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
 
       <Modal 
@@ -1021,7 +1201,7 @@ export const GestionActividadesPage = () => {
               <div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Fecha y Hora</p>
                 <p className="font-semibold text-slate-900">
-                  {new Date(detalleModal.actividad.fecha).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })} a las {detalleModal.actividad.hora?.substring(0, 5)}
+                  {new Date(detalleModal.actividad.fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })} a las {detalleModal.actividad.hora?.substring(0, 5)}
                 </p>
               </div>
               <div>
@@ -1143,12 +1323,12 @@ export const GestionActividadesPage = () => {
                             className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-950 flex flex-col border-b border-slate-100 last:border-0"
                             onClick={() => {
                               handleReportActividadChange(act.id);
-                              setActividadSearchQuery(`${act.nombre} (${new Date(act.fecha).toLocaleDateString()})`);
+                              setActividadSearchQuery(`${act.nombre} (${new Date(act.fecha + 'T00:00:00').toLocaleDateString()})`);
                               setIsActividadDropdownOpen(false);
                             }}
                           >
                             <span className="font-semibold text-slate-800">{act.nombre}</span>
-                            <span className="text-[10px] text-slate-500">Categoría: {act.tipo_nombre} | Fecha: {new Date(act.fecha).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-slate-500">Categoría: {act.tipo_nombre} | Fecha: {new Date(act.fecha + 'T00:00:00').toLocaleDateString()}</span>
                           </button>
                         ))}
 

@@ -1,7 +1,8 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { PublicLayout } from "../layouts/PublicLayout";
 import { AdminLayout } from "../layouts/AdminLayout";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { usePermissions } from "../hooks/usePermissions";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { LandingPage } from "../features/auth/pages/LandingPage";
 import { GestionMiembrosPage } from "../features/administracion/pages/GestionMiembrosPage";
@@ -11,6 +12,7 @@ import { PortalSocioPage } from "../features/administracion/pages/PortalSocioPag
 import { EstadoCuentaSocioPage } from "../features/administracion/pages/EstadoCuentaSocioPage";
 import { RegistroCuotasPage } from "../features/finanzas/pages/RegistroIngresosPage";
 import { HistorialCuotasPage } from "../features/finanzas/pages/HistorialCuotasPage";
+import { HistorialActividadesPage } from "../features/finanzas/pages/HistorialActividadesPage";
 import { RegistroEgresosPage } from "../features/finanzas/pages/RegistroEgresosPage";
 import { GestionTiposFinanzasPage } from "../features/finanzas/pages/GestionTiposFinanzasPage";
 import { GestionActivosPage } from "../features/patrimonio/pages/GestionActivosPage";
@@ -30,18 +32,32 @@ import { TransparenciaPage } from "../features/auditoria/pages/TransparenciaPage
 import { PublicCursosPage as PublicActividadesPage } from "../features/academico/pages/PublicCursosPage";
 import { DetalleActividadPage } from "../features/academico/pages/DetalleActividadPage";
 
+const AdminIndex = () => {
+  const { userRole } = usePermissions();
+
+  if (userRole === "admin") {
+    return <Navigate to="/admin/kpis" replace />;
+  }
+
+  if (userRole === "secretario") {
+    return <Navigate to="/admin/ingresos" replace />;
+  }
+
+  return <Navigate to="/" replace />;
+};
+
 export const AppRouter = () => {
   return (
     <Router>
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/inicio" element={<LoginPage />} />
+          <Route path="/inicio" element={<LandingPage />} />
           <Route path="/actividades" element={<PublicActividadesPage />} />
           <Route path="/actividades/:id" element={<DetalleActividadPage />} />
           <Route path="/cursos" element={<PublicActividadesPage />} />
           <Route path="/cursos/:id" element={<DetalleActividadPage />} />
-          <Route path="/" element={<LoginPage />} />
+          <Route path="/" element={<LandingPage />} />
 
           <Route
             path="/socio/perfil"
@@ -86,20 +102,14 @@ export const AppRouter = () => {
         </Route>
 
         <Route
+          path="/admin"
           element={
             <ProtectedRoute requiredRoles={["admin", "secretario"]}>
               <AdminLayout />
             </ProtectedRoute>
           }
         >
-          <Route
-            index
-            element={
-              <ProtectedRoute requiredRoles={["admin"]}>
-                <DashboardKpisPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/admin" element={<AdminIndex />} />
           <Route
             path="/admin/miembros"
             element={
@@ -120,6 +130,10 @@ export const AppRouter = () => {
           <Route
             path="/admin/historial-cuotas"
             element={<HistorialCuotasPage />}
+          />
+          <Route
+            path="/admin/historial-actividades"
+            element={<HistorialActividadesPage />}
           />
           <Route path="/admin/egresos" element={<RegistroEgresosPage />} />
           <Route
@@ -176,7 +190,11 @@ export const AppRouter = () => {
           />
           <Route
             path="/admin/tipos-actividad"
-            element={<GestionTiposActividadPage />}
+            element={
+              <ProtectedRoute requiredRoles={["admin"]}>
+                <GestionTiposActividadPage />
+              </ProtectedRoute>
+            }
           />
           <Route path="/admin/asignar-jurado" element={<AsignarJuradoPage />} />
           <Route

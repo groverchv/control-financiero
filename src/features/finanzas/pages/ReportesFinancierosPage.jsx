@@ -26,9 +26,16 @@ export const ReportesFinancierosPage = () => {
   };
 
   const consolidatedData = useMemo(() => {
+    const parseDateStr = (dStr) => {
+      if (!dStr) return new Date();
+      return typeof dStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dStr)
+        ? new Date(dStr + 'T00:00:00')
+        : new Date(dStr);
+    };
+
     const data = [
-      ...cuotas.map(c => ({ ...c, tipo: 'Ingreso', montoEfectivo: c.monto, fechaDate: new Date(c.fecha) })),
-      ...egresos.map(e => ({ ...e, tipo: 'Egreso', montoEfectivo: e.monto, fechaDate: new Date(e.fecha) }))
+      ...cuotas.map(c => ({ ...c, tipo: 'Ingreso', montoEfectivo: c.monto, fechaDate: parseDateStr(c.fecha) })),
+      ...egresos.map(e => ({ ...e, tipo: 'Egreso', montoEfectivo: e.monto, fecha: e.creacion, fechaDate: parseDateStr(e.creacion) }))
     ];
 
     return data.filter(item => {
@@ -36,8 +43,8 @@ export const ReportesFinancierosPage = () => {
       
       if (selectedAttributes.includes('fecha')) {
         if (filters.periodoTipo === 'rango' && filters.fechaStart && filters.fechaEnd) {
-          const start = new Date(filters.fechaStart);
-          const end = new Date(filters.fechaEnd);
+          const start = new Date(filters.fechaStart + 'T00:00:00');
+          const end = new Date(filters.fechaEnd + 'T23:59:59');
           pass = pass && item.fechaDate >= start && item.fechaDate <= end;
         }
         if (filters.periodoTipo === 'año' && filters.year) {
@@ -79,7 +86,10 @@ export const ReportesFinancierosPage = () => {
         </div>
         <ExportButtons 
           data={consolidatedData.map(d => ({
-            Fecha: new Date(d.fecha).toLocaleDateString(),
+            Fecha: (typeof d.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.fecha)
+              ? new Date(d.fecha + 'T00:00:00')
+              : new Date(d.fecha)
+            ).toLocaleDateString(),
             Tipo: d.tipo,
             Concepto: d.concepto || d.descripcion || 'Sin concepto',
             Monto: d.montoEfectivo
@@ -235,7 +245,12 @@ export const ReportesFinancierosPage = () => {
             <tbody className="divide-y divide-slate-100">
               {consolidatedData.slice(0, 15).map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 text-slate-600">{new Date(item.fecha).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {(typeof item.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.fecha)
+                      ? new Date(item.fecha + 'T00:00:00')
+                      : new Date(item.fecha)
+                    ).toLocaleDateString()}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                       item.tipo === 'Ingreso' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'

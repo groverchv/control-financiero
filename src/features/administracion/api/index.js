@@ -134,26 +134,6 @@ export const administracionApi = {
     return res ? { ...res, email: res.correoElectronico, contrasena: res.contrasena ? decryptPassword(res.contrasena) : '' } : null;
   },
 
-  actualizarContrasena: async (id, newPassword) => {
-    if (!supabaseAdmin) throw new Error('Se requiere clave de administrador para cambiar contraseñas.');
-    
-    // 1. Actualizar en Supabase Auth
-    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
-      password: newPassword
-    });
-    if (authError) throw authError;
-
-    // 2. Actualizar en public.miembro (encriptado)
-    const encrypted = encryptPassword(newPassword);
-    const { error: dbError } = await supabase
-      .from('miembro')
-      .update({ contrasena: encrypted })
-      .eq('id', id);
-    if (dbError) throw dbError;
-
-    return true;
-  },
-
   eliminarMiembro: async (id) => {
     throw new Error('La eliminación directa de miembros está deshabilitada por motivos de integridad histórica de datos financieros. Utilice el cambio de estado a Inactivo en su lugar.');
   },
@@ -394,22 +374,23 @@ export const administracionApi = {
     }));
   },
 
-  actualizarContrasena: async (id, newPassword) => {
+  actualizarContrasena: async (userId, newPassword) => {
     if (!supabaseAdmin) {
       throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
     }
 
     // 1. Actualizar en Supabase Auth
-    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
       password: newPassword
     });
     if (authError) throw authError;
 
     // 2. Actualizar en la tabla miembro
+    const encrypted = encryptPassword(newPassword);
     const { error: dbError } = await supabaseAdmin
       .from('miembro')
-      .update({ contrasena: newPassword })
-      .eq('id', id);
+      .update({ contrasena: encrypted })
+      .eq('id', userId);
 
     if (dbError) throw dbError;
     return true;

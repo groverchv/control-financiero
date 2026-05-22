@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, FileText, RefreshCw } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, FileText, RefreshCw, BookOpen } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { administracionApi } from '../../administracion/api';
 import { usePagos } from '../hooks';
@@ -7,9 +8,52 @@ import { Button, Input, Select, Spinner, ExportButtons, Modal } from '../../../c
 import { Toast } from '../../../components/feedback';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { useAuthStore } from '../../../store/authStore';
+// Helpers para extracción y formateo robusto de cuotas pendientes
+const getCuotaGeneracionDate = (pendiente) => {
+  if (!pendiente) return '';
+  if (pendiente.fechaGeneracion) return pendiente.fechaGeneracion.split('T')[0];
+  
+  const mes = pendiente.mes;
+  if (mes) {
+    // Extraer DD/MM/YYYY (ej: Min 21/5/2026 13:30 -> 2026-05-21)
+    const match = mes.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (match) {
+      const day = match[1].padStart(2, '0');
+      const month = match[2].padStart(2, '0');
+      const year = match[3];
+      return `${year}-${month}-${day}`;
+    }
+    // Extraer YYYY-MM (ej: 2026-05 -> 2026-05-01)
+    const matchMonth = mes.match(/^(\d{4})-(\d{2})$/);
+    if (matchMonth) {
+      return `${matchMonth[1]}-${matchMonth[2]}-01`;
+    }
+  }
+  
+  // Fallback a los vencimientos si todo lo demás falla
+  return pendiente.fechaVencimiento || pendiente.fechaVencimientoAjustada || new Date().toISOString().split('T')[0];
+};
+
+const formatPeriodoLabel = (pendiente, desc) => {
+  if (!pendiente) return '...';
+  const mes = pendiente.mes;
+  if (!mes) return '...';
+  
+  // Limpiar prefijos de frecuencia corta (ej: Min 21/5/2026 13:30 -> 21/5/2026 13:30)
+  const cleanMes = mes.replace(/^(Min|Día|Sem)\s+/, '');
+  
+  // Si es un mes en formato mensual YYYY-MM, usar la descripción más amigable (ej: Mayo 2026)
+  if (mes.match(/^\d{4}-\d{2}$/)) {
+    if (desc) {
+      return desc.replace('Cuota de membresía correspondiente a ', '').replace('.', '');
+    }
+  }
+  return cleanMes;
+};
 
 export const RegistroCuotasPage = () => {
   const { user } = useAuthStore();
+  const location = useLocation();
   const { cuotas, loading, error, setCuotas } = usePagos();
   const [form, setForm] = useState({
     miembroBuscador: '',
@@ -37,11 +81,126 @@ export const RegistroCuotasPage = () => {
   const [comprobantePreview, setComprobantePreview] = useState(null);
   const [configuracionCuotas, setConfiguracionCuotas] = useState(null);
   const [modoIngreso, setModoIngreso] = useState('cuota'); // 'cuota' | 'extra'
+  const [inscripcionesPendientes, setInscripcionesPendientes] = useState([]);
+  const [inscripcionSeleccionada, setInscripcionSeleccionada] = useState(null);
+  const [loadingInscripciones, setLoadingInscripciones] = useState(false);
   const ITEMS_PER_PAGE = 10;
+
+  // Determinar si el tipo de ingreso seleccionado es "Pago de Actividad"
+  const tipoActividadSeleccionado = tiposIngreso.find(t => t.id === form.tipo_ingreso_id);
+  const esPagoActividad = tipoActividadSeleccionado?.nombre?.toLowerCase().includes('actividad');
 
   const isSubmitDisabled = modoIngreso === 'cuota'
     ? (!form.miembroBuscador || !form.monto || !form.fecha)
-    : (!form.tipo_ingreso_id || !form.monto || !form.fecha);
+    : (esPagoActividad
+      ? (!form.tipo_ingreso_id || !form.monto || !form.fecha || !inscripcionSeleccionada)
+      : (!form.tipo_ingreso_id || !form.monto || !form.fecha));
+
+  // Cargar inscripciones pendientes cuando se selecciona socio + tipo Pago de Actividad en modo extra
+  useEffect(() => {
+    if (modoIngreso === 'extra' && esPagoActividad && form.miembroBuscador) {
+      const fetchInscripciones = async () => {
+        setLoadingInscripciones(true);
+        try {
+          const data = await finanzasApi.obtenerInscripcionesPendientesPago(form.miembroBuscador);
+          setInscripcionesPendientes(data);
+          
+          // Si venimos de una redirección con un ID de inscripción específico, auto-seleccionarlo
+          if (location.state?.inscripcionId) {
+            const match = data.find(i => i.id === location.state.inscripcionId);
+            if (match) {
+              setInscripcionSeleccionada(match);
+              setForm(prev => ({
+                ...prev,
+                monto: String(match.actividad.costo),
+                fecha: new Date().toISOString().split('T')[0],
+                descripcion: `Pago de inscripción a actividad: ${match.actividad.titulo}`
+              }));
+            }
+          }
+        } catch (err) {
+          console.error('Error cargando inscripciones pendientes:', err);
+          setInscripcionesPendientes([]);
+        } finally {
+          setLoadingInscripciones(false);
+        }
+      };
+      fetchInscripciones();
+    } else {
+      setInscripcionesPendientes([]);
+      setInscripcionSeleccionada(null);
+    }
+  }, [modoIngreso, esPagoActividad, form.miembroBuscador, location.state]);
+
+  // Manejar redirección automática desde el Historial de Actividades o Historial de Cuotas
+  useEffect(() => {
+    if (location.state && location.state.autoOpenCreate) {
+      const state = location.state;
+      
+      const findTipoActividad = async () => {
+        try {
+          const dataTipos = await finanzasApi.obtenerTiposIngreso();
+          setTiposIngreso(dataTipos);
+          
+          if (state.isCuota) {
+            const cuotaTipo = dataTipos.find(t => t.nombre === 'Membresía Ordinaria' || t.nombre === 'Cuota Mensual');
+            setModoIngreso('cuota');
+            setIsCreateModalOpen(true);
+            
+            setForm(prev => ({
+              ...prev,
+              miembroBuscador: state.socioId,
+              tipo_ingreso_id: cuotaTipo ? cuotaTipo.id : '',
+              monto: String(state.monto),
+              descripcion: state.descripcion || 'Pago de Cuota de Membresía',
+              fecha: new Date().toISOString().split('T')[0],
+              estado: 'pagada',
+            }));
+            
+            setSocioSearch(`${state.socioNombre} - ${state.socioCorreo || ''}`);
+          } else {
+            const tipoAct = dataTipos.find(t => t.nombre?.toLowerCase().includes('actividad'));
+            if (tipoAct) {
+              setModoIngreso('extra');
+              setIsCreateModalOpen(true);
+              
+              // Rellenar formulario inicial
+              setForm(prev => ({
+                ...prev,
+                miembroBuscador: state.socioId,
+                tipo_ingreso_id: tipoAct.id,
+                monto: String(state.monto),
+                descripcion: `Pago de inscripción a actividad: ${state.actividadTitulo}`,
+                fecha: new Date().toISOString().split('T')[0],
+                estado: 'pagada',
+              }));
+              
+              setSocioSearch(`${state.socioNombre} - ${state.socioCorreo || ''}`);
+              
+              const mockInscripcion = {
+                id: state.inscripcionId,
+                actividad: {
+                  id: state.actividadId,
+                  titulo: state.actividadTitulo,
+                  costo: state.monto,
+                  fecha: new Date().toISOString().split('T')[0],
+                }
+              };
+              setInscripcionSeleccionada(mockInscripcion);
+              setInscripcionesPendientes([mockInscripcion]);
+            }
+          }
+        } catch (err) {
+          console.error('[RegistroIngresos] Error pre-rellenando pago desde historial:', err);
+        }
+      };
+      
+      findTipoActividad();
+      
+      // Limpiar el estado de navegación para evitar reaperturas accidentales al refrescar
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (!isCreateModalOpen) {
@@ -50,6 +209,8 @@ export const RegistroCuotasPage = () => {
       setIsDropdownOpen(false);
       setComprobantePreview(null);
       setModoIngreso('cuota');
+      setInscripcionesPendientes([]);
+      setInscripcionSeleccionada(null);
       setForm({ miembroBuscador: '', tipo_ingreso_id: '', monto: '', descripcion: '', fecha: '', estado: 'pagada', comprobante: null });
     } else {
       // En modo cuota preseleccionar el tipo cuota si existe
@@ -122,8 +283,8 @@ export const RegistroCuotasPage = () => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({
           ...prev,
-          monto: String(configuracionCuotas?.monto_cuota || 150),
-          fecha: registroSocio.proximaPendiente.fechaVencimientoAjustada,
+          monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 150),
+          fecha: getCuotaGeneracionDate(registroSocio.proximaPendiente),
           descripcion: desc
         }));
       } else if (registroSocio) {
@@ -139,7 +300,7 @@ export const RegistroCuotasPage = () => {
           ? `Cuota de membresía correspondiente a ${ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(partes[2]) - 1]} ${partes[1]}.`
           : `Cuota de membresía correspondiente a ${mes}.`;
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setForm(prev => ({ ...prev, monto: String(configuracionCuotas?.monto_cuota || 150), fecha: registroSocio.proximaPendiente.fechaVencimientoAjustada, descripcion: desc }));
+        setForm(prev => ({ ...prev, monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 150), fecha: getCuotaGeneracionDate(registroSocio.proximaPendiente), descripcion: desc }));
       }
     }
   }, [modoIngreso, form.miembroBuscador, form.tipo_ingreso_id, registroSocio, configuracionCuotas, esMembresiaOrdinaria]);
@@ -194,6 +355,7 @@ export const RegistroCuotasPage = () => {
         fecha: form.fecha,
         estado: form.estado,
         comprobanteUrl,
+        inscripcionId: inscripcionSeleccionada?.id || null,
       });
       
       const updatedCuotas = await finanzasApi.obtenerCuotas();
@@ -242,10 +404,7 @@ export const RegistroCuotasPage = () => {
           <h1 className="text-2xl font-semibold text-slate-900">Registro de ingresos</h1>
           <p className="text-sm text-slate-500">Administra las cuotas, multas y aportes de los socios.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Nuevo ingreso
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
           <ExportButtons 
             data={filteredCuotas.map(c => ({ 
               Socio: c.socio_nombre || c.miembroId, 
@@ -253,12 +412,16 @@ export const RegistroCuotasPage = () => {
               Tipo: c.tipo_ingreso_nombre, 
               Monto: c.monto, 
               Estado: c.estado, 
-              Fecha: c.fecha,
-              'Tx Blockchain': c.blockchain_tx_id || 'No sellado'
+              Fecha: c.fecha
             }))} 
             filename="historial_ingresos" 
             title="Reporte de Ingresos Institucionales" 
           />
+          <Button onClick={() => setIsCreateModalOpen(true)} className="flex-1 sm:flex-none h-9 flex items-center justify-center gap-2">
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden text-xs">Nuevo</span>
+            <span className="hidden sm:inline text-sm">Nuevo ingreso</span>
+          </Button>
         </div>
       </header>
 
@@ -439,8 +602,10 @@ export const RegistroCuotasPage = () => {
               type="button"
               onClick={() => {
                 setModoIngreso('extra');
-                setForm(prev => ({ ...prev, tipo_ingreso_id: '', monto: '', descripcion: '', miembroBuscador: '' }));
+                setForm(prev => ({ ...prev, tipo_ingreso_id: '', monto: '', descripcion: '', miembroBuscador: '', fecha: new Date().toISOString().split('T')[0] }));
                 setSocioSearch('');
+                setInscripcionesPendientes([]);
+                setInscripcionSeleccionada(null);
               }}
               className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-bold transition-all ${
                 modoIngreso === 'extra'
@@ -515,24 +680,16 @@ export const RegistroCuotasPage = () => {
                       <p className="font-bold flex items-center gap-1.5 uppercase tracking-wider mb-2">
                         <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" /> Cuota pendiente detectada
                       </p>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <p className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 shrink-0" />
-                          Periodo: <strong>{form.descripcion ? form.descripcion.replace('Cuota de membresía correspondiente a ', '').replace('.','') : '...'}</strong>
+                          <Calendar className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                          Generación: <strong>{formatPeriodoLabel(registroSocio.proximaPendiente, form.descripcion)}</strong>
                         </p>
                         <p className="flex items-center gap-2">
-                          <BadgeDollarSign className="h-3.5 w-3.5 shrink-0" />
-                          Monto: <strong>Bs. {Number(configuracionCuotas?.monto_cuota || 150).toFixed(2)}</strong>
-                        </p>
-                        <p className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 shrink-0" />
-                          Vencimiento: <strong>{form.fecha ? new Date(form.fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '...'}</strong>
+                          <BadgeDollarSign className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                          Monto: <strong>Bs. {Number(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 150).toFixed(2)}</strong>
                         </p>
                       </div>
-                      <p className="mt-2 text-[11px] text-amber-700 font-medium flex items-start gap-1">
-                        <FileText className="h-3 w-3 shrink-0 mt-0.5" />
-                        Campos autocompletados según la cuota pendiente más antigua.
-                      </p>
                     </>
                   ) : (
                     <p className="font-semibold flex items-center gap-1.5">
@@ -555,7 +712,7 @@ export const RegistroCuotasPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700 block mb-1">Fecha de vencimiento</label>
+                  <label className="text-sm font-medium text-slate-700 block mb-1">Fecha de la cuota (Generación)</label>
                   <input
                     type="date"
                     value={form.fecha}
@@ -640,7 +797,76 @@ export const RegistroCuotasPage = () => {
                 }
               </Select>
 
-              <div className="grid gap-3 md:grid-cols-2">
+              {/* ── Selector de actividad pendiente (solo si tipo = Pago de Actividad y hay socio) ── */}
+              {esPagoActividad && (
+                <div className="space-y-3">
+                  {!form.miembroBuscador ? (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 font-medium flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      Seleccione un socio para ver sus actividades con pago pendiente.
+                    </div>
+                  ) : loadingInscripciones ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-500 p-3">
+                      <Spinner size="sm" /> Cargando actividades pendientes...
+                    </div>
+                  ) : inscripcionesPendientes.length === 0 ? (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 font-medium flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                      Este socio no tiene actividades con pago pendiente.
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-sm font-medium text-slate-700 block mb-1">
+                        Actividad a pagar <span className="text-red-500">*</span>
+                      </label>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {inscripcionesPendientes.map((insc) => (
+                          <button
+                            key={insc.id}
+                            type="button"
+                            onClick={() => {
+                              setInscripcionSeleccionada(insc);
+                              setForm(prev => ({
+                                ...prev,
+                                monto: String(insc.actividad.costo),
+                                fecha: new Date().toISOString().split('T')[0],
+                                descripcion: `Pago de inscripción a actividad: ${insc.actividad.titulo}`
+                              }));
+                            }}
+                            className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
+                              inscripcionSeleccionada?.id === insc.id
+                                ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300 shadow-sm'
+                                : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/50'
+                            }`}
+                          >
+                            <div className={`mt-0.5 h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              inscripcionSeleccionada?.id === insc.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              <BookOpen className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm text-slate-900 truncate">{insc.actividad.titulo}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs text-slate-500">
+                                  {insc.actividad.fecha ? new Date(insc.actividad.fecha + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin fecha'}
+                                </span>
+                                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                  Bs. {Number(insc.actividad.costo).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                            {inscripcionSeleccionada?.id === insc.id && (
+                              <CheckCircle2 className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className={modoIngreso === 'extra' ? "grid gap-3 grid-cols-1" : "grid gap-3 md:grid-cols-2"}>
                 <Input
                   id="monto"
                   name="monto"
@@ -650,16 +876,19 @@ export const RegistroCuotasPage = () => {
                   onChange={handleChange}
                   placeholder="0.00"
                   required
+                  readOnly={esPagoActividad && !!inscripcionSeleccionada}
                 />
-                <Input
-                  id="fecha"
-                  name="fecha"
-                  label={<span>Fecha <span className="text-red-500">*</span></span>}
-                  type="date"
-                  value={form.fecha}
-                  onChange={handleChange}
-                  required
-                />
+                {modoIngreso !== 'extra' && (
+                  <Input
+                    id="fecha"
+                    name="fecha"
+                    label={<span>Fecha <span className="text-red-500">*</span></span>}
+                    type="date"
+                    value={form.fecha}
+                    onChange={handleChange}
+                    required
+                  />
+                )}
               </div>
               <Input
                 id="descripcion"
@@ -668,6 +897,7 @@ export const RegistroCuotasPage = () => {
                 value={form.descripcion}
                 onChange={handleChange}
                 placeholder="Detalle del ingreso"
+                readOnly={esPagoActividad && !!inscripcionSeleccionada}
               />
             </div>
           )}
@@ -826,7 +1056,7 @@ export const RegistroCuotasPage = () => {
                         day: '2-digit', month: '2-digit', year: 'numeric', 
                         hour: '2-digit', minute: '2-digit', hour12: true 
                       }) 
-                    : new Date(detalleModal.cuota.fecha).toLocaleDateString('es-ES')}
+                    : new Date(detalleModal.cuota.fecha + 'T00:00:00').toLocaleDateString('es-ES')}
                 </p>
               </div>
               {detalleModal.cuota.blockchain_tx_id && (

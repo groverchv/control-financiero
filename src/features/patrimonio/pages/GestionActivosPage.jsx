@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight, X, Eye, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight, X, Eye, CheckCircle2, AlertCircle, RefreshCw, DollarSign } from 'lucide-react';
 import { useActivos } from '../hooks';
 import { Button, Input, Spinner, Modal, Select, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -9,6 +10,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { cloudinaryService } from '../../../services/cloudinary';
 
 export const GestionActivosPage = () => {
+  const navigate = useNavigate();
   const { activos, loading, error, setActivos } = useActivos();
   const { user } = useAuthStore();
   const [currentPage, setCurrentPage] = useState(1);
@@ -50,6 +52,19 @@ export const GestionActivosPage = () => {
         .finally(() => {
           setLoadingPlan(false);
         });
+      
+      // Polling cada 3 segundos para refrescar el plan mientras el modal está abierto
+      const intervalId = setInterval(() => {
+        patrimonioApi.obtenerAmortizacion(detalleModal.activo.id)
+          .then(plan => {
+            setActivePlan(plan || []);
+          })
+          .catch(err => {
+            console.error('Error refreshing plan:', err);
+          });
+      }, 3000);
+      
+      return () => clearInterval(intervalId);
     } else {
       setActivePlan([]);
     }
@@ -245,6 +260,11 @@ export const GestionActivosPage = () => {
     }
   };
 
+  // Calcular métricas dinámicas globales sobre los activos
+  const totalCosto = activos.reduce((sum, a) => sum + Number(a.costo_total || 0), 0);
+  const totalDeuda = activos.reduce((sum, a) => sum + Number(a.saldo_pendiente || 0), 0);
+  const totalPagado = Math.max(0, totalCosto - totalDeuda);
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -259,18 +279,57 @@ export const GestionActivosPage = () => {
               Tipo: a.tipo_activo?.nombre, 
               Costo: a.costo_total, 
               Estado: a.estado, 
-              Fecha: a.fechaAdquisicion,
-              'Tx Blockchain': a.blockchain_tx_id || 'No sellado'
+              Fecha: a.fechaAdquisicion
             }))} 
             filename="lista_activos" 
             title="Inventario de Activos Institucionales" 
           />
-          <Button type="button" onClick={() => setIsModalOpen(true)}>
-            <PackagePlus className="h-4 w-4" />
-            Registrar activo
+          <Button type="button" onClick={() => setIsModalOpen(true)} className="h-9 flex items-center justify-center gap-2">
+            <PackagePlus className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden text-xs">Nuevo</span>
+            <span className="hidden sm:inline text-sm">Registrar activo</span>
           </Button>
         </div>
       </header>
+
+      {/* Tarjetas de Métricas de Activos */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <Tags className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-900 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalCosto)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Costo Total de Adquisición</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalPagado)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Monto Pagado a la Fecha</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 shrink-0">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-orange-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalDeuda)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Saldo Pendiente de Pago</p>
+          </div>
+        </div>
+      </div>
 
       <section className="rounded-md bg-white p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
@@ -564,31 +623,76 @@ export const GestionActivosPage = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100/80">
-                      {activePlan.map((c) => (
-                        <tr key={c.id} className="hover:bg-slate-100/40">
+                      {activePlan.map((c, idx, arr) => {
+                        const isFirstPending = c.estado !== 'pagado' && c.estado !== 'pagada' && arr.findIndex(x => x.estado !== 'pagado' && x.estado !== 'pagada') === idx;
+                        return (
+                        <tr key={c.id} className="hover:bg-slate-100/40 group relative">
                           <td className="px-3 py-2 font-medium text-slate-800">Cuota {c.numero}</td>
                           <td className="px-3 py-2 text-slate-500">
                             {new Date(c.fechaVencimiento + 'T00:00:00').toLocaleDateString('es-ES')}
                           </td>
                           <td className="px-3 py-2 text-right font-semibold text-slate-900">
-                            {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(c.monto || 0)}
+                            <div className="flex flex-col items-end gap-1">
+                              <span>{new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(c.monto || 0)}</span>
+                              {isFirstPending && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDetalleModal({ open: false, activo: null });
+                                    navigate('/admin/egresos', {
+                                      state: {
+                                        autoOpenCreate: true,
+                                        activoId: detalleModal.activo.id,
+                                        monto: c.monto,
+                                        descripcion: `Pago de Cuota ${c.numero} del activo: ${detalleModal.activo.nombre}`
+                                      }
+                                    });
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-slate-200 text-[10px] px-2 py-0.5 rounded-full shadow flex items-center gap-1 hover:bg-slate-50 hover:text-indigo-600 font-semibold"
+                                >
+                                  <DollarSign className="w-3 h-3" /> Pagar ahora
+                                </button>
+                              )}
+                            </div>
                           </td>
                           <td className="px-3 py-2 text-center">
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                               c.estado === 'pagada' || c.estado === 'pagado'
-                                ? 'bg-emerald-50 text-emerald-705 text-emerald-700'
+                                ? 'bg-emerald-50 text-emerald-700'
                                 : 'bg-amber-50 text-amber-700'
                             }`}>
-                              {c.estado}
+                              {c.estado === 'pagada' || c.estado === 'pagado' ? 'PAGADO' : 'PENDIENTE'}
                             </span>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p className="text-xs text-slate-400 italic py-2">Este activo no cuenta con un plan de amortización generado.</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2 gap-3">
+                  <p className="text-xs text-slate-400 italic">Este activo no cuenta con un plan de amortización generado.</p>
+                  {detalleModal.activo.saldo_pendiente > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetalleModal({ open: false, activo: null });
+                        navigate('/admin/egresos', {
+                          state: {
+                            autoOpenCreate: true,
+                            activoId: detalleModal.activo.id,
+                            monto: detalleModal.activo.saldo_pendiente,
+                            descripcion: `Pago de saldo del activo: ${detalleModal.activo.nombre}`
+                          }
+                        });
+                      }}
+                      className="bg-white border border-slate-200 text-xs px-3 py-1.5 rounded-full shadow flex items-center justify-center gap-1.5 hover:bg-slate-50 hover:text-indigo-600 font-semibold shrink-0 transition-colors"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" /> Pagar saldo pendiente ahora
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>

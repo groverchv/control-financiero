@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, NavLink } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
-import { LogOut, User as UserIcon, Menu, X, ChevronDown, LayoutDashboard, ShieldCheck, GraduationCap } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, X, ChevronDown, LayoutDashboard, ShieldCheck, GraduationCap, Bell } from 'lucide-react';
 
 export const PublicLayout = () => {
   const { user, logout, isAuthenticated } = useAuthStore();
@@ -64,7 +64,7 @@ export const PublicLayout = () => {
           <div className="flex items-center gap-3 sm:gap-4 md:gap-10">
             {/* MOBILE MENU BUTTON */}
             <button 
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden"
+              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 xl:hidden"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -72,7 +72,7 @@ export const PublicLayout = () => {
 
             <div className="flex items-center gap-4 group relative">
               <button 
-                className={`text-lg sm:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 hover:opacity-80 transition-all ${isAuthenticated && (user?.rol === 'admin' || user?.rol === 'secretario') ? 'cursor-pointer' : 'cursor-default'}`}
+                className={`text-sm sm:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 hover:opacity-80 transition-all ${isAuthenticated && (user?.rol === 'admin' || user?.rol === 'secretario') ? 'cursor-pointer' : 'cursor-default'}`}
                 onClick={() => isAuthenticated && (user?.rol === 'admin' || user?.rol === 'secretario') && setIsNavOpen(!isNavOpen)}
               >
                 Control<span className="text-blue-600">Financiero</span>
@@ -98,7 +98,7 @@ export const PublicLayout = () => {
 
                   {user?.rol === 'secretario' && (
                     <Link 
-                      to="/admin/miembros" 
+                      to="/admin/ingresos" 
                       className="flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                       onClick={() => setIsNavOpen(false)}
                     >
@@ -110,7 +110,7 @@ export const PublicLayout = () => {
               )}
             </div>
             
-            <nav className="hidden items-center gap-4 lg:gap-6 md:flex">
+            <nav className="hidden items-center gap-4 lg:gap-6 xl:flex">
               {navLinks.map(link => (
                 <NavLink 
                   key={link.to} 
@@ -137,86 +137,109 @@ export const PublicLayout = () => {
             </nav>
           </div>
 
-          <div className="hidden items-center gap-4 md:flex min-w-0 shrink-0">
-            {isAuthenticated ? (
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="flex flex-col items-end text-right hidden lg:flex min-w-0 mr-2">
-                  <span className="text-sm font-bold text-slate-900 truncate max-w-[120px] sm:max-w-[180px]">
-                    {user?.nombre || 'Usuario'}
-                  </span>
-                  <span className="text-xs text-slate-500 truncate max-w-[120px] sm:max-w-[180px]">{user?.email}</span>
+          <div className="flex items-center gap-2 md:gap-4 ml-auto min-w-0 shrink-0">
+            <div className="hidden items-center gap-4 md:flex min-w-0">
+              {isAuthenticated ? (
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="flex flex-col items-end text-right flex min-w-0 mr-1 lg:mr-2">
+                    <span className="text-sm font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[180px]">
+                      {user?.nombre || 'Usuario'}
+                    </span>
+                    <span className="text-xs text-slate-500 truncate max-w-[100px] sm:max-w-[180px]">{user?.email}</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <div className="h-10 w-10 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm">
+                      {user?.foto ? (
+                        <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-slate-400">
+                          <UserIcon className="h-5 w-5" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-extrabold uppercase tracking-wider text-blue-600 border border-blue-100">
+                      {user?.rol}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
+                    title="Cerrar Sesión"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </button>
                 </div>
-                <div className="flex flex-col items-center gap-1 shrink-0">
-                  <div className="h-10 w-10 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm">
+              ) : (
+                <Link
+                  to="/login"
+                  className="rounded-xl bg-blue-600 px-5 sm:px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-700"
+                >
+                  Ingresar
+                </Link>
+              )}
+            </div>
+
+            {/* Mobile: Show logout icon only on very small screens */}
+            <div className="flex items-center gap-2 md:hidden min-w-0">
+              {isAuthenticated ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex flex-col items-end text-right min-w-0">
+                    <span className="text-[10px] font-bold text-slate-900 truncate max-w-[70px]">
+                      {user?.nombre?.split(' ')[0] || 'Socio'}
+                    </span>
+                    <span className="text-[8px] text-slate-500 truncate max-w-[70px]">
+                      {user?.email}
+                    </span>
+                  </div>
+                  <div className="h-8 w-8 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shadow-sm shrink-0 relative">
                     {user?.foto ? (
                       <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-slate-400">
-                        <UserIcon className="h-5 w-5" />
+                        <UserIcon className="h-4 w-4" />
                       </div>
                     )}
+                    <span className="absolute -bottom-1 -right-1 rounded-full bg-blue-50 px-1 py-0.5 text-[6px] font-black uppercase tracking-wider text-blue-600 border border-blue-100 shadow-sm">
+                      {user?.rol}
+                    </span>
                   </div>
-                  <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[8px] sm:text-[9px] font-extrabold uppercase tracking-wider text-blue-600 border border-blue-100">
-                    {user?.rol}
-                  </span>
+                  <button 
+                    onClick={handleLogout}
+                    className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 shrink-0"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
                 </div>
-                <button 
-                  onClick={handleLogout}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
-                  title="Cerrar Sesión"
+              ) : (
+                <Link
+                  to="/login"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white whitespace-nowrap"
                 >
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </div>
-            ) : (
-              <Link
-                to="/login"
-                className="rounded-xl bg-blue-600 px-5 sm:px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:bg-blue-700"
-              >
-                Ingresar
-              </Link>
-            )}
-          </div>
-
-          {/* Mobile: Show login button or logout icon */}
-          <div className="flex items-center gap-2 md:hidden min-w-0">
-            {isAuthenticated ? (
-              <>
-                <div className="flex flex-col items-end mr-1 text-right hidden min-[380px]:flex min-w-0">
-                  <span className="text-xs font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[150px]">{user?.nombre} {user?.apellidoPaterno || ''}</span>
-                  <span className="text-[9px] text-slate-500 truncate max-w-[100px] sm:max-w-[150px]">{user?.email}</span>
-                </div>
-                <div className="h-8 w-8 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shadow-sm shrink-0">
-                  {user?.foto ? (
-                    <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-slate-400">
-                      <UserIcon className="h-4 w-4" />
-                    </div>
-                  )}
-                </div>
-                <button 
-                  onClick={handleLogout}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 shrink-0"
-                  title="Cerrar Sesión"
-                >
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white whitespace-nowrap"
-              >
-                Ingresar
-              </Link>
-            )}
+                  Ingresar
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
         {/* MOBILE NAVIGATION */}
         {isMenuOpen && (
-          <div className="border-t bg-white px-4 sm:px-6 py-5 md:hidden">
+          <div className="border-t bg-white px-4 sm:px-6 py-5 xl:hidden">
+            <div className="mb-6 flex items-center gap-4 border-b border-slate-100 pb-6 md:hidden">
+              <div className="h-12 w-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
+                {user?.foto ? (
+                  <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-slate-400">
+                    <UserIcon className="h-6 w-6" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900 truncate">{user?.nombre} {user?.apellidoPaterno}</p>
+                <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+              </div>
+            </div>
             <nav className="flex flex-col gap-1">
               {navLinks.map(link => (
                 <NavLink 
@@ -235,10 +258,15 @@ export const PublicLayout = () => {
                     <NavLink 
                       key={link.to} 
                       to={link.to} 
-                      className={({ isActive }) => `text-base font-medium px-3 py-2.5 rounded-xl transition-colors ${isActive ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}
+                      className={({ isActive }) => `text-base font-medium px-3 py-2.5 rounded-xl transition-colors flex items-center justify-between ${isActive ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      {link.label}
+                      <span>{link.label}</span>
+                      {link.showBadge && unreadCount > 0 && (
+                        <span className="flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
                     </NavLink>
                   ))}
                 </>
@@ -267,11 +295,11 @@ export const PublicLayout = () => {
                     </div>
                     {user?.rol !== 'socio' && (
                       <Link 
-                        to="/admin/kpis" 
+                        to={user?.rol === 'secretario' ? '/admin/ingresos' : '/admin/kpis'} 
                         className="block w-full rounded-xl bg-slate-900 px-4 py-3 text-center text-sm font-bold text-white"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        Panel Admin
+                        {user?.rol === 'secretario' ? 'Panel Secretario' : 'Panel Admin'}
                       </Link>
                     )}
                     <button 

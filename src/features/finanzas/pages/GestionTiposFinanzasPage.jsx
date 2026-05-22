@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2 } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
@@ -19,6 +19,79 @@ export const GestionTiposFinanzasPage = () => {
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [editingTipo, setEditingTipo] = useState(null); // { id, nombre, descripcion, type }
+  const [deletingTipo, setDeletingTipo] = useState(null); // { id, nombre, type }
+
+  const handleEditClick = (tipo, type) => {
+    setEditingTipo({ ...tipo, type });
+  };
+
+  const handleDeleteClick = (tipo, type) => {
+    setDeletingTipo({ ...tipo, type });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingTipo) return;
+    setIsSubmitting(true);
+    try {
+      if (editingTipo.type === 'ingreso') {
+        await finanzasApi.actualizarTipoIngreso(editingTipo.id, editingTipo.nombre, editingTipo.descripcion);
+        setTiposIngreso(prev => prev.map(t => t.id === editingTipo.id ? { ...t, nombre: editingTipo.nombre, descripcion: editingTipo.descripcion } : t));
+      } else {
+        await finanzasApi.actualizarTipoEgreso(editingTipo.id, editingTipo.nombre, editingTipo.descripcion);
+        setTiposEgreso(prev => prev.map(t => t.id === editingTipo.id ? { ...t, nombre: editingTipo.nombre, descripcion: editingTipo.descripcion } : t));
+      }
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: `¡Categoría de ${editingTipo.type === 'ingreso' ? 'ingreso' : 'egreso'} actualizada!`,
+        details: `La categoría ha sido modificada correctamente.`
+      });
+      setEditingTipo(null);
+    } catch (err) {
+      console.error(err);
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: `Error al actualizar categoría`,
+        details: err instanceof Error ? err.message : `No se pudo actualizar la categoría en Supabase.`
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingTipo) return;
+    setIsSubmitting(true);
+    try {
+      if (deletingTipo.type === 'ingreso') {
+        await finanzasApi.eliminarTipoIngreso(deletingTipo.id);
+        setTiposIngreso(prev => prev.filter(t => t.id !== deletingTipo.id));
+      } else {
+        await finanzasApi.eliminarTipoEgreso(deletingTipo.id);
+        setTiposEgreso(prev => prev.filter(t => t.id !== deletingTipo.id));
+      }
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: `¡Categoría de ${deletingTipo.type === 'ingreso' ? 'ingreso' : 'egreso'} eliminada!`,
+        details: `La categoría "${deletingTipo.nombre}" ha sido eliminada correctamente.`
+      });
+      setDeletingTipo(null);
+    } catch (err) {
+      console.error(err);
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: `Error al eliminar categoría`,
+        details: err instanceof Error ? err.message : `No se pudo eliminar la categoría en Supabase.`
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const fetchDatos = async () => {
     setLoading(true);
@@ -94,15 +167,33 @@ export const GestionTiposFinanzasPage = () => {
   };
 
   const columnasIngreso = [
-    { key: 'nombre', label: 'Nombre' },
-    { key: 'descripcion', label: 'Descripción' },
+    { 
+      key: 'nombre', 
+      label: 'Nombre',
+      render: (val) => <span className="font-bold text-slate-900 block min-w-[100px]">{val}</span>
+    },
+    { 
+      key: 'descripcion', 
+      label: 'Descripción',
+      render: (val) => <span className="text-slate-500 text-xs line-clamp-2 md:line-clamp-none min-w-[150px] md:min-w-0">{val}</span>
+    },
     { key: 'estado_uso', label: 'Estado' },
+    { key: 'acciones', label: 'Acciones' },
   ];
 
   const columnasEgreso = [
-    { key: 'nombre', label: 'Nombre' },
-    { key: 'descripcion', label: 'Descripción' },
+    { 
+      key: 'nombre', 
+      label: 'Nombre',
+      render: (val) => <span className="font-bold text-slate-900 block min-w-[100px]">{val}</span>
+    },
+    { 
+      key: 'descripcion', 
+      label: 'Descripción',
+      render: (val) => <span className="text-slate-500 text-xs line-clamp-2 md:line-clamp-none min-w-[150px] md:min-w-0">{val}</span>
+    },
     { key: 'estado_uso', label: 'Estado' },
+    { key: 'acciones', label: 'Acciones' },
   ];
 
   const rowsIngreso = tiposIngreso.map(tipo => ({
@@ -115,6 +206,29 @@ export const GestionTiposFinanzasPage = () => {
       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
         Disponible
       </span>
+    ),
+    acciones: tiposIngresoEnUso[tipo.id] ? (
+      <div className="flex items-center gap-1.5 opacity-60">
+        <Lock className="h-3.5 w-3.5 text-slate-400" />
+        <span className="text-slate-400 text-[10px] italic whitespace-nowrap">En uso</span>
+      </div>
+    ) : (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => handleEditClick(tipo, 'ingreso')}
+          className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
+          title="Editar"
+        >
+          <Edit className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => handleDeleteClick(tipo, 'ingreso')}
+          className="p-1 text-slate-500 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
+          title="Eliminar"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
     )
   }));
 
@@ -128,6 +242,29 @@ export const GestionTiposFinanzasPage = () => {
       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
         Disponible
       </span>
+    ),
+    acciones: tiposEgresoEnUso[tipo.id] ? (
+      <div className="flex items-center gap-1.5 opacity-60">
+        <Lock className="h-3.5 w-3.5 text-slate-400" />
+        <span className="text-slate-400 text-[10px] italic whitespace-nowrap">En uso</span>
+      </div>
+    ) : (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => handleEditClick(tipo, 'egreso')}
+          className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
+          title="Editar"
+        >
+          <Edit className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => handleDeleteClick(tipo, 'egreso')}
+          className="p-1 text-slate-500 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
+          title="Eliminar"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
     )
   }));
 
@@ -156,41 +293,47 @@ export const GestionTiposFinanzasPage = () => {
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Tipos de Ingreso */}
-          <section className="rounded-md bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Tags className="h-5 w-5 text-emerald-600" />
-                <h2 className="text-lg font-semibold text-slate-900">Tipos de Ingreso</h2>
+          <section className="rounded-md bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between mb-4 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Tags className="h-5 w-5 text-emerald-600 shrink-0" />
+                <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">Tipos de Ingreso</h2>
               </div>
-              <Button type="button" size="sm" onClick={() => openModal('ingreso')}>
+              <Button type="button" size="sm" onClick={() => openModal('ingreso')} className="shrink-0 flex items-center gap-1">
                 <PlusCircle className="h-4 w-4" />
-                Agregar
+                <span className="hidden xs:inline">Agregar</span>
+                <span className="xs:hidden">Nuevo</span>
               </Button>
             </div>
-            <Table
-              columns={columnasIngreso}
-              rows={rowsIngreso}
-              emptyMessage="No hay tipos de ingreso registrados."
-            />
+            <div className="-mx-4 sm:mx-0">
+              <Table
+                columns={columnasIngreso}
+                rows={rowsIngreso}
+                emptyMessage="No hay tipos de ingreso registrados."
+              />
+            </div>
           </section>
 
           {/* Tipos de Egreso */}
-          <section className="rounded-md bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Tags className="h-5 w-5 text-rose-600" />
-                <h2 className="text-lg font-semibold text-slate-900">Tipos de Egreso</h2>
+          <section className="rounded-md bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between mb-4 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Tags className="h-5 w-5 text-rose-600 shrink-0" />
+                <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">Tipos de Egreso</h2>
               </div>
-              <Button type="button" size="sm" onClick={() => openModal('egreso')}>
+              <Button type="button" size="sm" onClick={() => openModal('egreso')} className="shrink-0 flex items-center gap-1">
                 <PlusCircle className="h-4 w-4" />
-                Agregar
+                <span className="hidden xs:inline">Agregar</span>
+                <span className="xs:hidden">Nuevo</span>
               </Button>
             </div>
-            <Table
-              columns={columnasEgreso}
-              rows={rowsEgreso}
-              emptyMessage="No hay tipos de egreso registrados."
-            />
+            <div className="-mx-4 sm:mx-0">
+              <Table
+                columns={columnasEgreso}
+                rows={rowsEgreso}
+                emptyMessage="No hay tipos de egreso registrados."
+              />
+            </div>
           </section>
         </div>
       )}
@@ -265,6 +408,77 @@ export const GestionTiposFinanzasPage = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!editingTipo}
+        onClose={() => setEditingTipo(null)}
+        title={`Editar tipo de ${editingTipo?.type === 'ingreso' ? 'Ingreso' : 'Egreso'}`}
+      >
+        {editingTipo && (
+          <form onSubmit={handleEditSubmit} className="space-y-4 mt-4">
+            <Input
+              id="edit-nombre"
+              name="nombre"
+              label="Nombre"
+              value={editingTipo.nombre}
+              onChange={(e) => setEditingTipo({ ...editingTipo, nombre: e.target.value })}
+              required
+              autoFocus
+            />
+            <Input
+              id="edit-descripcion"
+              name="descripcion"
+              label="Descripción (opcional)"
+              value={editingTipo.descripcion || ''}
+              onChange={(e) => setEditingTipo({ ...editingTipo, descripcion: e.target.value })}
+            />
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setEditingTipo(null)}>
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || !editingTipo.nombre.trim()}
+                className={!editingTipo.nombre.trim() ? "opacity-50 cursor-not-allowed" : ""}
+              >
+                {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!deletingTipo}
+        onClose={() => setDeletingTipo(null)}
+        title={`Confirmar eliminación`}
+        width="max-w-md"
+      >
+        {deletingTipo && (
+          <div className="space-y-4 mt-4">
+            <p className="text-sm text-slate-600">
+              ¿Está seguro de que desea eliminar la categoría de {deletingTipo.type === 'ingreso' ? 'ingreso' : 'egreso'} <strong>"{deletingTipo.nombre}"</strong>?
+            </p>
+            <p className="text-xs text-rose-600 bg-rose-50 p-2 rounded border border-rose-100">
+              Esta acción no se puede deshacer y removerá la categoría de forma permanente.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setDeletingTipo(null)}>
+                Cancelar
+              </Button>
+              <Button 
+                type="button" 
+                variant="danger"
+                disabled={isSubmitting}
+                onClick={handleDeleteConfirm}
+              >
+                {isSubmitting ? 'Eliminando...' : 'Eliminar'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

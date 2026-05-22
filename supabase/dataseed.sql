@@ -3,6 +3,53 @@
 -- SQL ESTÁTICO DE PRODUCCIÓN (Con más de 300 registros para pruebas masivas de rendimiento y paginación)
 -- ==========================================
 
+-- ==========================================================
+-- MIGRACIÓN DE BLOCKCHAIN PARA LA TABLA ACTIVIDAD
+-- ==========================================================
+-- Esta migración añade los campos de auditoría criptográfica y el trigger de sellado
+-- a la tabla de actividades académicas para permitir la integración con Hyperledger Fabric.
+
+ALTER TABLE public.actividad ADD COLUMN IF NOT EXISTS hash_anterior text;
+ALTER TABLE public.actividad ADD COLUMN IF NOT EXISTS hash_actual text;
+ALTER TABLE public.actividad ADD COLUMN IF NOT EXISTS blockchain_tx_id text;
+
+-- Función para calcular el hash de la actividad en base al bloque anterior (encadenamiento)
+CREATE OR REPLACE FUNCTION public.sellar_actividad()
+RETURNS trigger AS $$
+DECLARE
+    v_hash_anterior TEXT;
+BEGIN
+    IF NEW.hash_actual IS NULL THEN
+        -- Obtener el hash del último registro sellado
+        SELECT hash_actual INTO v_hash_anterior
+        FROM public.actividad
+        WHERE hash_actual IS NOT NULL
+        ORDER BY creacion DESC
+        LIMIT 1;
+
+        -- Enlazar con el bloque génesis si es el primer registro
+        NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
+        
+        -- Calcular el SHA-256 del registro actual concatenando los atributos principales
+        NEW.hash_actual := encode(extensions.digest(
+          convert_to(NEW.id::text || NEW.titulo || NEW.costo::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
+          'sha256'
+        ), 'hex');
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Crear el trigger de blockchain para la tabla actividad
+DROP TRIGGER IF EXISTS tr_blockchain_actividad ON public.actividad;
+CREATE TRIGGER tr_blockchain_actividad
+BEFORE INSERT ON public.actividad
+FOR EACH ROW EXECUTE FUNCTION public.sellar_actividad();
+
+-- Notificar a PostgREST para recargar el esquema
+NOTIFY pgrst, 'reload schema';
+
+
 -- 1. MIEMBROS (Administradores, Secretarios y Socios Activos/Inactivos con profesiones reales)
 INSERT INTO public.miembro (id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", contrasena, telefono, profesion, rol, estado, creacion) VALUES
 ('24c1c5db-ebea-49b3-83d6-7b35267640eb', 'Jorge', 'Morales', 'Castillo', 'admin@control.com', 'U2FsdGVkX19i8Sgd3k3mLJIjMgc/jlY+uHi42CDPFMI=', '78437671', 'Médico Cirujano', 'admin', 'activo', CURRENT_DATE - interval '18 months'),
@@ -275,7 +322,7 @@ INSERT INTO public.ingreso (id, miembro_id, registrado_por, tipo_ingreso_id, mon
 ON CONFLICT (id) DO NOTHING;
 
 -- 13. EGRESOS FINANCIEROS (Historial de egresos y facturas con sus 11 columnas correctas)
-INSERT INTO public.egreso (id, miembro_id, tipo_egreso_id, activo_id, monto, fecha, concepto, descripcion, hash_anterior, hash_actual, blockchain_tx_id) VALUES
+INSERT INTO public.egreso (id, miembro_id, tipo_egreso_id, activo_id, monto, creacion, concepto, descripcion, hash_anterior, hash_actual, blockchain_tx_id) VALUES
 ('898084bb-cb14-490a-9c5a-35e4475b5168', '24c1c5db-ebea-49b3-83d6-7b35267640eb', '1c1be97f-cea9-4bf9-a3f2-e90f7f59505c', NULL, 650.00, CURRENT_DATE - interval '7 days', 'Mantenimiento del Aire Acondicionado', 'Servicio técnico especializado en oficinas.', 'genesis', 'a445e90df33140abcc', 'tx_987214624128'),
 ('f9f3689c-828f-4343-b5da-9dcac39c6836', '24c1c5db-ebea-49b3-83d6-7b35267640eb', 'e21205e7-df67-44f8-9095-56953b4c1388', NULL, 450.00, CURRENT_DATE - interval '14 days', 'Compra de Resmas y Carpetas', 'Insumos de oficina anuales.', 'a445e90df33140abcc', 'c339d2243d41fe090b', 'tx_987214624129'),
 ('b3f87761-d74e-49e6-8df2-6a08373bf021', '24c1c5db-ebea-49b3-83d6-7b35267640eb', 'ba281040-975a-4c7f-9295-4beb120fe0f0', '59f8741d-630b-4247-979a-8b0618539d3d', 1250.00, CURRENT_DATE - interval '18 days', 'Pago de Servidor Dell - Cuota 8', 'Gasto justificado por plan de amortización.', 'c339d2243d41fe090b', 'b334ef5647a98db25', 'tx_987214624130'),
@@ -320,3 +367,65 @@ INSERT INTO public.archivo (id, ingreso_id, egreso_id, url, tipo) VALUES
 ('f3a3b3c3-d3e3-f3a3-b3c3-d3e3f3a3b3c3', NULL, '898084bb-cb14-490a-9c5a-35e4475b5168', 'https://res.cloudinary.com/demo/image/upload/sample.jpg', 'comprobante_egreso'),
 ('f4a4b4c4-d4e4-f4a4-b4c4-d4e4f4a4b4c4', NULL, 'b3f87761-d74e-49e6-8df2-6a08373bf021', 'https://res.cloudinary.com/demo/image/upload/sample.jpg', 'comprobante_egreso')
 ON CONFLICT (id) DO NOTHING;
+
+-- ==============================================================
+-- OPTIMIZACIONES SUPABASE & LIMPIEZA DE DATOS EFÍMEROS
+-- ==============================================================
+-- Este script automatiza la limpieza de registros antiguos (basura)
+-- en la tabla "notificacion" para mantener el uso de la Base de Datos 
+-- optimizado por debajo de los 500 MB (límite del plan gratuito).
+-- ==============================================================
+
+-- ==============================================================
+-- 1. LIMPIEZA AUTOMÁTICA DE NOTIFICACIONES MAYORES A 100 DÍAS
+-- ==============================================================
+
+-- Función que realiza el borrado de notificaciones antiguas (basura)
+CREATE OR REPLACE FUNCTION public.limpiar_notificaciones_antiguas()
+RETURNS trigger AS $$
+BEGIN
+    -- Elimina todas las notificaciones que tengan más de 100 días de antigüedad
+    DELETE FROM public.notificacion
+    WHERE creacion < NOW() - INTERVAL '100 days';
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger que se dispara después de insertar una nueva notificación
+DROP TRIGGER IF EXISTS tr_limpiar_notificaciones_excedentes ON public.notificacion;
+CREATE TRIGGER tr_limpiar_notificaciones_excedentes
+    AFTER INSERT ON public.notificacion
+    FOR EACH ROW
+    EXECUTE FUNCTION public.limpiar_notificaciones_antiguas();
+
+-- Ejecutar una limpieza inicial inmediata de cualquier registro huérfano o antiguo
+DELETE FROM public.notificacion
+WHERE creacion < NOW() - INTERVAL '100 days';
+
+-- ==============================================================
+-- 2. CREACIÓN DE ÍNDICES PARA BÚSQUEDAS RÁPIDAS (Optimiza CPU/Memoria)
+-- ==============================================================
+-- Estos índices mejoran dramáticamente la velocidad de las consultas 
+-- frecuentes en el sistema financiero y evitan escaneos secuenciales costosos.
+
+-- Índices para la tabla ingreso (búsquedas por miembro y estado)
+CREATE INDEX IF NOT EXISTS idx_ingreso_miembro_id ON public.ingreso(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_ingreso_estado ON public.ingreso(estado);
+
+-- Índices para la tabla egreso
+CREATE INDEX IF NOT EXISTS idx_egreso_miembro_id ON public.egreso(miembro_id);
+
+-- Índices para la tabla archivo (búsqueda de urls y relaciones polimórficas)
+CREATE INDEX IF NOT EXISTS idx_archivo_relaciones ON public.archivo(egreso_id, ingreso_id, activo_id);
+
+-- Índices para notificaciones (búsquedas activas en realtime por miembro)
+CREATE INDEX IF NOT EXISTS idx_notificacion_miembro_pendiente ON public.notificacion(miembro_id, estado);
+
+-- ==============================================================
+-- 3. BACKFILL DE NOTIFICACIONES DE BIENVENIDA PARA MIEMBROS EXISTENTES
+-- ==============================================================
+INSERT INTO public.notificacion (miembro_id, titulo, descripcion)
+SELECT id, '¡Bienvenido a Control Financiero!', 'Te damos la bienvenida al sistema de Control Financiero. Aquí podrás gestionar cuotas, ingresos, egresos, patrimonio y ver tu estado de cuenta en tiempo real.'
+FROM public.miembro
+ON CONFLICT DO NOTHING;

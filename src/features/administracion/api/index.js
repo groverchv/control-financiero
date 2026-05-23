@@ -134,7 +134,7 @@ export const administracionApi = {
     return res ? { ...res, email: res.correoElectronico, contrasena: res.contrasena ? decryptPassword(res.contrasena) : '' } : null;
   },
 
-  eliminarMiembro: async (id) => {
+  eliminarMiembro: async () => {
     throw new Error('La eliminación directa de miembros está deshabilitada por motivos de integridad histórica de datos financieros. Utilice el cambio de estado a Inactivo en su lugar.');
   },
 

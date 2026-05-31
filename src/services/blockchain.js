@@ -119,13 +119,21 @@ export const blockchainService = {
     sellarPendientes: async (tipoTabla) => {
         try {
             const tablaSupabase = tipoTabla === 'activo' ? 'activos' : tipoTabla;
-            const { data: pendientes, error } = await supabase
+            const { data: pendientesRaw, error } = await supabase
                 .from(tablaSupabase)
                 .select('*')
                 .is('blockchain_tx_id', null)
                 .not('hash_actual', 'is', null);
 
             if (error) throw error;
+            
+            let pendientes = pendientesRaw || [];
+            if (tipoTabla === 'actividad') {
+                const { getDynamicEstado } = await import('../utils/formatters');
+                pendientes = pendientes.filter(
+                    (act) => getDynamicEstado(act.fecha, act.hora) === 'finalizado'
+                );
+            }
             
             const resultados = [];
             for (const reg of pendientes) {

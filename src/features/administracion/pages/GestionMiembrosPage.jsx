@@ -3,7 +3,7 @@ import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronR
 import { useMiembros } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
-import { Toast } from '../../../components/feedback';
+import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { administracionApi } from '../api';
 import { finanzasApi } from '../../finanzas/api';
 import { supabase } from '../../../services/supabase';
@@ -82,6 +82,7 @@ export const GestionMiembrosPage = () => {
   const [statusConfirmModal, setStatusConfirmModal] = useState({ open: false, miembro: null, nuevoEstado: 'activo' });
   const [confirmActionModal, setConfirmActionModal] = useState({ open: false });
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
 
   const isFormUnchanged = !!editingMember && 
     formData.nombre === editingMember.nombre &&
@@ -150,11 +151,16 @@ export const GestionMiembrosPage = () => {
     const { miembro, nuevoEstado } = statusConfirmModal;
     if (!miembro) return;
 
+    setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' });
     setIsSubmitting(true);
+    setLoadingModal({
+      open: true,
+      text: nuevoEstado === 'activo' ? 'Reactivando miembro...' : 'Desactivando miembro...'
+    });
     try {
       const actualizado = await administracionApi.actualizarMiembro(miembro.id, { estado: nuevoEstado });
       setMiembros(miembros.map(m => m.id === miembro.id ? actualizado : m));
-      setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' });
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'success',
@@ -163,7 +169,7 @@ export const GestionMiembrosPage = () => {
       });
     } catch (err) {
       console.error(err);
-      setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' });
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -316,6 +322,10 @@ export const GestionMiembrosPage = () => {
   const executeSubmit = async () => {
     setConfirmActionModal({ open: false });
     setIsSubmitting(true);
+    setLoadingModal({
+      open: true,
+      text: editingMember ? 'Actualizando datos del miembro...' : 'Registrando nuevo miembro...'
+    });
     try {
       if (editingMember) {
         // ACTUALIZAR
@@ -362,6 +372,7 @@ export const GestionMiembrosPage = () => {
           estado: 'pendiente'
         }]);
 
+        setLoadingModal({ open: false, text: '' });
         setResultModal({
           open: true,
           type: 'success',
@@ -378,6 +389,7 @@ export const GestionMiembrosPage = () => {
         if (nuevoMiembro) {
           setMiembros([nuevoMiembro, ...miembros]);
         }
+        setLoadingModal({ open: false, text: '' });
         setResultModal({
           open: true,
           type: 'success',
@@ -388,6 +400,7 @@ export const GestionMiembrosPage = () => {
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       const errMsg = err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql.';
       setResultModal({
         open: true,
@@ -470,14 +483,14 @@ export const GestionMiembrosPage = () => {
       <div className="flex gap-2">
         <button 
           onClick={() => handleOpenDetail(miembro)}
-          className="rounded p-1 text-slate-600 hover:bg-slate-50"
+          className="rounded p-1 text-blue-600 hover:bg-blue-50 transition-colors"
           title="Ver detalle"
         >
-          <Info className="h-4 w-4" />
+          <Eye className="h-4 w-4" />
         </button>
         <button 
           onClick={() => handleOpenEdit(miembro)}
-          className="rounded p-1 text-blue-600 hover:bg-blue-50"
+          className="rounded p-1 text-amber-600 hover:bg-amber-50 transition-colors"
           title="Editar"
         >
           <Edit className="h-4 w-4" />
@@ -1345,6 +1358,8 @@ export const GestionMiembrosPage = () => {
           </div>
         </div>
       </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

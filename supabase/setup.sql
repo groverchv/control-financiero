@@ -212,10 +212,12 @@ CREATE TABLE public.jurado (
     actividad_externa text,
     descripcion text,
     fecha_asignacion timestamptz DEFAULT now(),
-    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id, actividad_externa),
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS jurado_sistema_miembro_unique_idx ON public.jurado (miembro_id, actividad_id) WHERE miembro_id IS NOT NULL AND actividad_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS jurado_externa_miembro_unique_idx ON public.jurado (miembro_id, actividad_externa) WHERE miembro_id IS NOT NULL AND actividad_externa IS NOT NULL;
 
 -- ==========================================
 -- 3. FUNCIONES Y TRIGGERS (Automatización)

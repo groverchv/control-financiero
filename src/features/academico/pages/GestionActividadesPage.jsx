@@ -36,7 +36,7 @@ import {
 } from "../../../components/ui";
 import { MapPicker } from "../../../components/ui/MapPicker";
 import { Table } from "../../../components/data-display";
-import { Toast } from "../../../components/feedback";
+import { Toast, LoadingOverlay } from "../../../components/feedback";
 import { academicoApi } from "../api";
 import { blockchainService } from "../../../services/blockchain";
 import { administracionApi } from "../../administracion/api";
@@ -94,6 +94,7 @@ export const GestionActividadesPage = () => {
     details: "",
   });
   const [confirmActionModal, setConfirmActionModal] = useState({ open: false });
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: "" });
   const [generalConfirmModal, setGeneralConfirmModal] = useState({
     open: false,
     title: "",
@@ -341,9 +342,11 @@ export const GestionActividadesPage = () => {
       actionType: "danger",
       onConfirm: async () => {
         setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
+        setLoadingModal({ open: true, text: "Eliminando actividad académica..." });
         try {
           await academicoApi.eliminarActividad(id);
           setActividades(actividades.filter((a) => a.id !== id));
+          setLoadingModal({ open: false, text: "" });
           setResultModal({
             open: true,
             type: "success",
@@ -353,6 +356,7 @@ export const GestionActividadesPage = () => {
           });
         } catch (err) {
           console.error(err);
+          setLoadingModal({ open: false, text: "" });
           setResultModal({
             open: true,
             type: "error",
@@ -376,6 +380,7 @@ export const GestionActividadesPage = () => {
       actionType: "danger",
       onConfirm: async () => {
         setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
+        setLoadingModal({ open: true, text: "Cancelando actividad y notificando a los alumnos inscritos..." });
         try {
           await academicoApi.cancelarActividad(act.id);
           // Actualizar estado local
@@ -386,6 +391,7 @@ export const GestionActividadesPage = () => {
                 : a,
             ),
           );
+          setLoadingModal({ open: false, text: "" });
           setResultModal({
             open: true,
             type: "success",
@@ -395,6 +401,7 @@ export const GestionActividadesPage = () => {
           });
         } catch (err) {
           console.error(err);
+          setLoadingModal({ open: false, text: "" });
           setResultModal({
             open: true,
             type: "error",
@@ -489,6 +496,7 @@ export const GestionActividadesPage = () => {
       onConfirm: async () => {
         setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
         setManualInscribiendo(true);
+        setLoadingModal({ open: true, text: "Registrando inscripción del socio..." });
         try {
           await academicoApi.inscribirSocio(
             selectedMiembroId,
@@ -517,6 +525,7 @@ export const GestionActividadesPage = () => {
                 : a,
             ),
           );
+          setLoadingModal({ open: false, text: "" });
           setResultModal({
             open: true,
             type: "success",
@@ -526,6 +535,7 @@ export const GestionActividadesPage = () => {
           });
         } catch (err) {
           console.error(err);
+          setLoadingModal({ open: false, text: "" });
           setResultModal({
             open: true,
             type: "error",
@@ -551,6 +561,7 @@ export const GestionActividadesPage = () => {
       actionType: "danger",
       onConfirm: async () => {
         setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
+        setLoadingModal({ open: true, text: "Anulando inscripción del socio..." });
         try {
           await academicoApi.desinscribirSocio(
             miembro.id,
@@ -580,6 +591,7 @@ export const GestionActividadesPage = () => {
             ),
           );
 
+          setLoadingModal({ open: false, text: "" });
           setResultModal({
             open: true,
             type: "success",
@@ -588,6 +600,7 @@ export const GestionActividadesPage = () => {
           });
         } catch (err) {
           console.error(err);
+          setLoadingModal({ open: false, text: "" });
           setResultModal({
             open: true,
             type: "error",
@@ -780,6 +793,10 @@ export const GestionActividadesPage = () => {
   const executeSubmit = async () => {
     setConfirmActionModal({ open: false });
     setIsSubmitting(true);
+    setLoadingModal({
+      open: true,
+      text: editingAct ? "Actualizando actividad académica..." : "Registrando nueva actividad académica...",
+    });
     try {
       const finalCupos = editingAct
         ? Number(formData.cupos) + (parseInt(adicionalCupos) || 0)
@@ -800,6 +817,7 @@ export const GestionActividadesPage = () => {
         setActividades(
           actividades.map((a) => (a.id === editingAct.id ? actualizado : a)),
         );
+        setLoadingModal({ open: false, text: "" });
         setResultModal({
           open: true,
           type: "success",
@@ -813,6 +831,7 @@ export const GestionActividadesPage = () => {
           selectedFile,
         );
         setActividades([nuevaAct, ...actividades]);
+        setLoadingModal({ open: false, text: "" });
         setResultModal({
           open: true,
           type: "success",
@@ -825,6 +844,7 @@ export const GestionActividadesPage = () => {
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: "" });
       setResultModal({
         open: true,
         type: "error",
@@ -898,19 +918,7 @@ export const GestionActividadesPage = () => {
       </div>
     ),
     blockchain_display: (() => {
-      const esFinalizado =
-        getDynamicEstado(act.fecha, act.hora) === "finalizado";
       const isSealing = sealingIds.has(act.id);
-
-      if (!esFinalizado) {
-        // Activity not yet finished — no sealing applicable
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
-            <Shield className="h-3.5 w-3.5" />
-            Pendiente
-          </span>
-        );
-      }
 
       if (act.blockchain_tx_id) {
         // Already sealed
@@ -930,6 +938,19 @@ export const GestionActividadesPage = () => {
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-700">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Sellando…
+          </span>
+        );
+      }
+
+      const esFinalizado =
+        getDynamicEstado(act.fecha, act.hora) === "finalizado";
+
+      if (!esFinalizado) {
+        // Activity not yet finished — no sealing applicable
+        return (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
+            <Shield className="h-3.5 w-3.5" />
+            Pendiente
           </span>
         );
       }
@@ -975,7 +996,7 @@ export const GestionActividadesPage = () => {
               esFinalizado
                 ? "text-slate-300 opacity-50 cursor-not-allowed"
                 : act.publicado === false
-                  ? "text-slate-400 hover:bg-slate-100"
+                  ? "text-violet-400 hover:bg-violet-50"
                   : "text-violet-600 hover:bg-violet-50"
             }`}
             title={
@@ -2339,6 +2360,7 @@ export const GestionActividadesPage = () => {
           </div>
         </div>
       </Modal>
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

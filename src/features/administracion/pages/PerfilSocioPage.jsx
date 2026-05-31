@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Mail, Phone, UserCircle, Upload, FileText, Camera, Save, Loader2, CheckCircle2, Edit3, X, Eye } from 'lucide-react';
+import { Mail, Phone, UserCircle, Upload, FileText, Camera, Save, Loader2, CheckCircle2, Edit3, X, Eye, AlertCircle, Info } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { administracionApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
+import { LoadingOverlay } from '../../../components/feedback';
 import { supabase } from '../../../services/supabase';
 
 export const PerfilSocioPage = () => {
@@ -13,9 +14,25 @@ export const PerfilSocioPage = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showSizeErrorModal, setShowSizeErrorModal] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [archivos, setArchivos] = useState([]);
   const [fileChanged, setFileChanged] = useState(false);
+
+  // Estados para el Flujo Transaccional Premium
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
+  const [generalConfirmModal, setGeneralConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    actionType: 'primary',
+    onConfirm: null
+  });
+  const [resultModal, setResultModal] = useState({
+    open: false,
+    type: 'success',
+    text: '',
+    details: ''
+  });
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -74,10 +91,22 @@ export const PerfilSocioPage = () => {
     loadProfile();
   }, [user?.id]);
 
-  const handleUpdateProfile = async (e) => {
+  const handleSubmitPrompt = (e) => {
     e.preventDefault();
+    setGeneralConfirmModal({
+      open: true,
+      title: 'Confirmar Actualización de Perfil',
+      message: '¿Está seguro de que desea guardar los cambios en su perfil profesional en el sistema?',
+      confirmText: 'Sí, guardar',
+      actionType: 'primary',
+      onConfirm: executeUpdateProfile
+    });
+  };
+
+  const executeUpdateProfile = async () => {
+    setGeneralConfirmModal(prev => ({ ...prev, open: false }));
+    setLoadingModal({ open: true, text: 'Actualizando su perfil profesional y sincronizando cambios en la base de datos de forma segura...' });
     setIsSaving(true);
-    setSuccess(false);
 
     const changedFields = [];
     if (formData.nombre !== initialData.nombre) changedFields.push('Nombre');
@@ -132,13 +161,24 @@ export const PerfilSocioPage = () => {
           });
         }
 
-        setSuccess(true);
+        setLoadingModal({ open: false, text: '' });
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: 'Perfil Actualizado',
+          details: 'Su perfil profesional ha sido guardado exitosamente en el sistema.'
+        });
         setIsEditing(false);
         setFileChanged(false);
-        setTimeout(() => setSuccess(false), 3000);
       }
     } catch (err) {
-      alert('Error al actualizar perfil: ' + err.message);
+      setLoadingModal({ open: false, text: '' });
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error al Actualizar',
+        details: err.message || 'Ocurrió un problema al guardar los cambios en su perfil.'
+      });
     } finally {
       setIsSaving(false);
     }
@@ -163,8 +203,12 @@ export const PerfilSocioPage = () => {
       return;
     }
 
+    setLoadingModal({
+      open: true,
+      text: `Subiendo y procesando archivo ${tipo === 'foto' ? 'de foto de perfil' : 'de currículum vitae'} de forma segura...`
+    });
+
     try {
-      setLoading(true);
       await administracionApi.subirArchivo(user.id, file, tipo);
       const files = await administracionApi.obtenerArchivosMiembro(user.id);
       setArchivos(files);
@@ -177,10 +221,22 @@ export const PerfilSocioPage = () => {
           foto: newFoto
         });
       }
+
+      setLoadingModal({ open: false, text: '' });
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: 'Archivo Guardado',
+        details: `El documento ${tipo === 'foto' ? 'de foto de perfil' : 'de currículum vitae'} ha sido subido e indexado exitosamente en el sistema.`
+      });
     } catch (err) {
-      alert('Error al subir archivo: ' + err.message);
-    } finally {
-      setLoading(false);
+      setLoadingModal({ open: false, text: '' });
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error de Subida',
+        details: err.message || 'No se pudo subir el archivo especificado.'
+      });
     }
   };
 
@@ -206,13 +262,6 @@ export const PerfilSocioPage = () => {
         </div>
         
         <div className="flex items-center gap-3">
-          {success && (
-            <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 sm:px-4 py-2 rounded-full border border-emerald-100 animate-in zoom-in duration-300">
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-xs sm:text-sm font-bold">Cambios guardados</span>
-            </div>
-          )}
-          
           {!isEditing && (
             <Button onClick={() => setIsEditing(true)} className="rounded-2xl shadow-lg hover:shadow-blue-500/20 transition-all flex items-center gap-2">
               <Edit3 className="h-4 w-4" />
@@ -336,7 +385,7 @@ export const PerfilSocioPage = () => {
 
         <div className="lg:col-span-2">
           <section className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-full">
-            <form onSubmit={handleUpdateProfile} className="space-y-6 h-full flex flex-col">
+            <form onSubmit={handleSubmitPrompt} className="space-y-6 h-full flex flex-col">
               <div className="flex items-center gap-2 mb-6">
                 <div className="h-8 w-1 bg-blue-600 rounded-full"></div>
                 <h3 className="text-lg font-bold text-slate-900">Información Personal</h3>
@@ -527,6 +576,79 @@ export const PerfilSocioPage = () => {
           </div>
         </div>
       )}
+      {/* Modal General de Confirmación */}
+      <Modal
+        isOpen={generalConfirmModal.open}
+        onClose={() => setGeneralConfirmModal((prev) => ({ ...prev, open: false }))}
+        title={
+          <div className="flex items-center gap-2.5 text-blue-600">
+            <Info className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>{generalConfirmModal.title}</span>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-sm">
+            <Info className="h-5 w-5 shrink-0 text-blue-600 mt-0.5" />
+            <div>
+              <span>{generalConfirmModal.message}</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setGeneralConfirmModal((prev) => ({ ...prev, open: false }))}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={generalConfirmModal.onConfirm}
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+            >
+              {generalConfirmModal.confirmText}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Resultado */}
+      <Modal
+        isOpen={resultModal.open}
+        onClose={() => setResultModal((prev) => ({ ...prev, open: false }))}
+        title={resultModal.type === "success" ? "Operación Exitosa" : "Error en Operación"}
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === "success" ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertCircle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === "success" ? "text-slate-900" : "text-rose-900"}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button
+              className="w-full"
+              variant={resultModal.type === "success" ? "primary" : "danger"}
+              onClick={() => setResultModal((prev) => ({ ...prev, open: false }))}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

@@ -438,13 +438,6 @@ export const finanzasApi = {
             miembroId: miembro.id,
             periodoKey: proximaPendiente.mes
           });
-          
-          // Mostrar notificación Push web nativa si hay permisos
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Nueva Deuda de Cuota', {
-              body: `Se ha generado la cuota ${proximaPendiente.mes} (Bs. ${montoCuota}) para ${miembro.nombre} ${miembro.apellidoPaterno}.`,
-            });
-          }
         }
       }
     } catch (err) {

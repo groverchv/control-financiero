@@ -4,7 +4,7 @@ import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight, X, E
 import { useActivos } from '../hooks';
 import { Button, Input, Spinner, Modal, Select, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
-import { Toast } from '../../../components/feedback';
+import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { patrimonioApi } from '../api';
 import { useAuthStore } from '../../../store/authStore';
 import { cloudinaryService } from '../../../services/cloudinary';
@@ -34,6 +34,7 @@ export const GestionActivosPage = () => {
   const [activePlan, setActivePlan] = useState([]);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
 
   const isSubmitDisabled = !formData.nombre.trim() || !formData.tipo_activo_id || !formData.costo_total || !formData.fechaAdquisicion;
 
@@ -187,6 +188,7 @@ export const GestionActivosPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setLoadingModal({ open: true, text: 'Registrando activo institucional...' });
     try {
       let imagen_url = null;
       if (formData.imagen) {
@@ -211,6 +213,7 @@ export const GestionActivosPage = () => {
       // R12: Verificar si el sellado fue exitoso
       const selladoExitoso = !!nuevoActivo.blockchain_tx_id;
       
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: selladoExitoso ? 'success' : 'warning',
@@ -230,6 +233,7 @@ export const GestionActivosPage = () => {
       });
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -243,10 +247,12 @@ export const GestionActivosPage = () => {
 
   const handleSellar = async (id) => {
     setIsSubmitting(true);
+    setLoadingModal({ open: true, text: 'Sellando activo en Blockchain...' });
     try {
       await patrimonioApi.sellarActivo(id, user?.id);
       const updatedData = await patrimonioApi.obtenerActivos();
       setActivos(updatedData);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'success',
@@ -255,6 +261,7 @@ export const GestionActivosPage = () => {
       });
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -753,6 +760,8 @@ export const GestionActivosPage = () => {
           </div>
         </div>
       </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, MapPin, Users, CheckCircle2, Info, GraduationCap, AlertTriangle, CalendarDays, Clock } from 'lucide-react';
 import { academicoApi } from '../api';
 import { Spinner, Button, Modal } from '../../../components/ui';
+import { LoadingOverlay } from '../../../components/feedback';
 import { useAuthStore } from '../../../store/authStore';
 
 export const DetalleActividadPage = () => {
@@ -13,8 +14,24 @@ export const DetalleActividadPage = () => {
   const [loading, setLoading] = useState(true);
   const [isInscrito, setIsInscrito] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [modalMessage, setModalMessage] = useState(null); // { title, type, text, action }
+
+  // Estados para el Flujo Transaccional Premium
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
+  const [generalConfirmModal, setGeneralConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    actionType: 'primary',
+    onConfirm: null
+  });
+  const [resultModal, setResultModal] = useState({
+    open: false,
+    type: 'success',
+    text: '',
+    details: '',
+    action: null
+  });
   const [currentEstado, setCurrentEstado] = useState('programado');
   const [timeLeft, setTimeLeft] = useState('');
 
@@ -72,53 +89,68 @@ export const DetalleActividadPage = () => {
 
   const handleInscripcion = async () => {
     if (!isAuthenticated) {
-      setModalMessage({
-        title: 'Autenticación Requerida',
+      setResultModal({
+        open: true,
         type: 'error',
-        text: 'Debe iniciar sesión para inscribirse en esta actividad.',
+        text: 'Autenticación Requerida',
+        details: 'Debe iniciar sesión para inscribirse en esta actividad.',
         action: () => navigate('/login')
       });
       return;
     }
 
     if (currentEstado === 'finalizado') {
-      setModalMessage({
-        title: 'Actividad Finalizada',
+      setResultModal({
+        open: true,
         type: 'error',
-        text: 'Lo sentimos, ya no es posible inscribirse en esta actividad porque ha finalizado.'
+        text: 'Actividad Finalizada',
+        details: 'Lo sentimos, ya no es posible inscribirse en esta actividad porque ha finalizado.'
       });
       return;
     }
 
     if (actividad.cupos <= 0) {
-      setModalMessage({
-        title: 'Cupos Agotados',
+      setResultModal({
+        open: true,
         type: 'error',
-        text: 'Lo sentimos, ya no hay cupos disponibles para esta actividad.'
+        text: 'Cupos Agotados',
+        details: 'Lo sentimos, ya no hay cupos disponibles para esta actividad.'
       });
       return;
     }
 
-    setShowConfirmModal(true);
+    setGeneralConfirmModal({
+      open: true,
+      title: 'Confirmar Inscripción',
+      message: `Estás a punto de inscribirte en "${actividad.nombre}". Una vez inscrito, no podrá cancelar su inscripción debido a que las plazas son limitadas y se realiza una reserva de cupo.`,
+      confirmText: 'Sí, inscribirme',
+      actionType: 'primary',
+      onConfirm: confirmarInscripcion
+    });
   };
 
   const confirmarInscripcion = async () => {
-    setShowConfirmModal(false);
+    setGeneralConfirmModal(prev => ({ ...prev, open: false }));
+    setLoadingModal({ open: true, text: 'Procesando su inscripción y reservando su plaza en el cronograma institucional...' });
     setIsEnrolling(true);
     try {
       await academicoApi.inscribirSocio(user.id, actividad.id);
       setIsInscrito(true);
       setActividad(prev => ({ ...prev, cupos: prev.cupos - 1 }));
-      setModalMessage({
-        title: '¡Inscripción Exitosa!',
+      setLoadingModal({ open: false, text: '' });
+      setResultModal({
+        open: true,
         type: 'success',
-        text: 'Tu participación ha sido confirmada. Te esperamos en la actividad.'
+        text: '¡Inscripción Exitosa!',
+        details: 'Tu participación ha sido confirmada con éxito. Te esperamos en la actividad.'
       });
     } catch (error) {
-      setModalMessage({
-        title: 'Error de Inscripción',
+      setLoadingModal({ open: false, text: '' });
+      setResultModal({
+        open: true,
         type: 'error',
-        text: error.message || 'Ocurrió un error al procesar su inscripción.'
+        text: 'Error de Inscripción',
+        details: error.message || 'Ocurrió un error al procesar su inscripción.'
       });
     } finally {
       setIsEnrolling(false);
@@ -342,52 +374,87 @@ export const DetalleActividadPage = () => {
         </div>
       </div>
 
-      {/* Modal de Confirmación */}
-      <Modal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="Confirmar Inscripción" width="max-w-md">
-        <div className="flex flex-col items-center text-center space-y-4">
-          <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-2">
-            <AlertTriangle className="h-8 w-8" />
+      {/* Modal General de Confirmación */}
+      <Modal
+        isOpen={generalConfirmModal.open}
+        onClose={() => setGeneralConfirmModal((prev) => ({ ...prev, open: false }))}
+        title={
+          <div className="flex items-center gap-2.5 text-blue-600">
+            <Info className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>{generalConfirmModal.title}</span>
           </div>
-          <p className="text-slate-600">
-            Estás a punto de inscribirte en <strong className="text-slate-900">{actividad.nombre}</strong>.
-          </p>
-          <div className="bg-slate-50 p-4 rounded-xl text-sm text-slate-500 w-full">
-            <strong>ATENCIÓN:</strong> Una vez inscrito, <span className="text-red-500 font-bold">no podrá cancelar su inscripción</span>. Los cupos son limitados.
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-sm">
+            <Info className="h-5 w-5 shrink-0 text-blue-600 mt-0.5" />
+            <div>
+              <span>{generalConfirmModal.message}</span>
+            </div>
           </div>
-          <p className="text-slate-900 font-bold">¿Desea confirmar su participación?</p>
-          <div className="flex w-full gap-3 mt-6">
-            <Button onClick={() => setShowConfirmModal(false)} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white">
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setGeneralConfirmModal((prev) => ({ ...prev, open: false }))}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
               Cancelar
             </Button>
-            <Button onClick={confirmarInscripcion} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white">
-              Confirmar Inscripción
+            <Button
+              onClick={generalConfirmModal.onConfirm}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+            >
+              {generalConfirmModal.confirmText}
             </Button>
           </div>
         </div>
       </Modal>
 
-      {/* Modal de Mensajes (Éxito/Error) */}
-      <Modal isOpen={!!modalMessage} onClose={() => {
-        const action = modalMessage?.action;
-        setModalMessage(null);
-        if (action) action();
-      }} title={modalMessage?.title || "Información"} width="max-w-sm">
-        <div className="flex flex-col items-center text-center space-y-4">
-          <div className={`h-16 w-16 rounded-full flex items-center justify-center mb-2 ${
-            modalMessage?.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'
-          }`}>
-            {modalMessage?.type === 'success' ? <CheckCircle2 className="h-8 w-8" /> : <AlertTriangle className="h-8 w-8" />}
+      {/* Modal de Resultado */}
+      <Modal
+        isOpen={resultModal.open}
+        onClose={() => {
+          const action = resultModal?.action;
+          setResultModal((prev) => ({ ...prev, open: false }));
+          if (action) action();
+        }}
+        title={resultModal.type === "success" ? "Operación Exitosa" : "Error en Operación"}
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === "success" ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertTriangle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === "success" ? "text-slate-900" : "text-rose-900"}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button
+              className="w-full"
+              variant={resultModal.type === "success" ? "primary" : "danger"}
+              onClick={() => {
+                const action = resultModal?.action;
+                setResultModal((prev) => ({ ...prev, open: false }));
+                if (action) action();
+              }}
+            >
+              Entendido
+            </Button>
           </div>
-          <p className="text-slate-600">{modalMessage?.text}</p>
-          <Button onClick={() => {
-            const action = modalMessage?.action;
-            setModalMessage(null);
-            if (action) action();
-          }} className="w-full mt-4 bg-slate-900 hover:bg-slate-800 text-white">
-            Aceptar
-          </Button>
         </div>
       </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

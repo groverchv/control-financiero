@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Spinner, Modal, ExportButtons } from '../../../components/ui';
-import { Toast } from '../../../components/feedback';
+import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { formatCurrency } from '../../../utils/formatters';
 
 
@@ -264,11 +264,12 @@ export const HistorialCuotasPage = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroDeuda, setFiltroDeuda] = useState('todos');
-  const [currentPage, setCurrentPage] = useState(1);
   const [confirmPausa, setConfirmPausa] = useState(false);
   const [configModal, setConfigModal] = useState(false);
   const [configForm, setConfigForm] = useState({ frecuencia: 'mes', dias_recordatorio_activos: 5, monto_cuota: 150 });
   const [infoModal, setInfoModal] = useState({ open: false, title: '', message: '', isWarning: false });
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
+  const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
   const cargarDatos = useCallback(async () => {
@@ -310,6 +311,7 @@ export const HistorialCuotasPage = () => {
   const ejecutarGuardarConfiguracion = async (e) => {
     e.preventDefault();
     setLoadingPausa(true);
+    setLoadingModal({ open: true, text: 'Guardando configuración general...' });
     try {
       // Formatear numéricos antes de guardar
       const payload = {
@@ -322,6 +324,7 @@ export const HistorialCuotasPage = () => {
       setConfig(resp);
       await cargarDatos();
       setConfigModal(false);
+      setLoadingModal({ open: false, text: '' });
       
       if (resp?._schemaWarning) {
         setInfoModal({
@@ -339,6 +342,7 @@ export const HistorialCuotasPage = () => {
         });
       }
     } catch (err) {
+      setLoadingModal({ open: false, text: '' });
       setError('Error al guardar la configuración: ' + err.message);
     } finally {
       setLoadingPausa(false);
@@ -346,13 +350,27 @@ export const HistorialCuotasPage = () => {
   };
 
   const ejecutarTogglePausa = async () => {
+    setConfirmPausa(false);
     setLoadingPausa(true);
+    setLoadingModal({
+      open: true,
+      text: config?.pausado ? 'Reanudando generación de cuotas...' : 'Pausando generación de cuotas...'
+    });
     try {
       const nuevaConfig = await finanzasApi.togglePausaCuotas(!config?.pausado, config);
       setConfig(nuevaConfig);
       await cargarDatos();
-      setConfirmPausa(false);
+      setLoadingModal({ open: false, text: '' });
+      setInfoModal({
+        open: true,
+        title: config?.pausado ? '¡Generación Reanudada!' : '¡Generación Pausada!',
+        message: config?.pausado 
+          ? 'El cronograma automático de cuotas se ha reactivado y se reanudará la facturación de todos los socios activos.'
+          : 'El cronograma automático ha sido pausado. Ningún socio generará nuevas deudas hasta que reanude el sistema.',
+        isWarning: !config?.pausado
+      });
     } catch (err) {
+      setLoadingModal({ open: false, text: '' });
       setError('Error al cambiar estado de pausa: ' + err.message);
     } finally {
       setLoadingPausa(false);
@@ -721,6 +739,8 @@ export const HistorialCuotasPage = () => {
           </div>
         </div>
       </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
 
     </div>
   );

@@ -4,6 +4,7 @@ import { patrimonioApi } from '../api';
 import { useActivos } from '../hooks';
 import { Button, Input, Select, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
+import { LoadingOverlay } from '../../../components/feedback';
 
 export const PlanAmortizacionPage = () => {
   const { activos } = useActivos();
@@ -18,6 +19,7 @@ export const PlanAmortizacionPage = () => {
   const [configuracion, setConfiguracion] = useState(null);
   const [diasRecordatorio, setDiasRecordatorio] = useState(5);
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -76,7 +78,9 @@ export const PlanAmortizacionPage = () => {
   };
 
   const handleSave = async () => {
+    setConfirmModalOpen(false);
     setLoading(true);
+    setLoadingModal({ open: true, text: 'Generando plan de amortización...' });
     try {
       // 1. Guardar el plan de amortización
       await patrimonioApi.guardarPlanAmortizacion(selectedActivoId, plan);
@@ -90,6 +94,7 @@ export const PlanAmortizacionPage = () => {
       }
 
       setPlanesExistentes(prev => [...prev, selectedActivoId]);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'success',
@@ -98,9 +103,9 @@ export const PlanAmortizacionPage = () => {
       });
       setPlan([]);
       setSelectedActivoId('');
-      setConfirmModalOpen(false);
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -330,6 +335,8 @@ export const PlanAmortizacionPage = () => {
           </div>
         </div>
       </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

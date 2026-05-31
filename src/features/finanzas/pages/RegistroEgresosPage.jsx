@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle, RefreshCw, DollarSign, PlusCircle, Loader2 } from 'lucide-react';
+import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle, RefreshCw, DollarSign, PlusCircle } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { patrimonioApi } from '../../patrimonio/api';
 import { useEgresos } from '../hooks';
 import { useAuthStore } from '../../../store/authStore';
 import { Button, Input, Select, Spinner, ExportButtons, Modal } from '../../../components/ui';
-import { Toast } from '../../../components/feedback';
+import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { cloudinaryService } from '../../../services/cloudinary';
 
 export const RegistroEgresosPage = () => {
@@ -753,26 +753,7 @@ export const RegistroEgresosPage = () => {
         </div>
       </Modal>
 
-      {submitting && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-md transition-all duration-300">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-5 animate-in fade-in zoom-in duration-300">
-            <div className="relative flex items-center justify-center">
-              <div className="h-20 w-20 rounded-full border-4 border-blue-50 border-t-blue-600 animate-spin" />
-              <Loader2 className="absolute h-10 w-10 text-blue-600 animate-spin" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-black text-slate-800 tracking-tight">Procesando Registro</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Estamos procesando la transacción, subiendo los archivos adjuntos y sellando el egreso operativo en la Blockchain de forma segura.
-              </p>
-            </div>
-            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full animate-pulse" style={{ width: '70%' }} />
-            </div>
-            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest animate-pulse">Por favor, no cierre esta ventana</p>
-          </div>
-        </div>
-      )}
+      <LoadingOverlay open={submitting} text="Estamos procesando la transacción, subiendo los archivos adjuntos y sellando el egreso operativo en la Blockchain de forma segura." />
     </div>
   );
 };

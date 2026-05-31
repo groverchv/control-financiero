@@ -202,7 +202,7 @@ export const academicoApi = {
     // Volver a obtener para incluir todas las relaciones (similar a obtenerActividades)
     const { data: actFull } = await supabase
       .from('actividad')
-      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"))')
+      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion)')
       .eq('id', nuevaAct.id)
       .single();
 
@@ -211,14 +211,18 @@ export const academicoApi = {
       nombre: actFull?.titulo || nuevaAct.titulo,
       tipo_nombre: actFull?.tipo_actividad?.nombre || 'General',
       imagen: actFull?.archivo?.[0]?.url || null,
-      jurados: actFull?.jurado?.map(j => `${j.miembro?.nombre} ${j.miembro?.apellidoPaterno || ''}`.trim()) || []
+      jurados: actFull?.jurado?.map(j => {
+        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
+        const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
+        return extName || 'Jurado Externo';
+      }) || []
     };
   },
 
   obtenerActividades: async () => {
     const { data, error } = await supabase
       .from('actividad')
-      .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno")), inscripcion(id)')
+      .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion), inscripcion(id)')
       .order('fecha', { ascending: false });
 
     if (error) throw error;
@@ -227,7 +231,11 @@ export const academicoApi = {
       nombre: d.titulo,
       tipo_nombre: d.tipo_actividad?.nombre || 'General',
       imagen: d.archivo?.[0]?.url || null,
-      jurados: d.jurado?.map(j => `${j.miembro?.nombre} ${j.miembro?.apellidoPaterno || ''}`.trim()) || [],
+      jurados: d.jurado?.map(j => {
+        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
+        const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
+        return extName || 'Jurado Externo';
+      }) || [],
       inscritos_count: d.inscripcion?.length || 0
     }));
   },
@@ -440,7 +448,7 @@ export const academicoApi = {
     // Volver a obtener la actividad completa para devolver el objeto con todas las relaciones (imagen, tipo, etc.)
     const { data: updatedAct, error: fetchErr } = await supabase
       .from('actividad')
-      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"))')
+      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion)')
       .eq('id', id)
       .single();
 
@@ -451,7 +459,11 @@ export const academicoApi = {
       nombre: updatedAct.titulo,
       tipo_nombre: updatedAct.tipo_actividad?.nombre || 'General',
       imagen: updatedAct.archivo?.[0]?.url || null,
-      jurados: updatedAct.jurado?.map(j => `${j.miembro?.nombre} ${j.miembro?.apellidoPaterno || ''}`.trim()) || []
+      jurados: updatedAct.jurado?.map(j => {
+        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
+        const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
+        return extName || 'Jurado Externo';
+      }) || []
     };
   },
 
@@ -550,7 +562,7 @@ export const academicoApi = {
   },
 
   asignarJurado: async (payload) => {
-    // Si es actividad del sistema, verificar que no esté finalizada/cancelada
+    // Si es actividad del sistema, verificar que no esté finalizada/cancelada o sellada en blockchain
     if (payload.actividad_id) {
       const { data: act } = await supabase
         .from('actividad')
@@ -560,6 +572,9 @@ export const academicoApi = {
       
       if (act?.estado === 'finalizado' || act?.estado === 'cancelado') {
         throw new Error('No se puede asignar jurados a una actividad que ya ha finalizado o ha sido cancelada.');
+      }
+      if (act?.blockchain_tx_id) {
+        throw new Error('No se puede modificar jurados de una actividad que ya ha sido sellada en la blockchain.');
       }
     }
 
@@ -578,7 +593,7 @@ export const academicoApi = {
   },
 
   eliminarJurado: async (id) => {
-    // Verificar si la actividad asociada está finalizada/cancelada
+    // Verificar si la actividad asociada está finalizada/cancelada o sellada
     const { data: jurado } = await supabase
       .from('jurado')
       .select('*, actividad(*)')
@@ -588,6 +603,9 @@ export const academicoApi = {
     if (jurado?.actividad) {
       if (jurado.actividad.estado === 'finalizado' || jurado.actividad.estado === 'cancelado') {
         throw new Error('No se puede retirar un jurado de una actividad que ya ha finalizado o ha sido cancelada.');
+      }
+      if (jurado.actividad.blockchain_tx_id) {
+        throw new Error('No se puede retirar un jurado de una actividad que ya ha sido sellada en la blockchain.');
       }
     }
 
@@ -617,7 +635,7 @@ export const academicoApi = {
   obtenerActividadPorId: async (id) => {
     const { data, error } = await supabase
       .from('actividad')
-      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"))')
+      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion)')
       .eq('id', id)
       .single();
 
@@ -627,7 +645,11 @@ export const academicoApi = {
       nombre: data.titulo,
       tipo_nombre: data.tipo_actividad?.nombre || 'General',
       imagen: data.archivo?.[0]?.url || null,
-      jurados: data.jurado?.map(j => `${j.miembro?.nombre} ${j.miembro?.apellidoPaterno || ''} ${j.miembro?.apellidoMaterno || ''}`.trim()) || []
+      jurados: data.jurado?.map(j => {
+        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''} ${j.miembro.apellidoMaterno || ''}`.trim();
+        const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
+        return extName || 'Jurado Externo';
+      }) || []
     };
   },
 

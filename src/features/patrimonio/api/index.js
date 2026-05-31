@@ -230,13 +230,6 @@ export const patrimonioApi = {
               tipo: diffDias < 0 ? 'error' : 'warning',
               miembroId: userId
             });
-
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(tituloEsperado, {
-                body: `Vencimiento: ${fechaVenc.toLocaleDateString('es-ES')} - Monto: ${montoFormateado}`,
-                icon: '/vite.svg',
-              });
-            }
           }
         }
       }

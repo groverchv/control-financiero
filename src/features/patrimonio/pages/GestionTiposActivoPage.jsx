@@ -3,7 +3,7 @@ import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2 } from 'lucid
 import { patrimonioApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
-import { Toast } from '../../../components/feedback';
+import { Toast, LoadingOverlay } from '../../../components/feedback';
 
 export const GestionTiposActivoPage = () => {
   const [tipos, setTipos] = useState([]);
@@ -16,6 +16,7 @@ export const GestionTiposActivoPage = () => {
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
   const [tiposEnUso, setTiposEnUso] = useState({});
   const [confirmDeleteModal, setConfirmDeleteModal] = useState({ open: false, id: null, nombre: '' });
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
 
   const isSubmitDisabled = !formData.nombre.trim();
 
@@ -78,9 +79,10 @@ export const GestionTiposActivoPage = () => {
       return;
     }
 
-    setLoading(true);
+    setLoadingModal({ open: true, text: 'Eliminando categoría de activo...' });
     try {
       await patrimonioApi.eliminarTipoActivo(id);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'success',
@@ -90,14 +92,13 @@ export const GestionTiposActivoPage = () => {
       await fetchTipos();
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
         text: 'Error al eliminar',
         details: err instanceof Error ? err.message : 'No se pudo eliminar la categoría de la base de datos.'
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -119,9 +120,14 @@ export const GestionTiposActivoPage = () => {
     }
 
     setIsSubmitting(true);
+    setLoadingModal({
+      open: true,
+      text: editingTipo ? 'Actualizando categoría...' : 'Creando categoría de activo...'
+    });
     try {
       if (editingTipo) {
         await patrimonioApi.actualizarTipoActivo(editingTipo.id, formData);
+        setLoadingModal({ open: false, text: '' });
         setResultModal({
           open: true,
           type: 'success',
@@ -130,6 +136,7 @@ export const GestionTiposActivoPage = () => {
         });
       } else {
         await patrimonioApi.crearTipoActivo(formData);
+        setLoadingModal({ open: false, text: '' });
         setResultModal({
           open: true,
           type: 'success',
@@ -143,6 +150,7 @@ export const GestionTiposActivoPage = () => {
       setEditingTipo(null);
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -354,6 +362,8 @@ export const GestionTiposActivoPage = () => {
           </div>
         </div>
       </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

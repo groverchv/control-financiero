@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2 } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
-import { Toast } from '../../../components/feedback';
+import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { Table } from '../../../components/data-display';
 
 export const GestionTiposFinanzasPage = () => {
@@ -21,6 +21,7 @@ export const GestionTiposFinanzasPage = () => {
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
   const [editingTipo, setEditingTipo] = useState(null); // { id, nombre, descripcion, type }
   const [deletingTipo, setDeletingTipo] = useState(null); // { id, nombre, type }
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
 
   const handleEditClick = (tipo, type) => {
     setEditingTipo({ ...tipo, type });
@@ -34,6 +35,7 @@ export const GestionTiposFinanzasPage = () => {
     e.preventDefault();
     if (!editingTipo) return;
     setIsSubmitting(true);
+    setLoadingModal({ open: true, text: 'Actualizando categoría...' });
     try {
       if (editingTipo.type === 'ingreso') {
         await finanzasApi.actualizarTipoIngreso(editingTipo.id, editingTipo.nombre, editingTipo.descripcion);
@@ -42,6 +44,7 @@ export const GestionTiposFinanzasPage = () => {
         await finanzasApi.actualizarTipoEgreso(editingTipo.id, editingTipo.nombre, editingTipo.descripcion);
         setTiposEgreso(prev => prev.map(t => t.id === editingTipo.id ? { ...t, nombre: editingTipo.nombre, descripcion: editingTipo.descripcion } : t));
       }
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'success',
@@ -51,6 +54,7 @@ export const GestionTiposFinanzasPage = () => {
       setEditingTipo(null);
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -65,6 +69,7 @@ export const GestionTiposFinanzasPage = () => {
   const handleDeleteConfirm = async () => {
     if (!deletingTipo) return;
     setIsSubmitting(true);
+    setLoadingModal({ open: true, text: 'Eliminando categoría financiera...' });
     try {
       if (deletingTipo.type === 'ingreso') {
         await finanzasApi.eliminarTipoIngreso(deletingTipo.id);
@@ -73,6 +78,7 @@ export const GestionTiposFinanzasPage = () => {
         await finanzasApi.eliminarTipoEgreso(deletingTipo.id);
         setTiposEgreso(prev => prev.filter(t => t.id !== deletingTipo.id));
       }
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'success',
@@ -82,6 +88,7 @@ export const GestionTiposFinanzasPage = () => {
       setDeletingTipo(null);
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -136,6 +143,7 @@ export const GestionTiposFinanzasPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setLoadingModal({ open: true, text: 'Creando categoría financiera...' });
     setMessage(null);
 
     try {
@@ -146,6 +154,7 @@ export const GestionTiposFinanzasPage = () => {
         const nuevo = await finanzasApi.crearTipoEgreso(formData.nombre, formData.descripcion);
         setTiposEgreso([nuevo, ...tiposEgreso]);
       }
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'success',
@@ -155,6 +164,7 @@ export const GestionTiposFinanzasPage = () => {
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -216,14 +226,14 @@ export const GestionTiposFinanzasPage = () => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => handleEditClick(tipo, 'ingreso')}
-          className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
+          className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors"
           title="Editar"
         >
           <Edit className="h-4 w-4" />
         </button>
         <button
           onClick={() => handleDeleteClick(tipo, 'ingreso')}
-          className="p-1 text-slate-500 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
+          className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
           title="Eliminar"
         >
           <Trash2 className="h-4 w-4" />
@@ -252,14 +262,14 @@ export const GestionTiposFinanzasPage = () => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => handleEditClick(tipo, 'egreso')}
-          className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors"
+          className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors"
           title="Editar"
         >
           <Edit className="h-4 w-4" />
         </button>
         <button
           onClick={() => handleDeleteClick(tipo, 'egreso')}
-          className="p-1 text-slate-500 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
+          className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
           title="Eliminar"
         >
           <Trash2 className="h-4 w-4" />
@@ -480,6 +490,8 @@ export const GestionTiposFinanzasPage = () => {
           </div>
         )}
       </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

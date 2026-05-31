@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle, Lock, Info } from 'lucide-react';
 import { useTiposActividad } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
-import { Toast } from '../../../components/feedback';
+import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { Table } from '../../../components/data-display';
 import { academicoApi } from '../api';
 
@@ -16,6 +16,15 @@ export const GestionTiposActividadPage = () => {
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    actionType: 'primary',
+    onConfirm: null
+  });
+  const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
 
   const isFormInvalid = !formData.nombre.trim();
   const isFormUnchanged = !!editingTipo && 
@@ -64,12 +73,17 @@ export const GestionTiposActividadPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setLoadingModal({
+      open: true,
+      text: editingTipo ? 'Actualizando categoría...' : 'Creando categoría...'
+    });
     setMessage(null);
 
     try {
       if (editingTipo) {
         const actualizado = await academicoApi.actualizarTipoActividad(editingTipo.id, formData);
         setTipos(tipos.map(t => t.id === editingTipo.id ? actualizado : t));
+        setLoadingModal({ open: false, text: '' });
         setResultModal({
           open: true,
           type: 'success',
@@ -79,6 +93,7 @@ export const GestionTiposActividadPage = () => {
       } else {
         const nuevo = await academicoApi.crearTipoActividad(formData);
         setTipos([nuevo, ...tipos]);
+        setLoadingModal({ open: false, text: '' });
         setResultModal({
           open: true,
           type: 'success',
@@ -89,6 +104,7 @@ export const GestionTiposActividadPage = () => {
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
+      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
@@ -100,7 +116,7 @@ export const GestionTiposActividadPage = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     const tipo = tipos.find(t => t.id === id);
     if (tiposEnUso[id]) {
       setResultModal({
@@ -111,25 +127,37 @@ export const GestionTiposActividadPage = () => {
       });
       return;
     }
-    if (!window.confirm('¿Estás seguro de eliminar este tipo de actividad?')) return;
-    try {
-      await academicoApi.eliminarTipoActividad(id);
-      setTipos(tipos.filter(t => t.id !== id));
-      setResultModal({
-        open: true,
-        type: 'success',
-        text: '¡Categoría eliminada!',
-        details: 'El tipo de actividad ha sido removido con éxito de la base de datos.'
-      });
-    } catch (err) {
-      console.error(err);
-      setResultModal({
-        open: true,
-        type: 'error',
-        text: 'No se pudo eliminar',
-        details: err instanceof Error ? err.message : 'No se pudo eliminar la categoría debido a dependencias con actividades existentes.'
-      });
-    }
+
+    setConfirmModal({
+      open: true,
+      title: 'Confirmar Eliminación',
+      message: `¿Estás seguro de eliminar la categoría de actividad "${tipo?.nombre}"? Esta acción no se puede deshacer y retirará el tipo de las categorías disponibles.`,
+      confirmText: 'Sí, eliminar categoría',
+      actionType: 'danger',
+      onConfirm: async () => {
+        setLoadingModal({ open: true, text: 'Eliminando categoría de actividad...' });
+        try {
+          await academicoApi.eliminarTipoActividad(id);
+          setTipos(tipos.filter(t => t.id !== id));
+          setLoadingModal({ open: false, text: '' });
+          setResultModal({
+            open: true,
+            type: 'success',
+            text: '¡Categoría eliminada!',
+            details: `La categoría "${tipo?.nombre}" ha sido removida con éxito de la base de datos.`
+          });
+        } catch (err) {
+          console.error(err);
+          setLoadingModal({ open: false, text: '' });
+          setResultModal({
+            open: true,
+            type: 'error',
+            text: 'No se pudo eliminar',
+            details: err instanceof Error ? err.message : 'No se pudo eliminar la categoría debido a dependencias con actividades existentes.'
+          });
+        }
+      }
+    });
   };
 
   const columns = [
@@ -150,10 +178,10 @@ export const GestionTiposActividadPage = () => {
           </>
         ) : (
           <>
-            <button onClick={() => openEditModal(tipo)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+            <button onClick={() => openEditModal(tipo)} className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar">
               <Edit className="h-4 w-4" />
             </button>
-            <button onClick={() => handleDelete(tipo.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Eliminar">
+            <button onClick={() => handleDelete(tipo.id)} className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors" title="Eliminar">
               <Trash2 className="h-4 w-4" />
             </button>
           </>
@@ -284,6 +312,52 @@ export const GestionTiposActividadPage = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Modal General de Confirmación */}
+      <Modal
+        isOpen={confirmModal.open}
+        onClose={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+        title={
+          <div className={`flex items-center gap-2.5 ${confirmModal.actionType === 'danger' ? 'text-red-600' : 'text-blue-600'}`}>
+            <Info className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>{confirmModal.title}</span>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className={`flex items-start gap-3 p-3 rounded-lg text-sm border ${
+            confirmModal.actionType === 'danger'
+              ? 'bg-red-50 border-red-100 text-red-800'
+              : 'bg-blue-50 border-blue-100 text-blue-800'
+          }`}>
+            <Info className={`h-5 w-5 shrink-0 mt-0.5 ${confirmModal.actionType === 'danger' ? 'text-red-600' : 'text-blue-600'}`} />
+            <div>
+              <span>{confirmModal.message}</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmModal(prev => ({ ...prev, open: false }));
+                if (confirmModal.onConfirm) confirmModal.onConfirm();
+              }}
+              variant={confirmModal.actionType === 'danger' ? 'danger' : 'primary'}
+            >
+              {confirmModal.confirmText || 'Confirmar'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
     </div>
   );
 };

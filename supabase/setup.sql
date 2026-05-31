@@ -510,6 +510,39 @@ BEFORE INSERT ON public.actividad
 FOR EACH ROW EXECUTE FUNCTION public.sellar_actividad();
 
 -- ==========================================
+-- 3.5. ÍNDICES DE OPTIMIZACIÓN (PERFORMANCE)
+-- ==========================================
+
+-- Índices en Claves Foráneas para Acelerar Consultas y Joins
+CREATE INDEX IF NOT EXISTS idx_actividad_tipo ON public.actividad(tipo_actividad_id);
+CREATE INDEX IF NOT EXISTS idx_actividad_miembro ON public.actividad(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_inscripcion_miembro ON public.inscripcion(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_inscripcion_actividad ON public.inscripcion(actividad_id);
+CREATE INDEX IF NOT EXISTS idx_activos_miembro ON public.activos(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_activos_tipo ON public.activos(tipo_activo_id);
+CREATE INDEX IF NOT EXISTS idx_ingreso_miembro ON public.ingreso(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_ingreso_tipo ON public.ingreso(tipo_ingreso_id);
+CREATE INDEX IF NOT EXISTS idx_egreso_miembro ON public.egreso(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_egreso_tipo ON public.egreso(tipo_egreso_id);
+CREATE INDEX IF NOT EXISTS idx_notificacion_miembro ON public.notificacion(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_jurado_actividad ON public.jurado(actividad_id);
+CREATE INDEX IF NOT EXISTS idx_jurado_miembro ON public.jurado(miembro_id);
+
+-- Índices en Claves Foráneas para archivos adjuntos
+CREATE INDEX IF NOT EXISTS idx_archivo_egreso ON public.archivo(egreso_id);
+CREATE INDEX IF NOT EXISTS idx_archivo_ingreso ON public.archivo(ingreso_id);
+CREATE INDEX IF NOT EXISTS idx_archivo_activo ON public.archivo(activo_id);
+CREATE INDEX IF NOT EXISTS idx_archivo_actividad ON public.archivo(actividad_id);
+CREATE INDEX IF NOT EXISTS idx_archivo_miembro ON public.archivo(miembro_id);
+
+-- Índices de Carga Ordenada para Evitar Ordenamientos en Memoria en Triggers Blockchain
+CREATE INDEX IF NOT EXISTS idx_archivo_blockchain_sync ON public.archivo(creacion DESC, hash_actual);
+CREATE INDEX IF NOT EXISTS idx_actividad_blockchain_sync ON public.actividad(creacion DESC, hash_actual);
+CREATE INDEX IF NOT EXISTS idx_activos_blockchain_sync ON public.activos(creacion DESC, hash_actual);
+CREATE INDEX IF NOT EXISTS idx_ingreso_blockchain_sync ON public.ingreso(creacion DESC, hash_actual);
+CREATE INDEX IF NOT EXISTS idx_egreso_blockchain_sync ON public.egreso(creacion DESC, hash_actual);
+
+-- ==========================================
 -- 4. SEGURIDAD DE FILAS (RLS)
 -- ==========================================
 
@@ -561,6 +594,8 @@ CREATE TABLE IF NOT EXISTS public.plan_amortizacion (
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS idx_plan_amortizacion_activo ON public.plan_amortizacion("activoId");
 
 ALTER TABLE public.miembro ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notificacion ENABLE ROW LEVEL SECURITY;

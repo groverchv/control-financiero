@@ -1,28 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Calculator, Calendar, Landmark, Save, Trash2, Plus, Info, Bell, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Calculator, Calendar, Landmark, Save, Info, CheckCircle2, AlertCircle } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { useActivos } from '../hooks';
 import { Button, Input, Select, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
-import { Toast } from '../../../components/feedback';
-import { useAuthStore } from '../../../store/authStore';
 
 export const PlanAmortizacionPage = () => {
-  const { activos, loading: loadingActivos } = useActivos();
-  const { user } = useAuthStore();
+  const { activos } = useActivos();
   const [selectedActivoId, setSelectedActivoId] = useState('');
   const [numCuotas, setNumCuotas] = useState(12);
   const [frecuencia, setFrecuencia] = useState('mensual');
   const [plan, setPlan] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
 
   const [planesExistentes, setPlanesExistentes] = useState([]);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [configuracion, setConfiguracion] = useState(null);
   const [diasRecordatorio, setDiasRecordatorio] = useState(5);
-  const [savingConfig, setSavingConfig] = useState(false);
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
 
   useEffect(() => {
@@ -43,39 +37,16 @@ export const PlanAmortizacionPage = () => {
     fetchData();
   }, []);
 
-  const handleSaveConfig = async () => {
-    if (!configuracion) return;
-    setSavingConfig(true);
-    try {
-      await patrimonioApi.actualizarConfiguracion({
-        id: configuracion.id,
-        dias_recordatorio_activos: diasRecordatorio
-      });
-      setResultModal({
-        open: true,
-        type: 'success',
-        text: '¡Configuración guardada!',
-        details: 'Los días de recordatorio de vencimiento de amortizaciones han sido actualizados con éxito.'
-      });
-    } catch (err) {
-      console.error(err);
-      setResultModal({
-        open: true,
-        type: 'error',
-        text: 'Error de configuración',
-        details: err instanceof Error ? err.message : 'No se pudo guardar la configuración de notificaciones en la base de datos.'
-      });
-    } finally {
-      setSavingConfig(false);
-    }
-  };
-
   const activoSeleccionado = activos.find(a => a.id === selectedActivoId);
 
   const generarPlan = () => {
     if (!activoSeleccionado || numCuotas <= 0) return;
 
-    const montoTotal = activoSeleccionado.costo_total;
+    // R17: Priorizar saldo_pendiente sobre costo_total si ya se pagó una fracción
+    const montoTotal = (activoSeleccionado.saldo_pendiente !== undefined && activoSeleccionado.saldo_pendiente !== null)
+      ? Number(activoSeleccionado.saldo_pendiente)
+      : Number(activoSeleccionado.costo_total);
+    
     const montoCuota = montoTotal / numCuotas;
     const nuevoPlan = [];
     let fechaActual = new Date();
@@ -106,15 +77,24 @@ export const PlanAmortizacionPage = () => {
 
   const handleSave = async () => {
     setLoading(true);
-    setError(null);
     try {
+      // 1. Guardar el plan de amortización
       await patrimonioApi.guardarPlanAmortizacion(selectedActivoId, plan);
+      
+      // 2. Guardar también los días de recordatorio al mismo tiempo
+      if (configuracion) {
+        await patrimonioApi.actualizarConfiguracion({
+          id: configuracion.id,
+          dias_recordatorio_activos: diasRecordatorio
+        });
+      }
+
       setPlanesExistentes(prev => [...prev, selectedActivoId]);
       setResultModal({
         open: true,
         type: 'success',
         text: '¡Plan de amortización guardado!',
-        details: 'El cronograma de pagos amortizados ha sido registrado correctamente y se generarán notificaciones según vencimiento.'
+        details: 'El cronograma de pagos amortizados y los días de anticipación de recordatorios han sido guardados con éxito.'
       });
       setPlan([]);
       setSelectedActivoId('');
@@ -197,7 +177,19 @@ export const PlanAmortizacionPage = () => {
                 label="Número de Cuotas"
                 type="number"
                 value={numCuotas}
-                onChange={(e) => setNumCuotas(parseInt(e.target.value) || 0)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // R13: Borrar ceros iniciales
+                  if (val === '') {
+                    setNumCuotas('');
+                  } else {
+                    const num = parseInt(val);
+                    setNumCuotas(isNaN(num) ? 0 : num);
+                  }
+                }}
+                onBlur={() => {
+                  if (numCuotas === '') setNumCuotas(12);
+                }}
                 min="1"
               />
 
@@ -210,6 +202,26 @@ export const PlanAmortizacionPage = () => {
                 <option value="trimestral">Trimestral</option>
                 <option value="anual">Anual</option>
               </Select>
+
+              <Input
+                label="Días de anticipación (Recordatorio)"
+                type="number"
+                min="1"
+                max="30"
+                value={diasRecordatorio}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setDiasRecordatorio('');
+                  } else {
+                    const num = parseInt(val);
+                    setDiasRecordatorio(isNaN(num) ? 1 : num);
+                  }
+                }}
+                onBlur={() => {
+                  if (diasRecordatorio === '') setDiasRecordatorio(1);
+                }}
+              />
 
               <Button 
                 className="w-full mt-4" 
@@ -251,11 +263,11 @@ export const PlanAmortizacionPage = () => {
                 <div className="mt-6 p-4 rounded-lg bg-slate-50 border border-slate-200 flex justify-between items-center">
                   <div>
                     <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Resumen del Plan</p>
-                    <p className="text-sm text-slate-700">Se generarán {numCuotas} cuotas de {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(activoSeleccionado?.costo_total / numCuotas)}</p>
+                    <p className="text-sm text-slate-700">Se generarán {numCuotas} cuotas de {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(((activoSeleccionado?.saldo_pendiente !== undefined && activoSeleccionado?.saldo_pendiente !== null) ? Number(activoSeleccionado.saldo_pendiente) : Number(activoSeleccionado?.costo_total || 0)) / numCuotas)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Total a Amortizar</p>
-                    <p className="text-xl font-bold text-slate-900">{new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(activoSeleccionado?.costo_total)}</p>
+                    <p className="text-xl font-bold text-slate-900">{new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format((activoSeleccionado?.saldo_pendiente !== undefined && activoSeleccionado?.saldo_pendiente !== null) ? Number(activoSeleccionado.saldo_pendiente) : Number(activoSeleccionado?.costo_total || 0))}</p>
                   </div>
                 </div>
               </div>
@@ -269,29 +281,7 @@ export const PlanAmortizacionPage = () => {
         </section>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm mt-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Bell className="h-5 w-5 text-emerald-600" />
-          <h2 className="text-lg font-semibold text-slate-900">Configuración de Recordatorios</h2>
-        </div>
-        <p className="text-sm text-slate-600 mb-4">Configura con cuántos días de anticipación el sistema enviará recordatorios para los pagos o egresos de activos con plan de amortización.</p>
-        <div className="flex flex-col sm:flex-row items-end gap-4 max-w-lg">
-          <div className="flex-1 w-full">
-            <Input
-              label="Días de anticipación"
-              type="number"
-              min="1"
-              max="30"
-              value={diasRecordatorio}
-              onChange={(e) => setDiasRecordatorio(parseInt(e.target.value) || 1)}
-            />
-          </div>
-          <Button onClick={handleSaveConfig} disabled={savingConfig} className="w-full sm:w-auto">
-            {savingConfig ? <Spinner size="sm" /> : <Save className="h-4 w-4 mr-2" />}
-            Guardar
-          </Button>
-        </div>
-      </div>
+
 
       <Modal isOpen={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} title="Confirmar Plan de Amortización">
         <div className="space-y-4">

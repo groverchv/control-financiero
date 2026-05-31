@@ -3,6 +3,7 @@ import { blockchainService } from '../../../services/blockchain';
 
 export const patrimonioApi = {
   registrarActivo: async (activo) => {
+    // eslint-disable-next-line no-unused-vars
     const { imagen_url, ...activoData } = activo;
     const { data, error } = await supabase
       .from('activos')
@@ -28,21 +29,53 @@ export const patrimonioApi = {
     }
 
     // Sellar el activo en blockchain
-    blockchainService.sellarYActualizar('activo', activoRegistrado, activo.miembro_id || 'sistema');
+    // R12: Devolvemos el TxID para confirmar veracidad
+    const txId = await blockchainService.sellarYActualizar('activo', activoRegistrado, activo.miembro_id || 'sistema');
 
-    return activoRegistrado;
+    // R15: Recargar el objeto completo (con tipo e imagen) para actualizar la UI sin F5
+    const { data: fullAsset, error: fetchError } = await supabase
+      .from('activos')
+      .select('*, tipo_activo(nombre), archivo(url)')
+      .eq('id', activoRegistrado.id)
+      .single();
+
+    if (fetchError) {
+        return { ...activoRegistrado, blockchain_tx_id: txId };
+    }
+
+    return { 
+      ...fullAsset, 
+      blockchain_tx_id: txId,
+      imagen_url: fullAsset.archivo?.[0]?.url || null
+    };
   },
 
   obtenerActivos: async () => {
     const { data, error } = await supabase
       .from('activos')
-      .select('*, tipo_activo(nombre), archivo(url)');
+      .select('*, tipo_activo(nombre), archivo(url)')
+      .order('creacion', { ascending: false }); // R19: Orden descendente
 
     if (error) throw error;
     return (data || []).map(activo => ({
       ...activo,
       imagen_url: activo.archivo?.[0]?.url || null
     }));
+  },
+
+  sellarActivo: async (id, idUsuario) => {
+    const { data: activo, error } = await supabase
+      .from('activos')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    
+    const txId = await blockchainService.sellarYActualizar('activo', activo, idUsuario || 'sistema');
+    if (!txId) throw new Error('No se pudo generar el sello en el servidor Blockchain. Verifique la conexión.');
+    
+    return txId;
   },
   registrarAdquisicion: async (adquisicion) => {
     const { data, error } = await supabase
@@ -132,12 +165,6 @@ export const patrimonioApi = {
       .eq('id', id);
     if (error) throw error;
     return true;
-  },
-
-  sellarActivo: async (id, registradoPor) => {
-    const { data, error } = await supabase.from('activos').select('*').eq('id', id).single();
-    if (error) throw error;
-    return await blockchainService.sellarYActualizar('activo', data, registradoPor);
   },
   
   guardarPlanAmortizacion: async (activoId, plan) => {

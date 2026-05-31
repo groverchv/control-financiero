@@ -22,6 +22,9 @@ router.post('/sellar', async (req, res) => {
 
     try {
         const resultado = await fabricGateway.sellarTransaccion(tipoTabla, idRegistro, hashCalculado, idUsuario);
+        if (resultado && resultado.success === false) {
+            return res.status(503).json(resultado);
+        }
         res.status(201).json(resultado);
     } catch (err) {
         console.error('[POST /sellar] Error:', err.message);

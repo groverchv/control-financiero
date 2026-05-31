@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   BookOpen, Search, ChevronLeft, ChevronRight,
   CheckCircle2, AlertCircle, Clock, 
-  User, Mail, Calendar, TrendingUp, AlertTriangle,
-  RefreshCw, DollarSign, ListFilter, ArrowRight
+  Calendar, AlertTriangle,
+  RefreshCw, ArrowRight
 } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Spinner, ExportButtons } from '../../../components/ui';
@@ -13,7 +13,6 @@ import { Toast } from '../../../components/feedback';
 export const HistorialActividadesPage = () => {
   const navigate = useNavigate();
   const [inscripciones, setInscripciones] = useState([]);
-  const [flujoCaja, setFlujoCaja] = useState({ ingresosTotales: 0, egresosTotales: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,12 +25,8 @@ export const HistorialActividadesPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [historialData, flujoData] = await Promise.all([
-        finanzasApi.obtenerHistorialActividades(),
-        finanzasApi.obtenerFlujoCaja()
-      ]);
+      const historialData = await finanzasApi.obtenerHistorialActividades();
       setInscripciones(historialData);
-      setFlujoCaja(flujoData);
     } catch (err) {
       setError(err.message || 'Error al cargar el historial de actividades.');
     } finally {
@@ -40,7 +35,16 @@ export const HistorialActividadesPage = () => {
   }, []);
 
   useEffect(() => {
-    cargarDatos();
+    let isMounted = true;
+    const loadData = async () => {
+      if (isMounted) {
+        await cargarDatos();
+      }
+    };
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, [cargarDatos]);
 
   // Obtener lista de actividades únicas para el filtro
@@ -170,7 +174,7 @@ export const HistorialActividadesPage = () => {
                 Estado: i.estado === 'pagado' ? 'PAGADO' : 'PENDIENTE DE PAGO'
               }))}
               filename="historial_inscripciones_actividades"
-              title="Historial Financiero de Actividades y Cursos"
+              title="Historial Financiero de Actividades"
             />
             {/* Buscador */}
             <div className="relative flex-1 min-w-[240px] max-w-md">
@@ -191,7 +195,7 @@ export const HistorialActividadesPage = () => {
                 onChange={e => { setFiltroActividad(e.target.value); setCurrentPage(1); }}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
               >
-                <option value="todos">Todos los cursos</option>
+                <option value="todos">Todas las actividades</option>
                 {actividadesUnicas.map(act => (
                   <option key={act} value={act}>{act}</option>
                 ))}

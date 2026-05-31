@@ -16,6 +16,7 @@ export const finanzasApi = {
         fecha: pago.fecha,
         descripcion: pago.descripcion || 'Ingreso',
         estado: pago.estado || 'pagada',
+        inscripcion_id: pago.inscripcionId || null,
       }])
       .select();
 
@@ -79,7 +80,113 @@ export const finanzasApi = {
       console.error('[Brevo] Error enviando confirmación de pago:', emailErr);
     }
 
-    return pagoRegistrado;
+    // R15: Recargar el objeto completo (con tipo, socio y archivos) para actualizar la UI sin F5
+    const { data: fullPago, error: fetchError } = await supabase
+      .from('ingreso')
+      .select(`
+        *,
+        tipo:tipo_ingreso(nombre),
+        registrador:miembro!registrado_por(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
+        socio:miembro!miembro_id(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
+        archivos:archivo(url, tipo)
+      `)
+      .eq('id', pagoRegistrado.id)
+      .single();
+
+    if (fetchError) return pagoRegistrado;
+
+    return {
+      ...fullPago,
+      miembroId: fullPago.miembro_id,
+      socio_nombre: fullPago.socio ? `${fullPago.socio.nombre} ${fullPago.socio.apellidoPaterno || ''} ${fullPago.socio.apellidoMaterno || ''}`.trim() : 'Sin Asignar',
+      socio_correo: fullPago.socio?.correoElectronico || null,
+      socio_telefono: fullPago.socio?.telefono || null,
+      socio_rol: fullPago.socio?.rol || null,
+      tipo_ingreso_nombre: fullPago.tipo?.nombre || 'Ingreso',
+      registrado_por_nombre: fullPago.registrador ? `${fullPago.registrador.nombre} ${fullPago.registrador.apellidoPaterno || ''} ${fullPago.registrador.apellidoMaterno || ''}`.trim() : 'Sistema',
+      registrado_por_correo: fullPago.registrador?.correoElectronico || null,
+      registrado_por_telefono: fullPago.registrador?.telefono || null,
+      registrado_por_rol: fullPago.registrador?.rol || null,
+      comprobanteUrl: fullPago.archivos && fullPago.archivos.length > 0 ? fullPago.archivos[0].url : null
+    };
+  },
+
+  devolverIngreso: async (id, usuarioId) => {
+    // 1. Obtener el ingreso y verificar si está ligado a una inscripción
+    const { data: currentIngreso, error: fetchErr } = await supabase
+      .from('ingreso')
+      .select('inscripcion_id, descripcion')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+
+    // Obtener los datos del usuario administrador que realiza la devolución
+    let infoRefund = 'Sistema';
+    if (usuarioId) {
+      try {
+        const { data: miembro } = await supabase
+          .from('miembro')
+          .select('nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol')
+          .eq('id', usuarioId)
+          .maybeSingle();
+        if (miembro) {
+          const nombreCompleto = `${miembro.nombre} ${miembro.apellidoPaterno || ''} ${miembro.apellidoMaterno || ''}`.trim();
+          infoRefund = `${nombreCompleto} (${miembro.rol || 'Sistema'}) [${miembro.correoElectronico || 'Sin Correo'} | Tel: ${miembro.telefono || '—'}]`;
+        }
+      } catch (e) {
+        console.error('Error fetching refund user info:', e);
+      }
+    }
+
+    const nuevaDesc = `${currentIngreso?.descripcion || ''} [Devuelto por: ${infoRefund}]`.trim();
+
+    const { data, error } = await supabase
+      .from('ingreso')
+      .update({ monto: 0, estado: 'devolucion', descripcion: nuevaDesc })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+
+    // Si tiene una inscripción ligada, eliminarla y regresar el cupo
+    if (currentIngreso?.inscripcion_id) {
+      // Obtener la actividad_id asociada a la inscripción
+      const { data: inscripcion, error: insErr } = await supabase
+        .from('inscripcion')
+        .select('actividad_id')
+        .eq('id', currentIngreso.inscripcion_id)
+        .maybeSingle();
+
+      if (!insErr && inscripcion?.actividad_id) {
+        // Eliminar inscripción
+        await supabase
+          .from('inscripcion')
+          .delete()
+          .eq('id', currentIngreso.inscripcion_id);
+
+        // Devolver el cupo a la actividad
+        const { data: actNow } = await supabase
+          .from('actividad')
+          .select('cupos')
+          .eq('id', inscripcion.actividad_id)
+          .maybeSingle();
+
+        if (actNow) {
+          await supabase
+            .from('actividad')
+            .update({ cupos: (actNow.cupos || 0) + 1 })
+            .eq('id', inscripcion.actividad_id);
+        }
+      }
+    }
+    
+    // Sellar la devolución en blockchain (en segundo plano)
+    if (data?.[0]) {
+      blockchainService.sellarYActualizar('ingreso', data[0], 'sistema-devolucion');
+    }
+    
+    return data?.[0];
   },
 
   obtenerCuotas: async (miembroId) => {
@@ -116,18 +223,17 @@ export const finanzasApi = {
 
   // ── Historial de cuotas de membresía por miembro ──────────────────────────
   obtenerHistorialCuotasMiembro: async () => {
-    // Trae todos los miembros activos con su fecha de creación
+    // Trae todos los miembros (activos e inactivos) con su fecha de creación y campos de pausa
     const { data: miembros, error: mErr } = await supabase
       .from('miembro')
-      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, creacion')
-      .neq('estado', 'inactivo')
+      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, creacion, fecha_pausa, dias_pausados')
       .order('creacion', { ascending: true });
     if (mErr) throw mErr;
 
-    // Trae todos los ingresos de tipo cuota mensual (los que tienen miembro_id)
+    // Trae todos los ingresos de tipo cuota mensual (los que tienen miembro_id y no están vinculados a inscripciones)
     const { data: ingresos } = await supabase
       .from('ingreso')
-      .select('id, miembro_id, monto, fecha, estado, descripcion, creacion')
+      .select('id, miembro_id, monto, fecha, estado, descripcion, creacion, inscripcion_id')
       .not('miembro_id', 'is', null)
       .order('fecha', { ascending: true });
 
@@ -150,8 +256,6 @@ export const finanzasApi = {
 
     // La última configuración activa (para indicar pausa global en el retorno)
     const configUltima = configsList[configsList.length - 1];
-
-    const hoy = new Date();
 
     // Avanzar el cursor según la frecuencia
     const avanzarCursor = (date, freq) => {
@@ -176,11 +280,24 @@ export const finanzasApi = {
     };
 
     return (miembros || []).map(m => {
+      // 1. Determinar el límite superior temporal para la generación de cuotas
+      let limiteHoy = new Date();
+      if (m.estado === 'inactivo') {
+        limiteHoy = m.fecha_pausa ? new Date(m.fecha_pausa) : new Date(m.creacion);
+      }
+
+      // 2. Ajustar la fecha de inicio del cronograma sumando los días que estuvo inactivo en el pasado
       const fechaInicio = new Date(m.creacion);
-      const pagosRealizados = (ingresos || []).filter(i => i.miembro_id === m.id);
+      const totalDiasPausados = Number(m.dias_pausados || 0);
+      if (totalDiasPausados > 0) {
+        fechaInicio.setDate(fechaInicio.getDate() + totalDiasPausados);
+      }
+
+      const pagosRealizados = (ingresos || []).filter(i => i.miembro_id === m.id && !i.inscripcion_id);
 
       const cronograma = [];
       let cursor = new Date(fechaInicio);
+      let fechaProximaCuota;
 
       // Encontrar el índice de la configuración activa al momento de registrarse el socio
       let activeConfigIdx = 0;
@@ -200,11 +317,11 @@ export const finanzasApi = {
 
         if (T_quota <= T_change) {
           // El vencimiento ocurre bajo la configuración activa actual
-          if (T_quota <= hoy) {
+          if (T_quota <= limiteHoy) {
             const fechaCuota = new Date(T_quota);
-            const diasPausa = currentConfig.dias_pausados || 0;
+            const diasPausa = Number(currentConfig.dias_pausados || 0);
             if (diasPausa > 0) {
-              fechaCuota.setDate(fechaCuota.getDate() + diasPausa);
+              fechaCuota.setTime(fechaCuota.getTime() + (diasPausa * 24 * 60 * 60 * 1000));
             }
 
             // Formatear llave descriptiva del periodo
@@ -226,8 +343,8 @@ export const finanzasApi = {
             cronograma.push({
               mes: mesKey,
               fechaGeneracion: cursor.toISOString(),
-              fechaVencimiento: T_quota.toISOString().split('T')[0],
-              fechaVencimientoAjustada: fechaCuota.toISOString().split('T')[0],
+              fechaVencimiento: T_quota.toISOString(),
+              fechaVencimientoAjustada: fechaCuota.toISOString(),
               pagado: false,
               ingreso_id: null,
               monto_pagado: null,
@@ -237,12 +354,17 @@ export const finanzasApi = {
 
             cursor = T_quota;
           } else {
-            // El vencimiento programado excede el presente, finalizamos la generación
+            // El vencimiento programado excede el presente o la fecha de pausa
+            const fechaCuotaFutura = new Date(T_quota);
+            const diasPausa = Number(currentConfig.dias_pausados || 0);
+            if (diasPausa > 0) {
+              fechaCuotaFutura.setTime(fechaCuotaFutura.getTime() + (diasPausa * 24 * 60 * 60 * 1000));
+            }
+            fechaProximaCuota = fechaCuotaFutura.toISOString();
             break;
           }
         } else {
-          // La configuración cambió antes de cumplirse el vencimiento.
-          // Avanzamos a la nueva configuración. No movemos el cursor (carry-over de tiempo transcurrido).
+          // La configuración cambió antes de cumplirse el vencimiento. Carry-over.
           activeConfigIdx += 1;
         }
       }
@@ -275,7 +397,9 @@ export const finanzasApi = {
         mesesDeuda,
         mesesPagados,
         proximaPendiente,
+        fechaProximaCuota,
         pausado: configUltima?.pausado || false,
+        fechaPausa: configUltima?.fecha_pausa || null,
       };
     });
   },
@@ -344,16 +468,16 @@ export const finanzasApi = {
     let payload;
 
     if (pausar) {
-      payload = { pausado: true, fecha_pausa: hoy, dias_pausados: configActual?.dias_pausados || 0 };
+      payload = { pausado: true, fecha_pausa: hoy, dias_pausados: Number(configActual?.dias_pausados || 0) };
     } else {
-      // Calcular días que estuvo pausado
+      // Calcular días que estuvo pausado con precisión decimal para pausar minutos o segundos
       const diasAdicionales = configActual?.fecha_pausa
-        ? Math.ceil((new Date() - new Date(configActual.fecha_pausa)) / (1000 * 60 * 60 * 24))
+        ? (new Date() - new Date(configActual.fecha_pausa)) / (1000 * 60 * 60 * 24)
         : 0;
       payload = {
         pausado: false,
         fecha_pausa: null,
-        dias_pausados: (configActual?.dias_pausados || 0) + diasAdicionales,
+        dias_pausados: Number(configActual?.dias_pausados || 0) + diasAdicionales,
       };
     }
 
@@ -446,11 +570,17 @@ export const finanzasApi = {
           const montoEgreso = Number(egreso.monto);
           const montoCuota = Number(cuotaAPagar.monto);
           
-          // Marcamos como pagado si el monto cubre la cuota (con tolerancia de ±5)
           if (montoEgreso >= montoCuota - 5) {
+            // Pago total (o casi total)
             await supabase
               .from('plan_amortizacion')
-              .update({ estado: 'pagada' })
+              .update({ estado: 'pagado', monto: 0 }) // R17: Se marca como pagado y saldo 0
+              .eq('id', cuotaAPagar.id);
+          } else {
+            // R17: Pago parcial
+            await supabase
+              .from('plan_amortizacion')
+              .update({ monto: montoCuota - montoEgreso }) // Reducimos el monto de la cuota
               .eq('id', cuotaAPagar.id);
           }
         }
@@ -490,7 +620,31 @@ export const finanzasApi = {
     // Sellar el egreso en blockchain
     blockchainService.sellarYActualizar('egreso', egresoRegistrado, miembroId || 'sistema');
 
-    return egresoRegistrado;
+    // R15: Recargar el objeto completo (con tipo, activo y archivos) para actualizar la UI sin F5
+    const { data: fullEgreso, error: fetchError } = await supabase
+      .from('egreso')
+      .select(`
+        *,
+        tipo:tipo_egreso(nombre),
+        registrador:miembro!miembro_id(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
+        activo:activos!activo_id(nombre),
+        archivos:archivo(url)
+      `)
+      .eq('id', egresoRegistrado.id)
+      .single();
+
+    if (fetchError) return egresoRegistrado;
+
+    return {
+      ...fullEgreso,
+      categoria: fullEgreso.tipo?.nombre || 'Egreso',
+      registrado_por_nombre: fullEgreso.registrador ? `${fullEgreso.registrador.nombre} ${fullEgreso.registrador.apellidoPaterno || ''} ${fullEgreso.registrador.apellidoMaterno || ''}`.trim() : 'Sistema',
+      registrado_por_correo: fullEgreso.registrador?.correoElectronico || null,
+      registrado_por_telefono: fullEgreso.registrador?.telefono || null,
+      registrado_por_rol: fullEgreso.registrador?.rol || null,
+      activo_nombre: fullEgreso.activo?.nombre || null,
+      comprobanteUrl: fullEgreso.archivos && fullEgreso.archivos.length > 0 ? fullEgreso.archivos[0].url : null
+    };
   },
 
   obtenerEgresos: async () => {
@@ -565,19 +719,7 @@ export const finanzasApi = {
   obtenerTiposIngreso: async () => {
     const { data, error } = await supabase.from('tipo_ingreso').select('*').order('creacion', { ascending: false });
     if (error) throw error;
-    const tipos = data || [];
-    // Auto-crear tipo 'Pago de Actividad' si no existe
-    const existeActividad = tipos.some(t => t.nombre.toLowerCase().includes('actividad'));
-    if (!existeActividad) {
-      const { data: nuevo, error: errNuevo } = await supabase
-        .from('tipo_ingreso')
-        .insert([{ nombre: 'Pago de Actividad', descripcion: 'Pago por inscripción a actividades académicas o eventos con costo.' }])
-        .select();
-      if (!errNuevo && nuevo?.[0]) {
-        tipos.push(nuevo[0]);
-      }
-    }
-    return tipos;
+    return data || [];
   },
 
   crearTipoIngreso: async (nombre, descripcion = '') => {

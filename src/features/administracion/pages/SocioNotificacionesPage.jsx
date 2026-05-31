@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bell, RefreshCw, CheckCircle2, Clock, AlertCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { supabase } from '../../../services/supabase';
@@ -12,7 +12,7 @@ export const SocioNotificacionesPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  const fetchNotificaciones = async () => {
+  const fetchNotificaciones = useCallback(async () => {
     if (!user) return;
     try {
       // Buscar miembro ID
@@ -38,11 +38,55 @@ export const SocioNotificacionesPage = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchNotificaciones();
-  }, [user]);
+    const load = async () => {
+      await fetchNotificaciones();
+    };
+    load();
+
+    // R8: Notificaciones en tiempo real
+    if (!user?.id) return;
+
+    // Obtener el ID del miembro primero
+    const setupRealtime = async () => {
+      const { data: miembro } = await supabase
+        .from('miembro')
+        .select('id')
+        .eq('correoElectronico', user.email)
+        .single();
+
+      if (miembro) {
+        const channel = supabase
+          .channel(`socio-notifs-${miembro.id}-${Date.now()}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'notificacion',
+              filter: `miembro_id=eq.${miembro.id}`
+            },
+            (payload) => {
+              setNotificaciones(prev => [payload.new, ...prev]);
+              // Notificar al layout superior
+              window.dispatchEvent(new Event('nueva_notificacion'));
+            }
+          )
+          .subscribe();
+
+        return channel;
+      }
+    };
+
+    let activeChannel;
+    setupRealtime().then(ch => { activeChannel = ch; });
+
+    return () => {
+      if (activeChannel) supabase.removeChannel(activeChannel);
+    };
+  }, [user, fetchNotificaciones]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -196,7 +240,12 @@ export const SocioNotificacionesPage = () => {
                       </h4>
                       <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {new Date(notif.creacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                        {new Date(notif.creacion).toLocaleString('es-ES', { 
+                          day: '2-digit', 
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </span>
                     </div>
                     <p className="text-sm text-slate-600 leading-relaxed mb-3">

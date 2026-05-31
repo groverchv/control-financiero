@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Landmark, Receipt, Banknote, Scale, Percent, CircleDollarSign,
+  Landmark, Receipt, Banknote, Scale, CircleDollarSign,
   UsersRound, UserCheck, UserX, GraduationCap, CalendarCheck, BookOpenCheck,
   Package, Warehouse, ClipboardList, ShieldCheck,
-  Gem, Signal, Fingerprint, FileSpreadsheet,
-  ArrowUpRight, ArrowDownRight, CheckCircle, AlertTriangle, Eye, History, Cpu, Clock
+  Signal, Fingerprint, FileSpreadsheet,
+  CheckCircle, AlertTriangle, Cpu, Clock
 } from 'lucide-react';
 import { useKpiData } from '../hooks';
 import { useActivos } from '../../patrimonio/hooks';
@@ -89,7 +89,7 @@ export const DashboardKpisPage = () => {
 
   const [activeTab, setActiveTab] = useState('financiero');
   const [todosMiembros, setTodosMiembros] = useState([]);
-  const [loadingMiembros, setLoadingMiembros] = useState(true);
+  const [, setLoadingMiembros] = useState(true);
   const [quarterFilter, setQuarterFilter] = useState('ALL');
   const [blockchainOnline, setBlockchainOnline] = useState(null);
   const [auditStats, setAuditStats] = useState(null);
@@ -155,17 +155,16 @@ export const DashboardKpisPage = () => {
         const fetchCursosPagados = async () => {
           try {
             const { data, error } = await supabase
-              .from('inscripcion')
-              .select('id, estado, actividad:actividad_id(id, costo)')
-              .eq('estado', 'pagado');
+              .from('ingreso')
+              .select('monto, estado, inscripcion_id')
+              .not('inscripcion_id', 'is', null)
+              .neq('estado', 'devolucion');
             
             if (error) throw error;
 
             let total = 0;
             (data || []).forEach(i => {
-              if (i.actividad && Number(i.actividad.costo) > 0) {
-                total += Number(i.actividad.costo);
-              }
+              total += Number(i.monto);
             });
             return total;
           } catch (err) {
@@ -258,7 +257,7 @@ export const DashboardKpisPage = () => {
     return q === 'Q1' ? m <= 2 : q === 'Q2' ? m >= 3 && m <= 5 : q === 'Q3' ? m >= 6 && m <= 8 : m >= 9;
   });
 
-  const fI = useMemo(() => filterQ(allI, quarterFilter, selectedYear), [allI, quarterFilter, selectedYear]);
+  const fI = useMemo(() => filterQ(allI.filter(i => i.estado !== 'devolucion'), quarterFilter, selectedYear), [allI, quarterFilter, selectedYear]);
   const fE = useMemo(() => filterQ(allE, quarterFilter, selectedYear), [allE, quarterFilter, selectedYear]);
 
   const totalI = fI.reduce((s, x) => s + Number(x.monto || 0), 0);
@@ -268,9 +267,10 @@ export const DashboardKpisPage = () => {
   const eficienciaOp = totalI > 0 ? (100 - (totalE / totalI) * 100).toFixed(1) : '100.0';
 
   // Morosidad
-  const ingPendientes = allI.filter(i => i.estado === 'pendiente').length;
-  const ingPagados = allI.filter(i => i.estado === 'pagada').length;
-  const tasaCobro = allI.length > 0 ? ((ingPagados / allI.length) * 100).toFixed(0) : '100';
+  const validIForTasa = useMemo(() => allI.filter(i => i.estado !== 'devolucion'), [allI]);
+  const ingPendientes = validIForTasa.filter(i => i.estado === 'pendiente').length;
+  const ingPagados = validIForTasa.filter(i => i.estado === 'pagada').length;
+  const tasaCobro = validIForTasa.length > 0 ? ((ingPagados / validIForTasa.length) * 100).toFixed(0) : '100';
 
   // Patrimonio
   const totalActivos = (activos || []).length;
@@ -291,7 +291,7 @@ export const DashboardKpisPage = () => {
   // Blockchain Blocks dynamic data feed
   const blockchainBlocks = useMemo(() => {
     const blocks = [];
-    allI.filter(i => i.hash_actual).forEach((i, idx) => {
+    allI.filter(i => i.hash_actual).forEach(i => {
       blocks.push({
         id: i.id,
         tipo: 'Ingreso',
@@ -302,7 +302,7 @@ export const DashboardKpisPage = () => {
         tx: i.blockchain_tx_id
       });
     });
-    allE.filter(e => e.hash_actual).forEach((e, idx) => {
+    allE.filter(e => e.hash_actual).forEach(e => {
       blocks.push({
         id: e.id,
         tipo: 'Egreso',
@@ -313,7 +313,7 @@ export const DashboardKpisPage = () => {
         tx: e.blockchain_tx_id
       });
     });
-    (activos || []).filter(a => a.hash_actual).forEach((a, idx) => {
+    (activos || []).filter(a => a.hash_actual).forEach(a => {
       blocks.push({
         id: a.id,
         tipo: 'Activo',

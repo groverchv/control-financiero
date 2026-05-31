@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, MapPin, Users, Wallet, CheckCircle2, Share2, Info, GraduationCap, AlertTriangle, CalendarDays, Clock } from 'lucide-react';
+import { ArrowLeft, BookOpen, MapPin, Users, CheckCircle2, Info, GraduationCap, AlertTriangle, CalendarDays, Clock } from 'lucide-react';
 import { academicoApi } from '../api';
 import { Spinner, Button, Modal } from '../../../components/ui';
 import { useAuthStore } from '../../../store/authStore';
-import { getDynamicEstado } from '../../../utils/formatters';
 
 export const DetalleActividadPage = () => {
   const { id } = useParams();
@@ -132,7 +131,7 @@ export const DetalleActividadPage = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-fadeIn pb-20">
       <header>
-        <Link to="/cursos" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 mb-6 transition-colors group">
+        <Link to="/actividades" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 mb-6 transition-colors group">
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Volver a la agenda de actividades
         </Link>
       </header>
@@ -228,6 +227,28 @@ export const DetalleActividadPage = () => {
                 {actividad.descripcion || 'Esta capacitación académica está diseñada para brindar herramientas prácticas y teóricas a nuestros miembros. Aprovecha esta oportunidad de crecimiento profesional.'}
               </p>
             </div>
+
+            {actividad.jurados && actividad.jurados.length > 0 && (
+              <div className="pt-8 border-b border-slate-100 pb-8">
+                <h3 className="font-black text-slate-900 text-lg uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-indigo-600" />
+                  Jurado Evaluador Designado
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {actividad.jurados.map((jurado, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-indigo-50/50 border border-indigo-100/50 p-4 rounded-2xl shadow-sm">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                        <GraduationCap className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{jurado}</p>
+                        <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-widest">Jurado de Actividad</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="pt-8">
               <h3 className="font-black text-slate-900 text-lg uppercase tracking-widest mb-6 flex items-center gap-2">

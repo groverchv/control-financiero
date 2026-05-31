@@ -152,7 +152,7 @@ export const PublicCursosPage = () => {
             <ArrowLeft className="h-4 w-4" /> Volver al inicio
           </Link>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">Agenda de Actividades</h1>
-          <p className="text-slate-500 mt-2 text-base sm:text-lg">Explora y participa en nuestros cursos, talleres y eventos institucionales.</p>
+          <p className="text-slate-500 mt-2 text-base sm:text-lg">Explora y participa en nuestras actividades, talleres y eventos institucionales.</p>
         </div>
       </header>
 
@@ -181,14 +181,14 @@ export const PublicCursosPage = () => {
           [1,2,3].map(i => <div key={i} className="h-[350px] sm:h-[400px] animate-pulse rounded-2xl sm:rounded-3xl bg-slate-100 shadow-inner" />)
         ) : paginatedActividades.length > 0 ? (
           paginatedActividades.map((act) => (
-            <Link key={act.id} to={`/cursos/${act.id}`} className="group relative flex flex-col rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-2xl transition-all duration-500 overflow-hidden hover:-translate-y-2">
+            <Link key={act.id} to={`/actividades/${act.id}`} className="group relative flex flex-col rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-2xl transition-all duration-500 overflow-hidden hover:-translate-y-2">
                {/* Imagen de Cabecera */}
                <div className="relative h-44 sm:h-56 w-full overflow-hidden">
                  {act.imagen ? (
                    <img src={act.imagen} alt={act.nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
                  ) : (
                    <div className="h-full w-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center">
-                     <span className="text-white/20 font-black text-6xl italic">CURSO</span>
+                     <span className="text-white/20 font-black text-6xl italic uppercase truncate">ACTIVIDAD</span>
                    </div>
                  )}
                  {/* Badge de Tipo */}

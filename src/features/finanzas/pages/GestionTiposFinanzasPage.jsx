@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2 } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
@@ -93,7 +93,7 @@ export const GestionTiposFinanzasPage = () => {
     }
   };
 
-  const fetchDatos = async () => {
+  const fetchDatos = useCallback(async () => {
     setLoading(true);
     try {
       const [ingresos, egresos] = await Promise.all([
@@ -120,12 +120,12 @@ export const GestionTiposFinanzasPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDatos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchDatos]);
 
   const openModal = (type) => {
     setModalType(type);

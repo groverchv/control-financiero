@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Navigation, Check, X, Map as MapIcon } from 'lucide-react';
+import { Navigation, Check, X, Map as MapIcon } from 'lucide-react';
 import { Modal, Button } from './';
 
 // Fix for default Leaflet icon
@@ -18,7 +18,7 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const LocationMarker = ({ position, onPositionChange }) => {
-  const map = useMapEvents({
+  useMapEvents({
     click(e) {
       onPositionChange(e.latlng);
     },
@@ -42,7 +42,7 @@ const MapController = ({ position }) => {
 export const MapPicker = ({ lat, lng, onChange, color = 'blue' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tempPosition, setTempPosition] = useState(lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null);
-  const [initialCenter] = useState(lat && lng ? [parseFloat(lat), parseFloat(lng)] : [-16.5000, -68.1500]);
+  const [initialCenter] = useState(lat && lng ? [parseFloat(lat), parseFloat(lng)] : [-17.7834, -63.1821]);
 
   const handleConfirm = () => {
     if (tempPosition) {

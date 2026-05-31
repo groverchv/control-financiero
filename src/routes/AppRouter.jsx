@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { supabase } from "../services/supabase";
 import { PublicLayout } from "../layouts/PublicLayout";
 import { AdminLayout } from "../layouts/AdminLayout";
 import { ProtectedRoute } from "./ProtectedRoute";
@@ -15,6 +17,7 @@ import { HistorialCuotasPage } from "../features/finanzas/pages/HistorialCuotasP
 import { HistorialActividadesPage } from "../features/finanzas/pages/HistorialActividadesPage";
 import { RegistroEgresosPage } from "../features/finanzas/pages/RegistroEgresosPage";
 import { GestionTiposFinanzasPage } from "../features/finanzas/pages/GestionTiposFinanzasPage";
+
 import { GestionActivosPage } from "../features/patrimonio/pages/GestionActivosPage";
 import { CatalogoActivosPage } from "../features/patrimonio/pages/CatalogoActivosPage";
 import { NuevaAdquisicionPage } from "../features/patrimonio/pages/NuevaAdquisicionPage";
@@ -47,6 +50,55 @@ const AdminIndex = () => {
 };
 
 export const AppRouter = () => {
+  useEffect(() => {
+    const cleanupRefundedInscriptions = async () => {
+      try {
+        const { data: ingresosDevueltos, error: ingErr } = await supabase
+          .from('ingreso')
+          .select('id, inscripcion_id')
+          .eq('estado', 'devolucion')
+          .not('inscripcion_id', 'is', null);
+
+        if (ingErr) throw ingErr;
+
+        if (ingresosDevueltos && ingresosDevueltos.length > 0) {
+          const inscripcionIds = ingresosDevueltos.map(i => i.inscripcion_id);
+
+          const { data: inscripciones, error: insErr } = await supabase
+            .from('inscripcion')
+            .select('id, actividad_id')
+            .in('id', inscripcionIds);
+
+          if (!insErr && inscripciones && inscripciones.length > 0) {
+            for (const ins of inscripciones) {
+              await supabase
+                .from('inscripcion')
+                .delete()
+                .eq('id', ins.id);
+
+              const { data: actNow } = await supabase
+                .from('actividad')
+                .select('cupos')
+                .eq('id', ins.actividad_id)
+                .maybeSingle();
+
+              if (actNow) {
+                await supabase
+                  .from('actividad')
+                  .update({ cupos: (actNow.cupos || 0) + 1 })
+                  .eq('id', ins.actividad_id);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error during auto-cleanup of refunded inscriptions:', err);
+      }
+    };
+
+    cleanupRefundedInscriptions();
+  }, []);
+
   return (
     <Router>
       <Routes>
@@ -136,6 +188,7 @@ export const AppRouter = () => {
             element={<HistorialActividadesPage />}
           />
           <Route path="/admin/egresos" element={<RegistroEgresosPage />} />
+
           <Route
             path="/admin/tipos-transaccion"
             element={

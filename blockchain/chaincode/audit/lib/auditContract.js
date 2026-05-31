@@ -120,7 +120,7 @@ class AuditContract extends Contract {
             if (!result.value.isDelete) {
                 try {
                     entry.valor = JSON.parse(result.value.value.toString('utf8'));
-                } catch (_err) {
+                } catch {
                     entry.valor = result.value.value.toString('utf8');
                 }
             }
@@ -160,7 +160,7 @@ class AuditContract extends Contract {
                 const registro = JSON.parse(result.value.value.toString('utf8'));
                 registro.key = result.value.key;
                 resultados.push(registro);
-            } catch (_err) {
+            } catch {
                 // Registro corrupto, saltar
             }
             result = await iterator.next();

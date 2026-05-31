@@ -14,10 +14,52 @@ import { formatCurrency } from '../../../utils/formatters';
 
 const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
+const CountdownTimer = ({ targetDate, pausado, fechaPausa }) => {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    if (!targetDate) return;
+
+    const calculateTime = () => {
+      const now = pausado && fechaPausa ? new Date(fechaPausa) : new Date();
+      const difference = +new Date(targetDate) - +now;
+      if (difference <= 0) {
+        setTimeLeft('Generando...');
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+
+      const formatted = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+      setTimeLeft(formatted);
+    };
+
+    calculateTime();
+    
+    if (pausado) return;
+
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate, pausado, fechaPausa]);
+
+  return (
+    <div className={`mt-1 flex items-center justify-center gap-1 text-[11px] font-mono font-black rounded-md px-1.5 py-0.5 whitespace-nowrap shadow-sm ${
+      pausado 
+        ? 'text-amber-600 bg-amber-50 border border-amber-100 animate-pulse'
+        : 'text-rose-600 bg-rose-50 border border-rose-100'
+    }`}>
+      <span>{timeLeft} {pausado && '⏸'}</span>
+    </div>
+  );
+};
+
 const MiembroRow = ({ registro }) => {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
-  const { miembro, cronograma, mesesPagados, proximaPendiente } = registro;
+  const { miembro, cronograma, mesesPagados, fechaProximaCuota, pausado, fechaPausa } = registro;
 
   const nombreCompleto = `${miembro.nombre} ${miembro.apellidoPaterno || ''} ${miembro.apellidoMaterno || ''}`.trim();
   const deudaTotal = cronograma.filter(c => !c.pagado).length;
@@ -109,14 +151,28 @@ const MiembroRow = ({ registro }) => {
                 {new Date(miembro.creacion).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>
             </div>
-            <div className="bg-white rounded-lg border border-slate-100 p-3 text-center shadow-sm">
-              <Clock className="h-4 w-4 text-slate-400 mx-auto mb-1" />
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Próxima cuota</p>
-              <p className="text-sm font-semibold text-slate-800">
-                {proximaPendiente 
-                  ? new Date(proximaPendiente.fechaVencimientoAjustada + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })
-                  : 'Al día ✓'}
-              </p>
+            <div className="bg-white rounded-lg border border-slate-100 p-3 text-center shadow-sm flex flex-col justify-between min-h-[105px]">
+              <div>
+                <Clock className="h-4 w-4 text-slate-400 mx-auto mb-1" />
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Próxima cuota</p>
+                <p className="text-xs font-bold text-slate-800 leading-tight">
+                  {fechaProximaCuota 
+                    ? new Date(fechaProximaCuota).toLocaleDateString('es-ES', { 
+                        day: '2-digit', 
+                        month: 'short', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })
+                    : 'Al día ✓'}
+                </p>
+              </div>
+              {fechaProximaCuota && (
+                <CountdownTimer 
+                  targetDate={fechaProximaCuota} 
+                  pausado={pausado} 
+                  fechaPausa={fechaPausa} 
+                />
+              )}
             </div>
           </div>
 
@@ -243,8 +299,8 @@ export const HistorialCuotasPage = () => {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarDatos(); 
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -532,12 +588,7 @@ export const HistorialCuotasPage = () => {
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
                 <option value="3_minutos">Cada 3 min (Pruebas)</option>
-                <option value="1_dia">Cada 1 día (Pruebas / Diario)</option>
-                <option value="2_dias">Cada 2 días</option>
-                <option value="3_dias">Cada 3 días</option>
-                <option value="semana">Cada Semana</option>
                 <option value="mes">Cada Mes (Estándar)</option>
-                <option value="trimestre">Cada Trimestre (Tres Meses)</option>
               </select>
               <p className="text-[11px] text-slate-500">
                 Determina el intervalo de tiempo entre cada cuota generada para los miembros.

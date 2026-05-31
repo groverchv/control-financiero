@@ -82,8 +82,8 @@ export const administracionApi = {
       brevoService.enviarNotificacionGeneral({
         email: emailToNotify,
         nombre: data?.nombre || miembro.nombre,
-        titulo: 'Bienvenido a la Institución',
-        mensaje: `Tu cuenta ha sido creada exitosamente. Ya puedes acceder al portal institucional con tu correo electrónico <strong>${emailToNotify}</strong>. Explora los eventos, cursos y mantente al día con tus obligaciones financieras.`,
+        titulo: '¡Bienvenido!',
+        mensaje: `Tu cuenta ha sido creada exitosamente. ¡Te damos una cordial bienvenida!`,
         tipo: 'success'
       }).catch(err => console.error('[Brevo] Error enviando email de bienvenida:', err));
     }
@@ -343,6 +343,22 @@ export const administracionApi = {
     return data || [];
   },
 
+  crearNotificacion: async (miembroId, titulo, descripcion) => {
+    const { data, error } = await supabase
+      .from('notificacion')
+      .insert({
+        miembro_id: miembroId,
+        titulo,
+        descripcion,
+        estado: 'pendiente'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
   /**
    * Obtener el documento (CV) de un miembro
    */
@@ -351,8 +367,10 @@ export const administracionApi = {
       .from('archivo')
       .select('url')
       .eq('miembro_id', miembroId)
-      .eq('tipo', 'documento')
+      .in('tipo', ['documento', 'cv'])
       .eq('estado', 'activo')
+      .order('creacion', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error && error.code !== 'PGRST116') throw error;

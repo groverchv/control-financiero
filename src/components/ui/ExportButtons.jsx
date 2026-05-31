@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { FileSpreadsheet, FileText, FileType, Filter } from 'lucide-react';
 import { Button } from './Button';
 import { Modal } from './Modal';
@@ -44,10 +44,17 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
     return Array.from(headers);
   }, [data]);
 
-  const [selectedColumns, setSelectedColumns] = useState({});
-  const [filters, setFilters] = useState({});
+  const [prevHeaders, setPrevHeaders] = useState(allHeaders);
+  const [selectedColumns, setSelectedColumns] = useState(() => allHeaders.reduce((acc, h) => ({ ...acc, [h]: false }), {}));
+  const [filters, setFilters] = useState(() => allHeaders.reduce((acc, h) => ({ ...acc, [h]: { mode: 'all', value1: '', value2: '' } }), {}));
   const [sortColumn, setSortColumn] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
+
+  if (allHeaders !== prevHeaders) {
+    setPrevHeaders(allHeaders);
+    setSelectedColumns(allHeaders.reduce((acc, h) => ({ ...acc, [h]: false }), {}));
+    setFilters(allHeaders.reduce((acc, h) => ({ ...acc, [h]: { mode: 'all', value1: '', value2: '' } }), {}));
+  }
 
   const columnMetadata = useMemo(() => {
     if (!data || data.length === 0) return {};
@@ -81,12 +88,6 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
     });
     return metadata;
   }, [data, allHeaders]);
-
-  useEffect(() => {
-    // Todos los campos desmarcados por defecto
-    setSelectedColumns(allHeaders.reduce((acc, h) => ({ ...acc, [h]: false }), {}));
-    setFilters(allHeaders.reduce((acc, h) => ({ ...acc, [h]: { mode: 'all', value1: '', value2: '' } }), {}));
-  }, [allHeaders]);
 
   const filteredHeaders = useMemo(() => {
     return allHeaders.filter(h => {
@@ -304,7 +305,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
         alternateRowStyles: { fillColor: [241, 245, 249] }, // slate-100 alternate rows
         styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
         margin: { top: 45, left: 14, right: 14, bottom: 20 },
-        didDrawPage: function (data) {
+        didDrawPage: function () {
           // Footer
           doc.setFontSize(8);
           doc.setTextColor(148, 163, 184); // slate-400

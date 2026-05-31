@@ -74,7 +74,6 @@ function pingSelf() {
             method: 'GET',
             timeout: 8000 // 8 segundos timeout
         };
-
         const req = protocolHandler.request(options, (res) => {
             let data = '';
             res.on('data', (chunk) => { data += chunk; });
@@ -82,7 +81,7 @@ function pingSelf() {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     console.log(`[Keep-Alive] Self-ping exitoso a Blockchain API (${healthUrl}). Estado: ${res.statusCode} OK.`);
                 } else {
-                    console.warn(`[Keep-Alive] Fallo en self-ping a Blockchain API. Estado: ${res.statusCode}.`);
+                    console.warn(`[Keep-Alive] Fallo en self-ping a Blockchain API. Estado: ${res.statusCode}. Detalle: ${data}`);
                 }
             });
         });

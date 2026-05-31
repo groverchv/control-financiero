@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2, UserCircle } from 'lucide-react';
+import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2, UserCircle, FileText, Upload } from 'lucide-react';
 import { useMiembros } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -8,10 +8,45 @@ import { administracionApi } from '../api';
 import { finanzasApi } from '../../finanzas/api';
 import { supabase } from '../../../services/supabase';
 
+const ITEMS_PER_PAGE = 10;
+
+const ModalPagination = ({ current, total, onPageChange, filteredCount, label = 'registros' }) => {
+  if (total <= 1) return null;
+  return (
+    <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-3 mt-3">
+      <p className="text-[10px] text-slate-500">
+        Mostrando <span className="font-semibold text-slate-900">{((current - 1) * ITEMS_PER_PAGE) + 1}</span> a{' '}
+        <span className="font-semibold text-slate-900">{Math.min(current * ITEMS_PER_PAGE, filteredCount)}</span> de{' '}
+        <span className="font-semibold text-slate-900">{filteredCount}</span> {label}
+      </p>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, current - 1))}
+          disabled={current === 1}
+          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
+        >
+          <ChevronLeft className="h-3 w-3" />
+        </button>
+        <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
+          {current} / {total}
+        </span>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(total, current + 1))}
+          disabled={current === total}
+          className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
+        >
+          <ChevronRight className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const GestionMiembrosPage = () => {
   const { miembros, loading, error, setMiembros } = useMiembros();
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -205,8 +240,8 @@ export const GestionMiembrosPage = () => {
     
     const normalize = (str) => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
     
-    const termsProf = normalize(queryProf).split(/\s+/).filter(t => t.length > 2);
-    const termsDesc = normalize(queryDesc).split(/\s+/).filter(t => t.length > 2);
+    const termsProf = normalize(queryProf).split(/\s+/).filter(t => t.length > 0);
+    const termsDesc = normalize(queryDesc).split(/\s+/).filter(t => t.length > 0);
     
     const scored = miembros.map(m => {
       let score = 0;
@@ -284,7 +319,10 @@ export const GestionMiembrosPage = () => {
     try {
       if (editingMember) {
         // ACTUALIZAR
-        const { password, confirmPassword, ...updates } = formData;
+        const updates = { ...formData };
+        const { password } = updates;
+        delete updates.password;
+        delete updates.confirmPassword;
         
         if (password) {
           await administracionApi.actualizarContrasena(editingMember.id, password);
@@ -298,13 +336,29 @@ export const GestionMiembrosPage = () => {
 
         setMiembros(miembros.map(m => m.id === editingMember.id ? miembroSincronizado : m));
 
+        // R3: Detalle de Cambios en Notificaciones
+        const changedFields = [];
+        if (formData.nombre !== editingMember.nombre) changedFields.push('Nombre');
+        if ((formData.apellidoPaterno || '') !== (editingMember.apellidoPaterno || '')) changedFields.push('Apellido Paterno');
+        if ((formData.apellidoMaterno || '') !== (editingMember.apellidoMaterno || '')) changedFields.push('Apellido Materno');
+        if (formData.email !== editingMember.email) changedFields.push('Correo');
+        if ((formData.telefono || '') !== (editingMember.telefono || '')) changedFields.push('Teléfono');
+        if (formData.rol !== editingMember.rol) changedFields.push('Rol');
+        if (formData.estado !== editingMember.estado) changedFields.push('Estado');
+
+        let descNotif = 'Tus datos personales o configuraciones de cuenta han sido actualizados por la administración.';
+        if (changedFields.length > 0) {
+          descNotif = `Los siguientes campos han sido actualizados por la administración: ${changedFields.join(', ')}.`;
+        }
+        if (password) {
+          descNotif += ' Además, tu contraseña de acceso ha sido modificada.';
+        }
+
         // Crear notificación del sistema (no por correo)
         await supabase.from('notificacion').insert([{
           miembro_id: editingMember.id,
           titulo: password ? 'Credenciales de Acceso Actualizadas' : 'Actualización de Perfil',
-          descripcion: password 
-            ? 'Tu contraseña de acceso ha sido actualizada por la administración.'
-            : 'Tus datos personales o configuraciones de cuenta han sido actualizados por la administración.',
+          descripcion: descNotif,
           estado: 'pendiente'
         }]);
 
@@ -318,7 +372,8 @@ export const GestionMiembrosPage = () => {
         });
       } else {
         // CREAR
-        const { confirmPassword, ...dataToSave } = formData;
+        const dataToSave = { ...formData };
+        delete dataToSave.confirmPassword;
         const nuevoMiembro = await administracionApi.crearMiembro(dataToSave);
         if (nuevoMiembro) {
           setMiembros([nuevoMiembro, ...miembros]);
@@ -528,39 +583,7 @@ export const GestionMiembrosPage = () => {
     ),
   }));
 
-  const ModalPagination = ({ current, total, onPageChange, filteredCount, label = 'registros' }) => {
-    if (total <= 1) return null;
-    return (
-      <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-3 mt-3">
-        <p className="text-[10px] text-slate-500">
-          Mostrando <span className="font-semibold text-slate-900">{((current - 1) * ITEMS_PER_PAGE) + 1}</span> a{' '}
-          <span className="font-semibold text-slate-900">{Math.min(current * ITEMS_PER_PAGE, filteredCount)}</span> de{' '}
-          <span className="font-semibold text-slate-900">{filteredCount}</span> {label}
-        </p>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.max(1, current - 1))}
-            disabled={current === 1}
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
-          >
-            <ChevronLeft className="h-3 w-3" />
-          </button>
-          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg">
-            {current} / {total}
-          </span>
-          <button
-            type="button"
-            onClick={() => onPageChange(Math.min(total, current + 1))}
-            disabled={current === total}
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
-          >
-            <ChevronRight className="h-3 w-3" />
-          </button>
-        </div>
-      </div>
-    );
-  };
+
 
   return (
     <div className="space-y-6">
@@ -959,7 +982,7 @@ export const GestionMiembrosPage = () => {
                       {notif.estado !== 'leida' && <span className="h-2 w-2 rounded-full bg-blue-600"></span>}
                       <p className={`font-semibold ${notif.estado !== 'leida' ? 'text-slate-900' : 'text-slate-800'}`}>{notif.titulo}</p>
                     </div>
-                    <span className="text-[10px] text-slate-400">{notif.creacion ? new Date(notif.creacion).toLocaleDateString('es-ES') : ''}</span>
+                    <span className="text-[10px] text-slate-400">{notif.creacion ? new Date(notif.creacion).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">{notif.descripcion}</p>
                 </div>
@@ -969,13 +992,88 @@ export const GestionMiembrosPage = () => {
             <div className="space-y-4">
               {detailModal.cvUrl ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-full flex justify-end mb-2">
-                    <a href={detailModal.cvUrl} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline font-medium">Abrir en nueva pestaña</a>
+                  <div className="w-full flex justify-between items-center mb-3">
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-0.5">CV CARGADO ✓</span>
+                    <a href={detailModal.cvUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline font-bold flex items-center gap-1">
+                      Abrir en nueva pestaña
+                    </a>
                   </div>
-                  <iframe src={detailModal.cvUrl} className="w-full h-80 border rounded-lg bg-slate-50" title="CV del Miembro"></iframe>
+                  <iframe 
+                    src={detailModal.cvUrl?.toLowerCase().endsWith('.pdf') 
+                      ? detailModal.cvUrl 
+                      : `https://docs.google.com/gview?url=${encodeURIComponent(detailModal.cvUrl)}&embedded=true`
+                    } 
+                    className="w-full h-80 border rounded-xl bg-slate-50 shadow-inner" 
+                    title="CV del Miembro"
+                  ></iframe>
+                  
+                  {/* Permitir actualizar desde el detalle */}
+                  <div className="w-full mt-4 p-4 border border-slate-100 bg-slate-50/50 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">Actualizar documento CV</p>
+                      <p className="text-[10px] text-slate-400">PDF, DOC o DOCX · Máx 10MB</p>
+                    </div>
+                    <label className="bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg shadow-sm flex items-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 font-bold cursor-pointer transition-all active:scale-95">
+                      <Upload className="w-3.5 h-3.5 text-slate-500" />
+                      Reemplazar CV
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept=".pdf,.doc,.docx" 
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 10 * 1024 * 1024) {
+                            alert("El archivo excede el límite de 10MB.");
+                            return;
+                          }
+                          try {
+                            setDetailModal(prev => ({ ...prev, loading: true }));
+                            await administracionApi.subirArchivo(detailModal.miembro.id, file, 'cv');
+                            const cvUrl = await administracionApi.obtenerDocumentoMiembro(detailModal.miembro.id);
+                            setDetailModal(prev => ({ ...prev, cvUrl, loading: false }));
+                          } catch (err) {
+                            alert("Error al subir CV: " + err.message);
+                            setDetailModal(prev => ({ ...prev, loading: false }));
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400 text-center py-6">El socio no ha subido su CV.</p>
+                <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                  <FileText className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-500 text-sm font-semibold mb-1">Este profesional aún no tiene cargado su Currículum Vitae.</p>
+                  <p className="text-xs text-slate-400 mb-4">Puedes adjuntar su documento CV en formato PDF o Word.</p>
+                  
+                  <label className="inline-flex bg-blue-600 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 font-bold cursor-pointer transition-all active:scale-95 items-center gap-1.5">
+                    <Upload className="w-4 h-4" />
+                    Subir Documento CV
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept=".pdf,.doc,.docx" 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 10 * 1024 * 1024) {
+                          alert("El archivo excede el límite de 10MB.");
+                          return;
+                        }
+                        try {
+                          setDetailModal(prev => ({ ...prev, loading: true }));
+                          await administracionApi.subirArchivo(detailModal.miembro.id, file, 'cv');
+                          const cvUrl = await administracionApi.obtenerDocumentoMiembro(detailModal.miembro.id);
+                          setDetailModal(prev => ({ ...prev, cvUrl, loading: false }));
+                        } catch (err) {
+                          alert("Error al subir CV: " + err.message);
+                          setDetailModal(prev => ({ ...prev, loading: false }));
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
               )}
             </div>
           ) : detailModal.tab === 'estado_cuenta' ? (

@@ -40,6 +40,90 @@ export const academicoApi = {
     return true;
   },
 
+  cancelarActividad: async (id) => {
+    // 1. Obtener datos de la actividad y sus inscritos
+    const { data: actividad, error: actErr } = await supabase
+      .from('actividad')
+      .select('*, tipo_actividad(nombre)')
+      .eq('id', id)
+      .single();
+    if (actErr) throw actErr;
+
+    const { data: inscritos, error: insErr } = await supabase
+      .from('inscripcion')
+      .select('id, miembro_id, estado, miembro:miembro_id(id, nombre, "correoElectronico")')
+      .eq('actividad_id', id);
+    if (insErr) throw insErr;
+
+    // 2. Marcar actividad como cancelada
+    const { error: updErr } = await supabase
+      .from('actividad')
+      .update({ estado: 'cancelado', publicado: false })
+      .eq('id', id);
+    if (updErr) throw updErr;
+
+    // 3. Procesar inscritos para devolución si pagaron
+    if (inscritos && inscritos.length > 0) {
+      const inscripcionIds = inscritos.map(ins => ins.id);
+      
+      // Update associated paid incomes to 'reembolso_pendiente'
+      await supabase
+        .from('ingreso')
+        .update({ estado: 'reembolso_pendiente' })
+        .in('inscripcion_id', inscripcionIds)
+        .in('estado', ['pagada', 'pagado']);
+
+      const destinatarios = inscritos
+        .filter(ins => ins.estado === 'pagado' && ins.miembro && ins.miembro.correoElectronico)
+        .map(ins => ({
+          id: ins.miembro.id,
+          email: ins.miembro.correoElectronico,
+          nombre: ins.miembro.nombre
+        }));
+
+      if (destinatarios.length > 0) {
+        // Notificar cancelación vía Brevo
+        try {
+          await brevoService.notificarCancelacionActividad({
+            destinatarios,
+            curso: {
+              nombre: actividad.titulo,
+              fecha: actividad.fecha,
+              costo: actividad.costo
+            }
+          });
+        } catch (emailErr) {
+          console.error('[Brevo] Error al enviar notificaciones de cancelación:', emailErr);
+        }
+      }
+
+      // Para cada inscrito que ha pagado, crear notificación de reembolso
+      for (const ins of inscritos) {
+        if (ins.estado === 'pagado') {
+          await supabase.from('notificacion').insert([{
+            miembro_id: ins.miembro_id,
+            titulo: 'Actividad Cancelada - Reembolso Pendiente',
+            descripcion: `La actividad "${actividad.titulo}" ha sido cancelada. Usted entra en modo de devolución. Por favor contacte con administración para su reembolso de Bs. ${actividad.costo}.`,
+            estado: 'pendiente'
+          }]);
+        }
+      }
+
+      // Eliminar deudas activas si no habían pagado aún
+      const membersNoPagaron = inscritos.filter(ins => ins.estado !== 'pagado').map(ins => ins.miembro_id);
+      if (membersNoPagaron.length > 0) {
+        const activoNombrePrefix = `Inscripción Curso: ${actividad.titulo}`;
+        await supabase
+          .from('activos')
+          .delete()
+          .in('miembro_id', membersNoPagaron)
+          .like('nombre', `${activoNombrePrefix}%`);
+      }
+    }
+
+    return true;
+  },
+
   crearActividad: async (actividad, imagenFile = null) => {
     const parsedCosto = (actividad.costo === '' || actividad.costo === null || actividad.costo === undefined) ? 0 : Number(actividad.costo);
     const { data, error } = await supabase
@@ -115,13 +199,26 @@ export const academicoApi = {
       console.error('[Brevo] Error obteniendo socios para notificación:', emailErr);
     }
 
-    return { ...nuevaAct, nombre: nuevaAct.titulo };
+    // Volver a obtener para incluir todas las relaciones (similar a obtenerActividades)
+    const { data: actFull } = await supabase
+      .from('actividad')
+      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"))')
+      .eq('id', nuevaAct.id)
+      .single();
+
+    return { 
+      ...actFull, 
+      nombre: actFull?.titulo || nuevaAct.titulo,
+      tipo_nombre: actFull?.tipo_actividad?.nombre || 'General',
+      imagen: actFull?.archivo?.[0]?.url || null,
+      jurados: actFull?.jurado?.map(j => `${j.miembro?.nombre} ${j.miembro?.apellidoPaterno || ''}`.trim()) || []
+    };
   },
 
   obtenerActividades: async () => {
     const { data, error } = await supabase
       .from('actividad')
-      .select('*, tipo_actividad(nombre), archivo(url)')
+      .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno")), inscripcion(id)')
       .order('fecha', { ascending: false });
 
     if (error) throw error;
@@ -129,7 +226,9 @@ export const academicoApi = {
       ...d, 
       nombre: d.titulo,
       tipo_nombre: d.tipo_actividad?.nombre || 'General',
-      imagen: d.archivo?.[0]?.url || null
+      imagen: d.archivo?.[0]?.url || null,
+      jurados: d.jurado?.map(j => `${j.miembro?.nombre} ${j.miembro?.apellidoPaterno || ''}`.trim()) || [],
+      inscritos_count: d.inscripcion?.length || 0
     }));
   },
 
@@ -179,11 +278,10 @@ export const academicoApi = {
       if (finalUpdates[key] === undefined) delete finalUpdates[key];
     });
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('actividad')
       .update(finalUpdates)
-      .eq('id', id)
-      .select();
+      .eq('id', id);
 
     if (error) throw error;
 
@@ -204,47 +302,39 @@ export const academicoApi = {
       const changesSimple = [];
       let shouldUnenroll = false;
 
-      if (finalUpdates.titulo !== undefined && finalUpdates.titulo !== currentAct.titulo) {
+      if (finalUpdates.titulo !== undefined && (finalUpdates.titulo || '') !== (currentAct.titulo || '')) {
         changesList.push(`<li>El título de la actividad cambió de "<strong>${currentAct.titulo}</strong>" a "<strong>${finalUpdates.titulo}</strong>".</li>`);
         changesSimple.push(`Título ("${currentAct.titulo}" -> "${finalUpdates.titulo}")`);
-        shouldUnenroll = true;
       }
-      if (finalUpdates.descripcion !== undefined && finalUpdates.descripcion !== currentAct.descripcion) {
+      if (finalUpdates.descripcion !== undefined && (finalUpdates.descripcion || '') !== (currentAct.descripcion || '')) {
         changesList.push(`<li>La descripción de la actividad fue actualizada.</li>`);
         changesSimple.push(`Descripción actualizada`);
-        shouldUnenroll = true;
       }
-      if (finalUpdates.requisitos !== undefined && finalUpdates.requisitos !== currentAct.requisitos) {
+      if (finalUpdates.requisitos !== undefined && (finalUpdates.requisitos || '') !== (currentAct.requisitos || '')) {
         changesList.push(`<li>Los requisitos de la actividad fueron actualizados.</li>`);
         changesSimple.push(`Requisitos actualizados`);
-        shouldUnenroll = true;
       }
       if (finalUpdates.fecha !== undefined && finalUpdates.fecha !== currentAct.fecha) {
         const oldFecha = new Date(currentAct.fecha + 'T00:00:00').toLocaleDateString('es-ES');
         const newFecha = new Date(finalUpdates.fecha + 'T00:00:00').toLocaleDateString('es-ES');
         changesList.push(`<li>La fecha cambió de <strong>${oldFecha}</strong> a <strong>${newFecha}</strong>.</li>`);
         changesSimple.push(`Fecha (${oldFecha} -> ${newFecha})`);
-        shouldUnenroll = true;
       }
       if (finalUpdates.hora !== undefined && finalUpdates.hora !== currentAct.hora) {
         changesList.push(`<li>La hora de inicio cambió de <strong>${currentAct.hora ? currentAct.hora.substring(0, 5) : '--:--'} Hrs</strong> a <strong>${finalUpdates.hora ? finalUpdates.hora.substring(0, 5) : '--:--'} Hrs</strong>.</li>`);
         changesSimple.push(`Hora (${currentAct.hora ? currentAct.hora.substring(0, 5) : '--:--'} -> ${finalUpdates.hora ? finalUpdates.hora.substring(0, 5) : '--:--'})`);
-        shouldUnenroll = true;
       }
-      if (finalUpdates.ubicacion !== undefined && finalUpdates.ubicacion !== currentAct.ubicacion) {
+      if (finalUpdates.ubicacion !== undefined && (finalUpdates.ubicacion || '') !== (currentAct.ubicacion || '')) {
         changesList.push(`<li>La ubicación cambió de "<strong>${currentAct.ubicacion || 'Sin especificar'}</strong>" a "<strong>${finalUpdates.ubicacion || 'Sin especificar'}</strong>".</li>`);
         changesSimple.push(`Ubicación ("${currentAct.ubicacion || 'Sin especificar'}" -> "${finalUpdates.ubicacion || 'Sin especificar'}")`);
-        shouldUnenroll = true;
       }
       if (finalUpdates.modalidad !== undefined && finalUpdates.modalidad !== currentAct.modalidad) {
         changesList.push(`<li>La modalidad cambió de <strong style="text-transform:capitalize;">${currentAct.modalidad}</strong> a <strong style="text-transform:capitalize;">${finalUpdates.modalidad}</strong>.</li>`);
         changesSimple.push(`Modalidad (${currentAct.modalidad} -> ${finalUpdates.modalidad})`);
-        shouldUnenroll = true;
       }
       if (finalUpdates.costo !== undefined && Number(finalUpdates.costo) !== Number(currentAct.costo)) {
         changesList.push(`<li>El costo de inscripción cambió de <strong>Bs. ${currentAct.costo}</strong> a <strong>Bs. ${finalUpdates.costo}</strong>.</li>`);
         changesSimple.push(`Costo (Bs. ${currentAct.costo} -> Bs. ${finalUpdates.costo})`);
-        shouldUnenroll = true;
       }
       if (finalUpdates.cupos !== undefined && Number(finalUpdates.cupos) !== Number(currentAct.cupos)) {
         changesList.push(`<li>La cantidad de cupos cambió de <strong>${currentAct.cupos}</strong> a <strong>${finalUpdates.cupos}</strong>.</li>`);
@@ -256,7 +346,7 @@ export const academicoApi = {
         // Fetch enrolled users
         const { data: inscritos, error: insErr } = await supabase
           .from('inscripcion')
-          .select('miembro_id, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado)')
+          .select('id, miembro_id, estado, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado)')
           .eq('actividad_id', id);
 
         if (!insErr && inscritos && inscritos.length > 0) {
@@ -292,28 +382,53 @@ export const academicoApi = {
             }).catch(err => console.error('[Brevo] Error al enviar notificaciones de cambio de actividad:', err));
 
             if (shouldUnenroll) {
-              // Delete enrollments and related active debt due to changes
+              // R23: Gestionar deudas y anulaciones
               const membersIds = inscritos.map(ins => ins.miembro_id);
-              if (membersIds.length > 0) {
-                // Delete active debts associated with this activity 
-                const activoNombrePrefix = `Inscripción Curso: ${currentAct.titulo}`;
-                await supabase
-                  .from('activos')
-                  .delete()
-                  .in('miembro_id', membersIds)
-                  .like('nombre', `${activoNombrePrefix}%`);
+              const inscripcionIds = inscritos.map(ins => ins.id);
 
-                // Delete the enrollments
+              // Update associated paid incomes to 'reembolso_pendiente'
+              await supabase
+                .from('ingreso')
+                .update({ estado: 'reembolso_pendiente' })
+                .in('inscripcion_id', inscripcionIds)
+                .in('estado', ['pagada', 'pagado']);
+              
+              // Notificar reembolso si ya pagaron
+              for (const ins of inscritos) {
+                if (ins.estado === 'pagado') {
+                  await supabase.from('notificacion').insert([{
+                    miembro_id: ins.miembro_id,
+                    titulo: 'Inscripción Anulada - Reembolso Pendiente',
+                    descripcion: `Due al cambio crítico de datos en la actividad "${currentAct.titulo}", su inscripción ha sido anulada. Como el pago ya fue realizado, se ha habilitado su modo de devolución de Bs. ${currentAct.costo}.`,
+                    estado: 'pendiente'
+                  }]);
+                }
+              }
+
+              if (membersIds.length > 0) {
+                // Eliminar deudas activas asociadas solo si NO han pagado aún
+                const membersNoPagaron = inscritos.filter(ins => ins.estado !== 'pagado').map(ins => ins.miembro_id);
+                if (membersNoPagaron.length > 0) {
+                  const activoNombrePrefix = `Inscripción Curso: ${currentAct.titulo}`;
+                  await supabase
+                    .from('activos')
+                    .delete()
+                    .in('miembro_id', membersNoPagaron)
+                    .like('nombre', `${activoNombrePrefix}%`);
+                }
+
+                // Eliminar las inscripciones
                 await supabase
                   .from('inscripcion')
                   .delete()
                   .in('miembro_id', membersIds)
                   .eq('actividad_id', id);
 
-                // Update cupos in activity
+                // Devolver cupos a la actividad
+                const { data: actNow } = await supabase.from('actividad').select('cupos').eq('id', id).single();
                 await supabase
                   .from('actividad')
-                  .update({ cupos: currentAct.cupos + inscritos.length })
+                  .update({ cupos: (actNow?.cupos || 0) + inscritos.length })
                   .eq('id', id);
               }
             }
@@ -322,7 +437,22 @@ export const academicoApi = {
       }
     }
 
-    return { ...data[0], nombre: data[0].titulo };
+    // Volver a obtener la actividad completa para devolver el objeto con todas las relaciones (imagen, tipo, etc.)
+    const { data: updatedAct, error: fetchErr } = await supabase
+      .from('actividad')
+      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"))')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr) throw fetchErr;
+
+    return { 
+      ...updatedAct, 
+      nombre: updatedAct.titulo,
+      tipo_nombre: updatedAct.tipo_actividad?.nombre || 'General',
+      imagen: updatedAct.archivo?.[0]?.url || null,
+      jurados: updatedAct.jurado?.map(j => `${j.miembro?.nombre} ${j.miembro?.apellidoPaterno || ''}`.trim()) || []
+    };
   },
 
   togglePublicado: async (id, publicado) => {
@@ -379,10 +509,26 @@ export const academicoApi = {
       // Eliminar las deudas de inscripción pendientes de dicho curso antes de borrar
       const { data: inscritos } = await supabase
         .from('inscripcion')
-        .select('miembro_id')
+        .select('id, miembro_id')
         .eq('actividad_id', id);
 
       if (inscritos && inscritos.length > 0) {
+        const inscripcionIds = inscritos.map(ins => ins.id);
+        const { data: ingresos, error: ingresosError } = await supabase
+          .from('ingreso')
+          .select('id, estado, monto')
+          .in('inscripcion_id', inscripcionIds);
+        
+        if (ingresosError) throw ingresosError;
+
+        const tienePagosPendientes = (ingresos || []).some(
+          ing => ing.estado !== 'devolucion' && Number(ing.monto) > 0
+        );
+
+        if (tienePagosPendientes) {
+          throw new Error('No se puede eliminar la actividad porque existen inscritos con pagos pendientes de devolución.');
+        }
+
         const membersIds = inscritos.map(ins => ins.miembro_id);
         const activoNombrePrefix = `Inscripción Curso: ${currentAct.titulo}`;
         
@@ -403,22 +549,75 @@ export const academicoApi = {
     return true;
   },
 
-  asignarJurado: async () => {
-    return null;
+  asignarJurado: async (payload) => {
+    // Si es actividad del sistema, verificar que no esté finalizada/cancelada
+    if (payload.actividad_id) {
+      const { data: act } = await supabase
+        .from('actividad')
+        .select('*')
+        .eq('id', payload.actividad_id)
+        .single();
+      
+      if (act?.estado === 'finalizado' || act?.estado === 'cancelado') {
+        throw new Error('No se puede asignar jurados a una actividad que ya ha finalizado o ha sido cancelada.');
+      }
+    }
+
+    const { data, error } = await supabase.from('jurado').insert([{
+      actividad_id: payload.actividad_id || null,
+      actividad_externa: payload.actividad_externa || null,
+      miembro_id: payload.miembro_id,
+      descripcion: payload.descripcion
+    }]).select();
+
+    if (error) {
+      if (error.code === '23505') throw new Error('El miembro ya es jurado en esta actividad.');
+      throw error;
+    }
+    return data[0];
   },
 
-  obtenerAsignaciones: async () => {
-    return [];
+  eliminarJurado: async (id) => {
+    // Verificar si la actividad asociada está finalizada/cancelada
+    const { data: jurado } = await supabase
+      .from('jurado')
+      .select('*, actividad(*)')
+      .eq('id', id)
+      .single();
+
+    if (jurado?.actividad) {
+      if (jurado.actividad.estado === 'finalizado' || jurado.actividad.estado === 'cancelado') {
+        throw new Error('No se puede retirar un jurado de una actividad que ya ha finalizado o ha sido cancelada.');
+      }
+    }
+
+    const { error } = await supabase.from('jurado').delete().eq('id', id);
+    if (error) throw error;
+    return true;
   },
 
-  buscarTalento: async () => {
-    return [];
+  buscarTalento: async (criterio) => {
+    const { data, error } = await supabase
+      .from('miembro')
+      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", profesion, biografia')
+      .or(`profesion.ilike.%${criterio}%,biografia.ilike.%${criterio}%,nombre.ilike.%${criterio}%`)
+      .eq('estado', 'activo');
+
+    if (error) throw error;
+    return (data || []).map(d => ({
+      id: d.id,
+      nombre: `${d.nombre} ${d.apellidoPaterno || ''} ${d.apellidoMaterno || ''}`.trim(),
+      email: d.correoElectronico,
+      especialidad: d.profesion || 'No especificada',
+      experiencia: 'N/A',
+      resumen: d.biografia
+    }));
   },
 
   obtenerActividadPorId: async (id) => {
     const { data, error } = await supabase
       .from('actividad')
-      .select('*, tipo_actividad(nombre), archivo(url)')
+      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"))')
       .eq('id', id)
       .single();
 
@@ -427,7 +626,8 @@ export const academicoApi = {
       ...data, 
       nombre: data.titulo,
       tipo_nombre: data.tipo_actividad?.nombre || 'General',
-      imagen: data.archivo?.[0]?.url || null
+      imagen: data.archivo?.[0]?.url || null,
+      jurados: data.jurado?.map(j => `${j.miembro?.nombre} ${j.miembro?.apellidoPaterno || ''} ${j.miembro?.apellidoMaterno || ''}`.trim()) || []
     };
   },
 
@@ -459,7 +659,7 @@ export const academicoApi = {
     // Primero, verificamos si hay cupos y la fecha/hora
     const { data: itemData, error: itemError } = await supabase
       .from('actividad')
-      .select('cupos, fecha, hora')
+      .select('titulo, cupos, fecha, hora, costo')
       .eq('id', actividadId)
       .single();
       
@@ -497,6 +697,8 @@ export const academicoApi = {
       throw error;
     }
 
+
+
     // Enviar email de confirmación (en segundo plano)
     try {
       const { data: miembro } = await supabase
@@ -525,6 +727,31 @@ export const academicoApi = {
       }
     } catch (emailErr) {
       console.error('[Brevo] Error enviando confirmación de inscripción:', emailErr);
+    }
+
+    return true;
+  },
+
+  desinscribirSocio: async (miembroId, actividadId) => {
+    const { error: deleteError } = await supabase
+      .from('inscripcion')
+      .delete()
+      .eq('miembro_id', miembroId)
+      .eq('actividad_id', actividadId);
+
+    if (deleteError) throw deleteError;
+
+    const { data: act } = await supabase
+      .from('actividad')
+      .select('cupos')
+      .eq('id', actividadId)
+      .single();
+
+    if (act) {
+      await supabase
+        .from('actividad')
+        .update({ cupos: (act.cupos || 0) + 1 })
+        .eq('id', actividadId);
     }
 
     return true;

@@ -19,7 +19,11 @@ export const NuevaAdquisicionPage = () => {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    let finalValue = value;
+    if (name === 'costo') {
+      finalValue = value.length > 1 && value.startsWith('0') && !value.startsWith('0.') ? value.substring(1) : value;
+    }
+    setForm((prev) => ({ ...prev, [name]: finalValue }));
   };
 
   const handleSubmit = async (event) => {

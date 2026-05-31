@@ -4,26 +4,52 @@ import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-toastify';
 
 export const useAuth = () => {
-  const { setUser, setLoading, user } = useAuthStore();
+  const { setUser, setLoading, user, logout } = useAuthStore();
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // R6: Suscripción en tiempo real para detectar si el usuario fue deshabilitado
+    const channel = supabase
+      .channel(`user-status-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'miembro',
+          filter: `id=eq.${user.id}`
+        },
+        async (payload) => {
+          if (payload.new && payload.new.estado !== 'activo') {
+            await supabase.auth.signOut();
+            logout();
+            window.location.href = '/login?msg=cuenta_deshabilitada';
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, logout]);
 
   useEffect(() => {
     setLoading(true);
 
     const fetchUserData = async (sessionUser) => {
       // Intentar obtener los datos reales de la tabla miembro (rol, nombre, etc)
-      const { data: miembro, error } = await supabase
+      const { data: miembro } = await supabase
         .from('miembro')
         .select('rol, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", estado')
         .eq('id', sessionUser.id)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error al obtener perfil del miembro:', error);
-      }
+
 
       // Si el miembro está inactivo, bloquear el acceso y cerrar la sesión
       if (miembro && miembro.estado === 'inactivo') {
-        console.warn('Usuario inactivo detectado. Cerrando sesión...');
         await supabase.auth.signOut();
         setUser(null);
         setLoading(false);
@@ -61,20 +87,20 @@ export const useAuth = () => {
             .from('notificacion')
             .select('id')
             .eq('miembro_id', sessionUser.id)
-            .eq('titulo', '¡Bienvenido a Control Financiero!')
+            .eq('titulo', '¡Bienvenido!')
             .limit(1)
             .maybeSingle();
 
           if (!hasWelcome) {
             await supabase.from('notificacion').insert({
               miembro_id: sessionUser.id,
-              titulo: '¡Bienvenido a Control Financiero!',
-              descripcion: 'Te damos la bienvenida al sistema de Control Financiero. Aquí podrás gestionar cuotas, ingresos, egresos, patrimonio y ver tu estado de cuenta en tiempo real.',
+              titulo: '¡Bienvenido!',
+              descripcion: 'Te damos la bienvenida.',
               estado: 'pendiente'
             });
           }
-        } catch (err) {
-          console.error('Error al validar o insertar notificación de bienvenida:', err);
+        } catch {
+          // Error silenciado
         }
       }, 1500);
     };
@@ -108,6 +134,25 @@ export const useAuth = () => {
       Notification.requestPermission();
     }
 
+    // R12: Auto-sellar registros pendientes cuando Fabric está en línea
+    const autoSeal = async () => {
+      try {
+        const { blockchainService } = await import('../services/blockchain');
+        const online = await blockchainService.healthCheck();
+        if (online) {
+          await blockchainService.sellarPendientes('ingreso');
+          await blockchainService.sellarPendientes('egreso');
+          await blockchainService.sellarPendientes('activo');
+          await blockchainService.sellarPendientes('archivo');
+          await blockchainService.sellarPendientes('actividad');
+        }
+      } catch {
+        // Error silenciado
+      }
+    };
+    
+    autoSeal();
+
     // Suscribirse a inserciones de notificaciones en tiempo real para el usuario actual
     const channel = supabase
       .channel(`miembro-notificaciones-${user.id}`)
@@ -138,10 +183,10 @@ export const useAuth = () => {
             try {
               new Notification(titulo, {
                 body: descripcion,
-                icon: user.foto || '/favicon.ico',
+                icon: user.foto || '/favicon.svg',
               });
-            } catch (err) {
-              console.error('Error al disparar notificación push nativa:', err);
+            } catch {
+              // Error silenciado
             }
           }
         }

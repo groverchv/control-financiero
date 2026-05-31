@@ -74,7 +74,7 @@ export const auditoriaApi = {
         if (registro.blockchain_tx_id) {
             try {
                 verificacionBlockchain = await blockchainService.verificar(registro.id, hashRecalculado);
-            } catch (err) {
+            } catch {
                 verificacionBlockchain = {
                     verificado: false,
                     motivo: 'RED_NO_DISPONIBLE',
@@ -110,12 +110,9 @@ export const auditoriaApi = {
             const hashRecalculado = await calcularHashRegistro(tabla, reg);
             const hashCoincide = hashRecalculado === reg.hash_actual;
 
-            let encadenamientoCorrecto = true;
-            if (i > 0) {
-                encadenamientoCorrecto = reg.hash_anterior === ordenados[i - 1].hash_actual;
-            } else {
-                encadenamientoCorrecto = reg.hash_anterior === 'genesis' || reg.hash_anterior === ordenados[0]?.hash_anterior;
-            }
+            const encadenamientoCorrecto = i > 0
+                ? reg.hash_anterior === ordenados[i - 1].hash_actual
+                : reg.hash_anterior === 'genesis' || reg.hash_anterior === ordenados[0]?.hash_anterior;
 
             const integro = hashCoincide && encadenamientoCorrecto;
 

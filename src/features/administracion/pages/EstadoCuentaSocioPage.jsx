@@ -2,14 +2,47 @@ import { useEffect, useState, useMemo } from 'react';
 import { 
   CreditCard, Search, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertCircle, GraduationCap, Clock,
-  Wallet, TrendingDown, BookOpen, Calendar
+  TrendingDown, BookOpen
 } from 'lucide-react';
 import { finanzasApi } from '../../finanzas/api';
-import { academicoApi } from '../../academico/api';
 import { useAuthStore } from '../../../store/authStore';
 import { Table } from '../../../components/data-display';
 import { Spinner, ExportButtons } from '../../../components/ui';
 import { supabase } from '../../../services/supabase';
+
+const ITEMS_PER_PAGE = 10;
+
+const Pagination = ({ current, total, onPageChange, filteredCount, label = 'registros' }) => {
+  if (total <= 1) return null;
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-4 mt-4">
+      <p className="text-xs text-slate-500">
+        Mostrando <span className="font-semibold text-slate-900">{((current - 1) * ITEMS_PER_PAGE) + 1}</span> a{' '}
+        <span className="font-semibold text-slate-900">{Math.min(current * ITEMS_PER_PAGE, filteredCount)}</span> de{' '}
+        <span className="font-semibold text-slate-900">{filteredCount}</span> {label}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(Math.max(1, current - 1))}
+          disabled={current === 1}
+          className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
+        >
+          <ChevronLeft className="h-3 w-3" /> Anterior
+        </button>
+        <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-xl">
+          {current} / {total}
+        </span>
+        <button
+          onClick={() => onPageChange(Math.min(total, current + 1))}
+          disabled={current === total}
+          className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
+        >
+          Siguiente <ChevronRight className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export const EstadoCuentaSocioPage = () => {
   const { user } = useAuthStore();
@@ -26,8 +59,6 @@ export const EstadoCuentaSocioPage = () => {
   const [loadingActs, setLoadingActs] = useState(true);
   const [searchActs, setSearchActs] = useState('');
   const [pageActs, setPageActs] = useState(1);
-
-  const ITEMS_PER_PAGE = 10;
 
   // ─── Carga de cuotas del usuario ────────────────────────────────
   useEffect(() => {
@@ -95,13 +126,13 @@ export const EstadoCuentaSocioPage = () => {
   };
 
   // ─── Cronograma filtrado de cuotas ──────────────────────────────
-  const cronogramaRaw = cuotasData?.cronograma || [];
   const cronograma = useMemo(() => {
-    return [...cronogramaRaw].sort((a, b) => {
+    const raw = cuotasData?.cronograma || [];
+    return [...raw].sort((a, b) => {
       if (a.pagado === b.pagado) return 0;
       return a.pagado ? 1 : -1; // Deuda de primero, pagadas al final
     });
-  }, [cronogramaRaw]);
+  }, [cuotasData?.cronograma]);
 
   const filteredCuotas = useMemo(() => {
     let list = cronograma;
@@ -143,14 +174,10 @@ export const EstadoCuentaSocioPage = () => {
   const paginatedActs = filteredActs.slice((pageActs - 1) * ITEMS_PER_PAGE, pageActs * ITEMS_PER_PAGE);
 
   // ─── KPI totals ─────────────────────────────────────────────────
-  const cuotasPagadas = cronograma.filter(c => c.pagado);
   const cuotasPendientes = cronograma.filter(c => !c.pagado);
-  const totalPagadoCuotas = cuotasPagadas.reduce((sum, c) => sum + Number(c.monto_pagado || 0), 0);
   const totalPendienteCuotas = cuotasPendientes.reduce((sum, c) => sum + Number(c.monto_esperado || 0), 0);
 
-  const actsPagadas = inscripciones.filter(i => i.estado === 'pagado');
   const actsPendientes = inscripciones.filter(i => i.estado !== 'pagado');
-  const totalPagadoActs = actsPagadas.reduce((sum, i) => sum + Number(i.actividad?.costo || 0), 0);
   const totalPendienteActs = actsPendientes.reduce((sum, i) => sum + Number(i.actividad?.costo || 0), 0);
 
   const deudaGlobalTotal = totalPendienteCuotas + totalPendienteActs;
@@ -247,38 +274,7 @@ export const EstadoCuentaSocioPage = () => {
     Estado: i.estado === 'pagado' ? 'Pagado' : 'Pendiente'
   }));
 
-  // ─── Pagination component ──────────────────────────────────────
-  const Pagination = ({ current, total, onPageChange, filteredCount, label = 'registros' }) => {
-    if (total <= 1) return null;
-    return (
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-4 mt-4">
-        <p className="text-xs text-slate-500">
-          Mostrando <span className="font-semibold text-slate-900">{((current - 1) * ITEMS_PER_PAGE) + 1}</span> a{' '}
-          <span className="font-semibold text-slate-900">{Math.min(current * ITEMS_PER_PAGE, filteredCount)}</span> de{' '}
-          <span className="font-semibold text-slate-900">{filteredCount}</span> {label}
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onPageChange(Math.max(1, current - 1))}
-            disabled={current === 1}
-            className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
-          >
-            <ChevronLeft className="h-3 w-3" /> Anterior
-          </button>
-          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1.5 rounded-xl">
-            {current} / {total}
-          </span>
-          <button
-            onClick={() => onPageChange(Math.min(total, current + 1))}
-            disabled={current === total}
-            className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none active:scale-95"
-          >
-            Siguiente <ChevronRight className="h-3 w-3" />
-          </button>
-        </div>
-      </div>
-    );
-  };
+
 
   const isLoading = loadingCuotas || loadingActs;
 

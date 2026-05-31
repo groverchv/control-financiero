@@ -117,6 +117,40 @@ const guardarNotificacionDB = async (miembroId, titulo, descripcion) => {
 
 export const brevoService = {
 
+  notificarCancelacionActividad: async ({ destinatarios, curso }) => {
+    const accentColor = '#e11d48'; // Rose-600 for cancellation
+    const content = `
+      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Actividad Cancelada</h2>
+      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
+        Lamentamos informarle que la actividad <strong>${curso.nombre}</strong> programada para el <strong>${curso.fecha}</strong> ha sido cancelada por razones administrativas.
+      </p>
+      
+      <div style="background-color:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <h3 style="margin:0 0 8px;color:#9f1239;font-size:14px;font-weight:700;text-transform:uppercase;">Información Importante</h3>
+        <p style="margin:0;color:#e11d48;font-size:13px;font-weight:600;line-height:1.5;">
+          Al ser una actividad con costo (Bs. ${curso.costo}), todos los socios inscritos que realizaron el pago entran en <strong>MODO DE DEVOLUCIÓN</strong>. 
+          Por favor, póngase en contacto con la administración para gestionar su reembolso.
+        </p>
+      </div>
+
+      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">
+        Pedimos disculpas por los inconvenientes causados.
+      </p>
+    `;
+
+    const htmlContent = baseTemplate('Notificación de Cancelación', content, accentColor);
+    
+    // Send in bulk or sequentially. Brevo API allows up to 100 on transactional, 
+    // but here we just map all recipients to the 'to' array.
+    const to = destinatarios.map(d => ({ email: d.email, name: d.nombre }));
+    
+    return await enviarEmail({
+      to,
+      subject: `CANCELADO: ${curso.nombre}`,
+      htmlContent
+    });
+  },
+
   notificarPagoRegistrado: async ({ email, nombre, monto, fecha, concepto = 'Cuota mensual', miembroId }) => {
     if (miembroId) {
       const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();

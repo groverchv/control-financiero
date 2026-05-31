@@ -38,6 +38,8 @@ CREATE TABLE public.miembro (
     biografia text,
     rol text DEFAULT 'socio',
     estado text DEFAULT 'activo',
+    fecha_pausa timestamptz DEFAULT NULL,
+    dias_pausados integer DEFAULT 0,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
@@ -84,21 +86,41 @@ CREATE TABLE public.actividad (
     actualizacion timestamptz DEFAULT now()
 );
 
+CREATE TABLE public.inscripcion (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
+    actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
+    fecha_inscripcion timestamptz DEFAULT now(),
+    estado text DEFAULT 'confirmado',
+    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id),
+    creacion timestamptz DEFAULT now()
+);
+
 CREATE TABLE public.tipo_ingreso (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    nombre text NOT NULL,
+    nombre text NOT NULL UNIQUE,
     descripcion text,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
 
+-- Sembrado inicial para tipo_ingreso
+INSERT INTO public.tipo_ingreso (nombre, descripcion)
+VALUES ('Pago de Actividad', 'Pago por inscripción a actividades académicas o eventos con costo.')
+ON CONFLICT (nombre) DO NOTHING;
+
 CREATE TABLE public.tipo_egreso (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    nombre text NOT NULL,
+    nombre text NOT NULL UNIQUE,
     descripcion text,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
+
+-- Sembrado inicial para tipo_egreso
+INSERT INTO public.tipo_egreso (nombre, descripcion)
+VALUES ('Pago de Activos', 'Egresos destinados a la adquisición, mantenimiento o gestión de activos institucionales.')
+ON CONFLICT (nombre) DO NOTHING;
 
 CREATE TABLE public.tipo_activo (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -129,7 +151,9 @@ CREATE TABLE public.ingreso (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     registrado_por uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
+    devuelto_por uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     tipo_ingreso_id uuid REFERENCES public.tipo_ingreso(id),
+    inscripcion_id uuid REFERENCES public.inscripcion(id) ON DELETE SET NULL,
     monto numeric(12,2) NOT NULL,
     fecha date NOT NULL,
     descripcion text,
@@ -180,15 +204,6 @@ CREATE TABLE public.archivo (
     actualizacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.inscripcion (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
-    actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
-    fecha_inscripcion timestamptz DEFAULT now(),
-    estado text DEFAULT 'confirmado',
-    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id),
-    creacion timestamptz DEFAULT now()
-);
 
 CREATE TABLE public.jurado (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -315,7 +330,7 @@ BEGIN
   VALUES (
     new.id,
     '¡Bienvenido!',
-    'Te damos la bienvenida al sistema.'
+    'Te damos la bienvenida.'
   );
   
   RETURN new;
@@ -326,6 +341,30 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Gestión de pausa de cuotas por estado inactivo de socio
+CREATE OR REPLACE FUNCTION public.gestionar_pausa_miembro()
+RETURNS trigger AS $$
+BEGIN
+    -- Si el estado cambia de activo a inactivo, guardar fecha de pausa
+    IF OLD.estado = 'activo' AND NEW.estado = 'inactivo' THEN
+        NEW.fecha_pausa := now();
+    -- Si el estado cambia de inactivo a activo, calcular días pausados transcurridos
+    ELSIF OLD.estado = 'inactivo' AND NEW.estado = 'activo' THEN
+        IF OLD.fecha_pausa IS NOT NULL THEN
+            NEW.dias_pausados := COALESCE(OLD.dias_pausados, 0) + EXTRACT(DAY FROM (now() - OLD.fecha_pausa))::integer;
+            NEW.fecha_pausa := NULL;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_gestionar_pausa_miembro ON public.miembro;
+CREATE TRIGGER trg_gestionar_pausa_miembro
+  BEFORE UPDATE OF estado ON public.miembro
+  FOR EACH ROW
+  EXECUTE FUNCTION public.gestionar_pausa_miembro();
 
 -- Sellado: ingreso
 CREATE OR REPLACE FUNCTION public.sellar_ingreso()
@@ -479,7 +518,7 @@ CREATE TABLE IF NOT EXISTS public.configuracion_cuotas (
   id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   pausado       boolean      NOT NULL DEFAULT false,
   fecha_pausa   timestamptz,
-  dias_pausados integer      NOT NULL DEFAULT 0,
+  dias_pausados numeric      NOT NULL DEFAULT 0,
   dias_recordatorio_activos integer NOT NULL DEFAULT 5,
   frecuencia    text         NOT NULL DEFAULT 'mes',
   monto_cuota   numeric      NOT NULL DEFAULT 150,
@@ -554,5 +593,18 @@ CREATE POLICY "Acceso total" ON public.tipo_activo FOR ALL TO authenticated USIN
 CREATE POLICY "Acceso total" ON public.configuracion_cuotas FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.plan_amortizacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.jurado FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- Políticas para permitir la lectura pública (visitantes sin sesión iniciada)
+CREATE POLICY "Lectura publica de miembros" ON public.miembro FOR SELECT TO anon USING (estado = 'activo');
+CREATE POLICY "Lectura publica de tipo_actividad" ON public.tipo_actividad FOR SELECT TO anon USING (true);
+CREATE POLICY "Lectura publica de actividad" ON public.actividad FOR SELECT TO anon USING (true);
+CREATE POLICY "Lectura publica de archivo" ON public.archivo FOR SELECT TO anon USING (true);
+CREATE POLICY "Lectura publica de jurado" ON public.jurado FOR SELECT TO anon USING (true);
+CREATE POLICY "Lectura publica de ingresos" ON public.ingreso FOR SELECT TO anon USING (true);
+
+-- Habilitar tiempo real para las tablas correspondientes
+alter publication supabase_realtime add table public.miembro;
+alter publication supabase_realtime add table public.notificacion;
+alter publication supabase_realtime add table public.plan_amortizacion;
 
 NOTIFY pgrst, 'reload schema';

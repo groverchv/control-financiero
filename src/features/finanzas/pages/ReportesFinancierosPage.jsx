@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react';
-import { FileBarChart2, Filter, Calendar, Search, Download, ChevronRight, Tags, ArrowRight } from 'lucide-react';
-import { useReportesFinancieros, usePagos, useEgresos } from '../hooks';
-import { Spinner, Button, Input, Select } from '../../../components/ui';
-import { Toast } from '../../../components/feedback';
+import { Filter, Calendar, Search, Tags, ArrowRight } from 'lucide-react';
+import { usePagos, useEgresos } from '../hooks';
+import { Spinner, Input, Select } from '../../../components/ui';
 import { ExportButtons } from '../../../components/ui/ExportButtons';
 
 export const ReportesFinancierosPage = () => {

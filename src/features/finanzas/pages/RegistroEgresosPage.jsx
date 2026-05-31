@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle, RefreshCw, DollarSign } from 'lucide-react';
+import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle, RefreshCw, DollarSign, PlusCircle, Loader2 } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { patrimonioApi } from '../../patrimonio/api';
 import { useEgresos } from '../hooks';
@@ -34,6 +34,7 @@ export const RegistroEgresosPage = () => {
   const [categoriaFilter, setCategoriaFilter] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [comprobantePreview, setComprobantePreview] = useState(null);
+  const [isPlanActive, setIsPlanActive] = useState(false);
   const ITEMS_PER_PAGE = 10;
 
   const isSubmitDisabled = !form.concepto.trim() || !form.monto || !form.tipo_egreso_id;
@@ -127,7 +128,11 @@ export const RegistroEgresosPage = () => {
         setComprobantePreview(null);
       }
     } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+      let finalValue = value;
+      if (name === 'monto') {
+        finalValue = value.length > 1 && value.startsWith('0') && !value.startsWith('0.') ? value.substring(1) : value;
+      }
+      setForm((prev) => ({ ...prev, [name]: finalValue }));
       
       // Si se selecciona un activo, revisar si tiene plan de amortización pendiente
       if (name === 'activo_id' && value) {
@@ -135,12 +140,24 @@ export const RegistroEgresosPage = () => {
           const plan = await patrimonioApi.obtenerAmortizacion(value);
           const cuotaPendiente = plan.find(p => p.estado === 'pendiente');
           if (cuotaPendiente) {
-            setForm(prev => ({ ...prev, monto: cuotaPendiente.monto.toString() }));
-            setMessage({ type: 'success', text: `Monto completado según cuota #${cuotaPendiente.numero} del plan de amortización.` });
+            const activoObj = activos.find(a => a.id === value);
+            setIsPlanActive(true);
+            setForm(prev => ({ 
+              ...prev, 
+              monto: cuotaPendiente.monto.toString(),
+              concepto: `Pago de cuota #${cuotaPendiente.numero} - ${activoObj?.nombre || 'Activo'}`,
+              descripcion: `Pago correspondiente a la cuota #${cuotaPendiente.numero} del plan de amortización del activo ${activoObj?.nombre || ''}.`
+            }));
+            setMessage({ type: 'success', text: `R19: Descripción y monto autocompletados según cuota #${cuotaPendiente.numero} del plan.` });
+          } else {
+            setIsPlanActive(false);
           }
         } catch (err) {
           console.error("Error al obtener plan de amortización", err);
+          setIsPlanActive(false);
         }
+      } else if (name === 'activo_id' && !value) {
+        setIsPlanActive(false);
       }
     }
   };
@@ -224,6 +241,11 @@ export const RegistroEgresosPage = () => {
     }
   };
 
+  // Calcular métricas dinámicas para los KPIs de Egresos
+  const totalEgresos = egresos.reduce((sum, e) => sum + Number(e.monto || 0), 0);
+  const totalEgresoActivos = egresos.reduce((sum, e) => e.activo_id ? sum + Number(e.monto || 0) : sum, 0);
+  const totalEgresosExtras = egresos.reduce((sum, e) => !e.activo_id ? sum + Number(e.monto || 0) : sum, 0);
+
   return (
     <div className="space-y-6">
       {message && <Toast type={message.type} message={message.text} onClose={() => setMessage(null)} />}
@@ -251,6 +273,45 @@ export const RegistroEgresosPage = () => {
           </Button>
         </div>
       </header>
+
+      {/* Tarjetas de Métricas de Egresos */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-red-50 flex items-center justify-center text-red-600 shrink-0">
+            <DollarSign className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-red-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalEgresos)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Egresos Totales</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-amber-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalEgresoActivos)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Egreso de Activos</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <PlusCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-blue-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalEgresosExtras)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Egresos Extras</p>
+          </div>
+        </div>
+      </div>
 
       <section>
         <div className="rounded-md bg-white p-6 shadow-sm border border-slate-100">
@@ -441,10 +502,13 @@ export const RegistroEgresosPage = () => {
             <Input
               id="monto"
               name="monto"
-              label="Monto (Bs)"
+              label={isPlanActive ? "Monto de Cuota (Bloqueado)" : "Monto (Bs)"}
               type="number"
               value={form.monto}
               onChange={handleChange}
+              disabled={isPlanActive}
+              className={isPlanActive ? "bg-slate-100 font-bold text-blue-700" : ""}
+              title={isPlanActive ? "R18: El monto está bloqueado porque corresponde a una cuota fija del plan de amortización." : ""}
               required
             />
             <div className="md:col-span-2">
@@ -688,6 +752,27 @@ export const RegistroEgresosPage = () => {
           </div>
         </div>
       </Modal>
+
+      {submitting && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-md transition-all duration-300">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-5 animate-in fade-in zoom-in duration-300">
+            <div className="relative flex items-center justify-center">
+              <div className="h-20 w-20 rounded-full border-4 border-blue-50 border-t-blue-600 animate-spin" />
+              <Loader2 className="absolute h-10 w-10 text-blue-600 animate-spin" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-800 tracking-tight">Procesando Registro</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Estamos procesando la transacción, subiendo los archivos adjuntos y sellando el egreso operativo en la Blockchain de forma segura.
+              </p>
+            </div>
+            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full animate-pulse" style={{ width: '70%' }} />
+            </div>
+            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest animate-pulse">Por favor, no cierre esta ventana</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

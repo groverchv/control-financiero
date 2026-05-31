@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { useTiposActividad } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';

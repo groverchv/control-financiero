@@ -18,7 +18,6 @@ export const AdminLayout = () => {
   };
 
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
-  const [generalUnreadCount, setGeneralUnreadCount] = useState(0);
 
   useEffect(() => {
     // Sincronizar notificaciones de amortizacion pendientes
@@ -61,34 +60,15 @@ export const AdminLayout = () => {
         }
       };
 
-      const fetchGeneralUnread = async () => {
-        try {
-          const { count } = await supabase
-            .from('notificacion')
-            .select('id', { count: 'exact', head: true })
-            .eq('miembro_id', user.id)
-            .neq('estado', 'leida');
-          setGeneralUnreadCount(count || 0);
-        } catch (err) {
-          console.error('[AdminLayout] Error fetching general notifications:', err);
-        }
-      };
-
       fetchAdminUnread();
-      fetchGeneralUnread();
 
       const notifChannel = supabase
         .channel('admin-notif-count')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'plan_amortizacion' }, fetchAdminUnread)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacion', filter: `miembro_id=eq.${user.id}` }, fetchGeneralUnread)
         .subscribe();
-
-      // Listen to custom window events for immediate update in the UI
-      window.addEventListener('notificacion_leida', fetchGeneralUnread);
 
       return () => {
         supabase.removeChannel(notifChannel);
-        window.removeEventListener('notificacion_leida', fetchGeneralUnread);
       };
     }
   }, [user]);
@@ -177,6 +157,7 @@ export const AdminLayout = () => {
                   Historial de Cuotas
                 </NavLink>
               </li>
+
               {user?.rol === 'admin' && (
               <li>
                 <NavLink to="/admin/tipos-transaccion" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>

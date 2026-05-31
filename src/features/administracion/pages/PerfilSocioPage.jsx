@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Mail, Phone, UserCircle, Upload, FileText, Camera, Save, Loader2, CheckCircle2, Edit3, X, Eye } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { administracionApi } from '../api';
-import { Button, Input, Spinner } from '../../../components/ui';
+import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { supabase } from '../../../services/supabase';
 
 export const PerfilSocioPage = () => {
@@ -12,8 +12,10 @@ export const PerfilSocioPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showSizeErrorModal, setShowSizeErrorModal] = useState(false);
   const [success, setSuccess] = useState(false);
   const [archivos, setArchivos] = useState([]);
+  const [fileChanged, setFileChanged] = useState(false);
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -32,7 +34,8 @@ export const PerfilSocioPage = () => {
     formData.apellidoMaterno === (initialData.apellidoMaterno || '') &&
     formData.telefono === (initialData.telefono || '') &&
     formData.profesion === (initialData.profesion || '') &&
-    formData.biografia === (initialData.biografia || '');
+    formData.biografia === (initialData.biografia || '') &&
+    !fileChanged;
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -43,6 +46,8 @@ export const PerfilSocioPage = () => {
           .select('nombre, "apellidoPaterno", "apellidoMaterno", telefono, profesion, biografia')
           .eq('id', user.id)
           .single();
+        
+        if (error) throw error;
         
         if (data) {
           const profileData = {
@@ -73,6 +78,15 @@ export const PerfilSocioPage = () => {
     e.preventDefault();
     setIsSaving(true);
     setSuccess(false);
+
+    const changedFields = [];
+    if (formData.nombre !== initialData.nombre) changedFields.push('Nombre');
+    if (formData.apellidoPaterno !== initialData.apellidoPaterno) changedFields.push('Apellido Paterno');
+    if (formData.apellidoMaterno !== initialData.apellidoMaterno) changedFields.push('Apellido Materno');
+    if (formData.telefono !== initialData.telefono) changedFields.push('Teléfono');
+    if (formData.profesion !== initialData.profesion) changedFields.push('Profesión');
+    if (formData.biografia !== initialData.biografia) changedFields.push('Resumen Profesional');
+
     try {
       const updated = await administracionApi.actualizarPerfil(user.id, {
         nombre: formData.nombre,
@@ -84,13 +98,43 @@ export const PerfilSocioPage = () => {
       });
 
       if (updated) {
-        setUser({
-          ...user,
-          nombre: `${updated.nombre} ${updated.apellidoPaterno || ''} ${updated.apellidoMaterno || ''}`.trim()
-        });
-        setInitialData(formData);
+        // R3: Notificación de cambios
+        if (changedFields.length > 0) {
+          await administracionApi.crearNotificacion(
+            user.id,
+            'Perfil Actualizado',
+            `Se han modificado los siguientes campos: ${changedFields.join(', ')}.`
+          );
+        }
+
+        // R5: Recargar datos actualizados
+        const profileResponse = await supabase
+          .from('miembro')
+          .select('nombre, "apellidoPaterno", "apellidoMaterno", telefono, profesion, biografia')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileResponse.data) {
+          const profileData = {
+            nombre: profileResponse.data.nombre || '',
+            apellidoPaterno: profileResponse.data.apellidoPaterno || '',
+            apellidoMaterno: profileResponse.data.apellidoMaterno || '',
+            telefono: profileResponse.data.telefono || '',
+            profesion: profileResponse.data.profesion || '',
+            biografia: profileResponse.data.biografia || ''
+          };
+          setFormData(profileData);
+          setInitialData(profileData);
+          
+          setUser({
+            ...user,
+            nombre: `${profileData.nombre} ${profileData.apellidoPaterno} ${profileData.apellidoMaterno}`.trim()
+          });
+        }
+
         setSuccess(true);
         setIsEditing(false);
+        setFileChanged(false);
         setTimeout(() => setSuccess(false), 3000);
       }
     } catch (err) {
@@ -103,6 +147,7 @@ export const PerfilSocioPage = () => {
   const handleCancelEdit = () => {
     setFormData(initialData);
     setIsEditing(false);
+    setFileChanged(false);
   };
 
   const handleFileUpload = async (e, tipo) => {
@@ -111,9 +156,10 @@ export const PerfilSocioPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // R4: Modal para archivos > 10MB
     const MAX_SIZE = 10 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-      alert('El archivo es demasiado grande. El límite máximo es de 10MB.');
+      setShowSizeErrorModal(true);
       return;
     }
 
@@ -122,6 +168,15 @@ export const PerfilSocioPage = () => {
       await administracionApi.subirArchivo(user.id, file, tipo);
       const files = await administracionApi.obtenerArchivosMiembro(user.id);
       setArchivos(files);
+      setFileChanged(true);
+      
+      if (tipo === 'foto') {
+        const newFoto = files.find(a => a.tipo === 'foto')?.url || null;
+        setUser({
+          ...user,
+          foto: newFoto
+        });
+      }
     } catch (err) {
       alert('Error al subir archivo: ' + err.message);
     } finally {
@@ -400,6 +455,27 @@ export const PerfilSocioPage = () => {
         </div>
       )}
 
+      {/* R4: Modal de Error de Tamaño */}
+      <Modal 
+        isOpen={showSizeErrorModal} 
+        onClose={() => setShowSizeErrorModal(false)}
+        title="Archivo demasiado grande"
+        width="max-w-md"
+      >
+        <div className="text-center space-y-4">
+          <div className="h-16 w-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto">
+            <X className="h-10 w-10" />
+          </div>
+          <p className="text-slate-600">
+            El documento excede el límite permitido de <strong>10MB</strong>. 
+            Por favor, intente con uno más ligero.
+          </p>
+          <Button onClick={() => setShowSizeErrorModal(false)} className="w-full">
+            Entendido
+          </Button>
+        </div>
+      </Modal>
+
       {/* Modal de PDF */}
       {showPdfModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
@@ -429,7 +505,10 @@ export const PerfilSocioPage = () => {
             </div>
             <div className="flex-1 bg-slate-100 relative group">
               <iframe 
-                src={`${cvFile.replace('/upload/', '/upload/f_auto/')}#toolbar=0`}
+                src={cvFile.toLowerCase().endsWith('.pdf') 
+                  ? cvFile 
+                  : `https://docs.google.com/gview?url=${encodeURIComponent(cvFile)}&embedded=true`
+                }
                 className="w-full h-full border-none bg-white"
                 title="Visor PDF"
               ></iframe>

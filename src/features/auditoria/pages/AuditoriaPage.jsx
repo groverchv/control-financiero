@@ -305,10 +305,24 @@ export const AuditoriaPage = () => {
                                                 }
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-sm font-medium text-slate-900 truncate">
-                                                    {reg.descripcion || reg.concepto || reg.nombre || reg.url?.split('/').pop() || reg.id}
-                                                </p>
-                                                <p className="text-[10px] text-slate-400 font-mono">{reg.id}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-bold text-slate-900 truncate">
+                                                        {reg.descripcion || reg.concepto || reg.nombre || reg.url?.split('/').pop() || reg.id}
+                                                    </p>
+                                                    {(reg.monto || reg.costo_total) && (
+                                                        <span className="text-xs font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                            Bs. {Number(reg.monto || reg.costo_total).toLocaleString('de-DE', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <p className="text-[10px] text-slate-400 font-mono">{reg.id.substring(0, 18)}...</p>
+                                                    {(reg.fecha || reg.fechaAdquisicion) && (
+                                                        <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                                                            • {new Date((reg.fecha || reg.fechaAdquisicion) + 'T00:00:00').toLocaleDateString('es-ES')}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3 shrink-0">

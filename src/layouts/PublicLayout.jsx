@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, NavLink } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
-import { LogOut, User as UserIcon, Menu, X, ChevronDown, LayoutDashboard, ShieldCheck, GraduationCap, Bell } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, X, ChevronDown, ShieldCheck, GraduationCap } from 'lucide-react';
 
 export const PublicLayout = () => {
   const { user, logout, isAuthenticated } = useAuthStore();

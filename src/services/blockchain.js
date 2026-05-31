@@ -84,12 +84,17 @@ export const blockchainService = {
         try {
             const { id, hash_actual } = registro;
             if (!hash_actual) {
-                console.warn(`[Blockchain] Registro ${id} no tiene hash_actual. Saltando sellado.`);
                 return null;
             }
 
             // 1. Sellar en Fabric
             const resultado = await blockchainService.sellar(tipoTabla, id, hash_actual, idUsuario);
+            
+            // R12: Si no hay txId (el servidor no respondió con éxito), no marcar como sellado
+            if (!resultado || !resultado.txId) {
+                return null;
+            }
+
             const txId = resultado.txId;
 
             // 2. Actualizar Supabase con el TxID
@@ -99,14 +104,38 @@ export const blockchainService = {
                 .update({ blockchain_tx_id: txId })
                 .eq('id', id);
 
-            if (error) {
-                console.error(`[Blockchain] Error actualizando TxID en Supabase:`, error);
-            }
+            if (error) throw error;
 
             return txId;
-        } catch (err) {
-            console.error(`[Blockchain] Error en flujo de sellado:`, err.message);
+        } catch {
             return null;
+        }
+    },
+
+    /**
+     * R12: Sellar todos los registros pendientes de una tabla.
+     * Útil para procesos de auto-recuperación de sellados fallidos.
+     */
+    sellarPendientes: async (tipoTabla) => {
+        try {
+            const tablaSupabase = tipoTabla === 'activo' ? 'activos' : tipoTabla;
+            const { data: pendientes, error } = await supabase
+                .from(tablaSupabase)
+                .select('*')
+                .is('blockchain_tx_id', null)
+                .not('hash_actual', 'is', null);
+
+            if (error) throw error;
+            
+            const resultados = [];
+            for (const reg of pendientes) {
+                const txId = await blockchainService.sellarYActualizar(tipoTabla, reg, 'sistema-auto');
+                if (txId) resultados.push({ id: reg.id, txId });
+            }
+            
+            return resultados;
+        } catch {
+            return [];
         }
     }
 };

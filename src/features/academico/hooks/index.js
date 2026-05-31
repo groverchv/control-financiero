@@ -6,22 +6,23 @@ export const useActividades = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const refetch = async () => {
+    setLoading(true);
+    try {
+      const data = await academicoApi.obtenerActividades();
+      setActividades(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await academicoApi.obtenerActividades();
-        setActividades(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refetch();
   }, []);
 
-  return { actividades, loading, error, setActividades };
+  return { actividades, loading, error, setActividades, refetch };
 };
 
 export const useTiposActividad = () => {
@@ -55,12 +56,30 @@ export const useTalentos = (criterio) => {
   useEffect(() => {
     if (!criterio) return;
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    setLoading(true);
-    academicoApi.buscarTalento(criterio)
-      .then(setTalentos)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Error desconocido'))
-      .finally(() => setLoading(false));
+    let isMounted = true;
+    const fetchTalentos = async () => {
+      setLoading(true);
+      try {
+        const data = await academicoApi.buscarTalento(criterio);
+        if (isMounted) {
+          setTalentos(data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Error desconocido');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchTalentos();
+
+    return () => {
+      isMounted = false;
+    };
   }, [criterio]);
 
   return { talentos, loading, error };

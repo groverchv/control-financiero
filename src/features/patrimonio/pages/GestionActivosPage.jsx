@@ -207,11 +207,17 @@ export const GestionActivosPage = () => {
 
       const nuevoActivo = await patrimonioApi.registrarActivo(payload);
       setActivos([nuevoActivo, ...activos]);
+      
+      // R12: Verificar si el sellado fue exitoso
+      const selladoExitoso = !!nuevoActivo.blockchain_tx_id;
+      
       setResultModal({
         open: true,
-        type: 'success',
-        text: '¡Activo registrado con éxito!',
-        details: `El activo "${formData.nombre}" ha sido registrado en el inventario patrimonial. Puede generar un plan de amortización si es necesario.`
+        type: selladoExitoso ? 'success' : 'warning',
+        text: selladoExitoso ? '¡Activo registrado con éxito!' : 'Activo registrado (Sin Sello)',
+        details: selladoExitoso 
+          ? `El activo "${formData.nombre}" ha sido registrado y sellado en la Blockchain correctamente.`
+          : `El activo "${formData.nombre}" se registró en la base de datos, pero el sellado en Blockchain falló. Puede reintentarlo manualmente en la tabla.`
       });
       setIsModalOpen(false);
       setFormData({ 
@@ -439,12 +445,27 @@ export const GestionActivosPage = () => {
             placeholder="Detalles del activo..."
           />
           <Input 
-            label="Costo Total ($)" 
+            label="Costo Total (Bs.)" 
             type="number"
             step="0.01" 
             value={formData.costo_total} 
-            onChange={(e) => setFormData({ ...formData, costo_total: parseFloat(e.target.value) || 0 })} 
+            onChange={(e) => {
+              const val = e.target.value;
+              // R13: Borrar ceros a la izquierda y manejar vacíos para mejor UX
+              if (val === '') {
+                setFormData({ ...formData, costo_total: '' });
+              } else {
+                const num = parseFloat(val);
+                setFormData({ ...formData, costo_total: isNaN(num) ? 0 : num });
+              }
+            }} 
+            onBlur={() => {
+              if (formData.costo_total === '') {
+                setFormData({ ...formData, costo_total: 0 });
+              }
+            }}
             required
+            min="0"
           />
           <Input 
             label="Fecha de Adquisición" 

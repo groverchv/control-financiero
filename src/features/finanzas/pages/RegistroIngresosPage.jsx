@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, FileText, RefreshCw, BookOpen } from 'lucide-react';
+import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, RefreshCw, BookOpen, Loader2 } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { administracionApi } from '../../administracion/api';
 import { usePagos } from '../hooks';
@@ -73,6 +73,7 @@ export const RegistroCuotasPage = () => {
   const [detalleModal, setDetalleModal] = useState({ open: false, cuota: null });
   const [imageModal, setImageModal] = useState({ open: false, url: null });
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [devolverModal, setDevolverModal] = useState({ open: false, cuota: null });
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -98,38 +99,56 @@ export const RegistroCuotasPage = () => {
 
   // Cargar inscripciones pendientes cuando se selecciona socio + tipo Pago de Actividad en modo extra
   useEffect(() => {
+    let isMounted = true;
     if (modoIngreso === 'extra' && esPagoActividad && form.miembroBuscador) {
       const fetchInscripciones = async () => {
         setLoadingInscripciones(true);
         try {
           const data = await finanzasApi.obtenerInscripcionesPendientesPago(form.miembroBuscador);
-          setInscripcionesPendientes(data);
-          
-          // Si venimos de una redirección con un ID de inscripción específico, auto-seleccionarlo
-          if (location.state?.inscripcionId) {
-            const match = data.find(i => i.id === location.state.inscripcionId);
-            if (match) {
-              setInscripcionSeleccionada(match);
-              setForm(prev => ({
-                ...prev,
-                monto: String(match.actividad.costo),
-                fecha: new Date().toISOString().split('T')[0],
-                descripcion: `Pago de inscripción a actividad: ${match.actividad.titulo}`
-              }));
+          if (isMounted) {
+            setInscripcionesPendientes(data);
+            
+            // Si venimos de una redirección con un ID de inscripción específico, auto-seleccionarlo
+            if (location.state?.inscripcionId) {
+              const match = data.find(i => i.id === location.state.inscripcionId);
+              if (match) {
+                setInscripcionSeleccionada(match);
+                setForm(prev => ({
+                  ...prev,
+                  monto: String(match.actividad.costo),
+                  fecha: new Date().toISOString().split('T')[0],
+                  descripcion: `Pago de inscripción a actividad: ${match.actividad.titulo}`
+                }));
+              }
             }
           }
         } catch (err) {
           console.error('Error cargando inscripciones pendientes:', err);
-          setInscripcionesPendientes([]);
+          if (isMounted) {
+            setInscripcionesPendientes([]);
+          }
         } finally {
-          setLoadingInscripciones(false);
+          if (isMounted) {
+            setLoadingInscripciones(false);
+          }
         }
       };
       fetchInscripciones();
     } else {
-      setInscripcionesPendientes([]);
-      setInscripcionSeleccionada(null);
+      const timer = setTimeout(() => {
+        if (isMounted) {
+          setInscripcionesPendientes([]);
+          setInscripcionSeleccionada(null);
+        }
+      }, 0);
+      return () => {
+        isMounted = false;
+        clearTimeout(timer);
+      };
     }
+    return () => {
+      isMounted = false;
+    };
   }, [modoIngreso, esPagoActividad, form.miembroBuscador, location.state]);
 
   // Manejar redirección automática desde el Historial de Actividades o Historial de Cuotas
@@ -288,7 +307,6 @@ export const RegistroCuotasPage = () => {
           descripcion: desc
         }));
       } else if (registroSocio) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({ ...prev, monto: '0', fecha: '', descripcion: 'El socio se encuentra totalmente al día.' }));
       }
     } else if (modoIngreso !== 'cuota' && form.miembroBuscador && form.tipo_ingreso_id) {
@@ -299,7 +317,6 @@ export const RegistroCuotasPage = () => {
         let desc = partes
           ? `Cuota de membresía correspondiente a ${ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(partes[2]) - 1]} ${partes[1]}.`
           : `Cuota de membresía correspondiente a ${mes}.`;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({ ...prev, monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 150), fecha: getCuotaGeneracionDate(registroSocio.proximaPendiente), descripcion: desc }));
       }
     }
@@ -316,7 +333,11 @@ export const RegistroCuotasPage = () => {
         setComprobantePreview(null);
       }
     } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
+      let finalValue = value;
+      if (name === 'monto') {
+        finalValue = value.length > 1 && value.startsWith('0') && !value.startsWith('0.') ? value.substring(1) : value;
+      }
+      setForm((prev) => ({ ...prev, [name]: finalValue }));
     }
   };
 
@@ -396,6 +417,47 @@ export const RegistroCuotasPage = () => {
     }
   };
 
+  const handleDevolver = (cuota) => {
+    setDevolverModal({ open: true, cuota });
+  };
+
+  const executeDevolucion = async () => {
+    const { cuota } = devolverModal;
+    if (!cuota) return;
+    
+    setSubmitting(true);
+    try {
+      await finanzasApi.devolverIngreso(cuota.id, user?.id);
+      const updatedCuotas = await finanzasApi.obtenerCuotas();
+      if (setCuotas) setCuotas(updatedCuotas);
+
+      setDevolverModal({ open: false, cuota: null });
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: '¡Reembolso procesado!',
+        details: 'El ingreso ha sido devuelto con éxito. Su monto ahora figura en Bs. 0 y el estado es "Devuelto". La transacción de reembolso ha sido sellada en la Blockchain.'
+      });
+    } catch (err) {
+      console.error(err);
+      setDevolverModal({ open: false, cuota: null });
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error en Reembolso',
+        details: err instanceof Error ? err.message : 'No se pudo registrar la devolución del ingreso.'
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Calcular métricas dinámicas para los KPIs
+  const totalRecaudado = cuotas.reduce((sum, c) => c.estado !== 'devolucion' ? sum + Number(c.monto || 0) : sum, 0);
+  const totalCuotas = cuotas.reduce((sum, c) => (c.estado !== 'devolucion' && (c.tipo_ingreso_nombre === 'Membresía Ordinaria' || c.tipo_ingreso_nombre === 'Cuota Mensual')) ? sum + Number(c.monto || 0) : sum, 0);
+  const totalExtras = cuotas.reduce((sum, c) => (c.estado !== 'devolucion' && c.tipo_ingreso_nombre !== 'Membresía Ordinaria' && c.tipo_ingreso_nombre !== 'Cuota Mensual') ? sum + Number(c.monto || 0) : sum, 0);
+  const totalReembolsosPendientes = cuotas.reduce((sum, c) => c.estado === 'reembolso_pendiente' ? sum + Number(c.monto || 0) : sum, 0);
+
   return (
     <div className="space-y-6">
       {message && <Toast type={message.type} message={message.text} onClose={() => setMessage(null)} />}
@@ -424,6 +486,57 @@ export const RegistroCuotasPage = () => {
           </Button>
         </div>
       </header>
+
+      {/* Tarjetas de Métricas de Ingresos */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalRecaudado)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Ingresos Totales</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <Receipt className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-blue-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalCuotas)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Ingreso de Cuotas</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+            <PlusCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-indigo-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalExtras)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Ingresos Extras</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 shrink-0">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-orange-600 truncate">
+              {new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(totalReembolsosPendientes)}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Ingresos para Reembolsar</p>
+          </div>
+        </div>
+      </div>
 
       <section>
         <div className="rounded-md bg-white p-6 shadow-sm border border-slate-100">
@@ -488,9 +601,19 @@ export const RegistroCuotasPage = () => {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wider bg-emerald-50 text-emerald-700">
-                              Pagado
-                            </span>
+                            {cuota.estado === 'reembolso_pendiente' ? (
+                              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 border border-amber-200">
+                                Reembolso Pendiente
+                              </span>
+                            ) : cuota.estado === 'devolucion' ? (
+                              <span className="inline-flex items-center rounded-full bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-700 border border-rose-200">
+                                Devuelto
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wider bg-emerald-50 text-emerald-700">
+                                Pagado
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                             <div>
@@ -507,7 +630,15 @@ export const RegistroCuotasPage = () => {
                                 <Eye className="h-3.5 w-3.5" />
                                 Detalle
                               </button>
-                              {!cuota.blockchain_tx_id && (
+                              {cuota.estado === 'reembolso_pendiente' && (
+                                <button 
+                                  onClick={() => handleDevolver(cuota)}
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition-colors shadow-sm"
+                                >
+                                  Devolver
+                                </button>
+                              )}
+                              {!cuota.blockchain_tx_id && cuota.estado !== 'devolucion' && (
                                 <button 
                                   onClick={() => handleSellar(cuota.id)}
                                   disabled={submitting}
@@ -873,7 +1004,21 @@ export const RegistroCuotasPage = () => {
                   label={<span>Monto (Bs) <span className="text-red-500">*</span></span>}
                   type="number"
                   value={form.monto}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    // R13: Borrar ceros a la izquierda para mejor UX
+                    if (val === '') {
+                      setForm(prev => ({ ...prev, monto: '' }));
+                    } else {
+                      const num = parseFloat(val);
+                      setForm(prev => ({ ...prev, monto: isNaN(num) ? 0 : num }));
+                    }
+                  }}
+                  onBlur={() => {
+                    if (form.monto === '') {
+                      setForm(prev => ({ ...prev, monto: 0 }));
+                    }
+                  }}
                   placeholder="0.00"
                   required
                   readOnly={esPagoActividad && !!inscripcionSeleccionada}
@@ -1025,6 +1170,66 @@ export const RegistroCuotasPage = () => {
               </div>
             </div>
 
+            {/* Devuelto por (solo si está devuelto y tiene la marca en la descripción) */}
+            {(() => {
+              const desc = detalleModal.cuota.descripcion || '';
+              const match = desc.match(/\[Devuelto por: ([^\]]+)\]/);
+              if (!match) return null;
+
+              const devueltoPorInfo = match[1];
+              let devName;
+              let devRol = '—';
+              let devEmail = '—';
+              let devPhone = '—';
+
+              const parts1 = devueltoPorInfo.split(' [');
+              const nameAndRole = parts1[0];
+              const contactInfo = parts1[1] ? parts1[1].replace(']', '') : '';
+
+              if (nameAndRole.includes(' (')) {
+                const parts2 = nameAndRole.split(' (');
+                devName = parts2[0];
+                devRol = parts2[1] ? parts2[1].replace(')', '') : '—';
+              } else {
+                devName = nameAndRole;
+              }
+
+              if (contactInfo) {
+                const parts3 = contactInfo.split(' | Tel: ');
+                devEmail = parts3[0] || '—';
+                devPhone = parts3[1] || '—';
+              }
+
+              return (
+                <div className="rounded-xl bg-orange-50 border border-orange-100 p-4">
+                  <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-3">Devolución realizada por</p>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {devName.charAt(0)}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 flex-1 text-sm">
+                      <div>
+                        <p className="text-[10px] text-orange-500">Nombre completo</p>
+                        <p className="font-semibold text-slate-900">{devName}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-orange-500">Rol</p>
+                        <p className="font-semibold text-slate-900 capitalize">{devRol}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-orange-500">Correo</p>
+                        <p className="text-slate-700">{devEmail}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-orange-500">Teléfono</p>
+                        <p className="text-slate-700">{devPhone}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Datos del ingreso */}
             <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 border border-slate-100 p-4">
               <div>
@@ -1134,6 +1339,63 @@ export const RegistroCuotasPage = () => {
           </div>
         </div>
       </Modal>
+
+      {/* R21: Modal de confirmación para Devolución */}
+      <Modal 
+        isOpen={devolverModal.open} 
+        onClose={() => setDevolverModal({ open: false, cuota: null })} 
+        title="Confirmar Devolución de Ingreso"
+        width="max-w-md"
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-rose-50 border border-rose-100 rounded-lg text-rose-800 text-sm">
+            <AlertCircle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
+            <div>
+              <span>
+                ¿Está seguro de procesar el reembolso para este ingreso? Esta acción es <strong>irreversible</strong>, fijará el monto del ingreso a <strong>Bs. 0.00</strong>, actualizará su estado a <strong>"Devuelto"</strong>, y sellará la transacción de devolución en la Blockchain.
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setDevolverModal({ open: false, cuota: null })}
+              disabled={submitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeDevolucion}
+              disabled={submitting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              {submitting ? 'Procesando...' : 'Sí, confirmar devolución'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {submitting && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-md transition-all duration-300">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-5 animate-in fade-in zoom-in duration-300">
+            <div className="relative flex items-center justify-center">
+              <div className="h-20 w-20 rounded-full border-4 border-blue-50 border-t-blue-600 animate-spin" />
+              <Loader2 className="absolute h-10 w-10 text-blue-600 animate-spin" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-800 tracking-tight">Procesando Registro</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Estamos procesando la transacción, subiendo los archivos adjuntos y sellando el registro financiero en la Blockchain de forma segura.
+              </p>
+            </div>
+            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full animate-pulse" style={{ width: '70%' }} />
+            </div>
+            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest animate-pulse">Por favor, no cierre esta ventana</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

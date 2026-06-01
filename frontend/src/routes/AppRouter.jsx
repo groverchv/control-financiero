@@ -1,44 +1,45 @@
 import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { supabase } from "../services/supabase";
-import { PublicLayout } from "../layouts/PublicLayout";
-import { AdminLayout } from "../layouts/AdminLayout";
-import { ProtectedRoute } from "./ProtectedRoute";
-import { usePermissions } from "../hooks/usePermissions";
-import { Spinner } from "../components/ui";
+import { supabase } from "@/services/supabase";
+import { PublicLayout } from "@/layouts/PublicLayout";
+import { AdminLayout } from "@/layouts/AdminLayout";
+import { ProtectedRoute } from "@/routes/ProtectedRoute";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Spinner } from "@/components/ui";
 
 // Carga diferida (Lazy Loading) de páginas con exportaciones nombradas
-const LoginPage = lazy(() => import("../features/auth/pages/LoginPage").then(m => ({ default: m.LoginPage })));
-const LandingPage = lazy(() => import("../features/auth/pages/LandingPage").then(m => ({ default: m.LandingPage })));
-const GestionMiembrosPage = lazy(() => import("../features/administracion/pages/GestionMiembrosPage").then(m => ({ default: m.GestionMiembrosPage })));
-const DashboardKpisPage = lazy(() => import("../features/administracion/pages/DashboardKpisPage").then(m => ({ default: m.DashboardKpisPage })));
-const PerfilSocioPage = lazy(() => import("../features/administracion/pages/PerfilSocioPage").then(m => ({ default: m.PerfilSocioPage })));
-const PortalSocioPage = lazy(() => import("../features/administracion/pages/PortalSocioPage").then(m => ({ default: m.PortalSocioPage })));
-const EstadoCuentaSocioPage = lazy(() => import("../features/administracion/pages/EstadoCuentaSocioPage").then(m => ({ default: m.EstadoCuentaSocioPage })));
-const RegistroCuotasPage = lazy(() => import("../features/finanzas/pages/RegistroIngresosPage").then(m => ({ default: m.RegistroCuotasPage })));
-const HistorialCuotasPage = lazy(() => import("../features/finanzas/pages/HistorialCuotasPage").then(m => ({ default: m.HistorialCuotasPage })));
-const HistorialActividadesPage = lazy(() => import("../features/finanzas/pages/HistorialActividadesPage").then(m => ({ default: m.HistorialActividadesPage })));
-const RegistroEgresosPage = lazy(() => import("../features/finanzas/pages/RegistroEgresosPage").then(m => ({ default: m.RegistroEgresosPage })));
-const GestionTiposFinanzasPage = lazy(() => import("../features/finanzas/pages/GestionTiposFinanzasPage").then(m => ({ default: m.GestionTiposFinanzasPage })));
+const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage").then(m => ({ default: m.LoginPage })));
+const LandingPage = lazy(() => import("@/features/auth/pages/LandingPage").then(m => ({ default: m.LandingPage })));
+const GestionMiembrosPage = lazy(() => import("@/features/administracion/pages/GestionMiembrosPage").then(m => ({ default: m.GestionMiembrosPage })));
+const DashboardKpisPage = lazy(() => import("@/features/administracion/pages/DashboardKpisPage").then(m => ({ default: m.DashboardKpisPage })));
+const PerfilSocioPage = lazy(() => import("@/features/administracion/pages/PerfilSocioPage").then(m => ({ default: m.PerfilSocioPage })));
+const PortalSocioPage = lazy(() => import("@/features/administracion/pages/PortalSocioPage").then(m => ({ default: m.PortalSocioPage })));
+const EstadoCuentaSocioPage = lazy(() => import("@/features/administracion/pages/EstadoCuentaSocioPage").then(m => ({ default: m.EstadoCuentaSocioPage })));
+const RegistroCuotasPage = lazy(() => import("@/features/finanzas/pages/RegistroIngresosPage").then(m => ({ default: m.RegistroCuotasPage })));
+const HistorialCuotasPage = lazy(() => import("@/features/finanzas/pages/HistorialCuotasPage").then(m => ({ default: m.HistorialCuotasPage })));
+const HistorialActividadesPage = lazy(() => import("@/features/finanzas/pages/HistorialActividadesPage").then(m => ({ default: m.HistorialActividadesPage })));
+const RegistroEgresosPage = lazy(() => import("@/features/finanzas/pages/RegistroEgresosPage").then(m => ({ default: m.RegistroEgresosPage })));
+const GestionTiposFinanzasPage = lazy(() => import("@/features/finanzas/pages/GestionTiposFinanzasPage").then(m => ({ default: m.GestionTiposFinanzasPage })));
 
-const GestionActivosPage = lazy(() => import("../features/patrimonio/pages/GestionActivosPage").then(m => ({ default: m.GestionActivosPage })));
-const CatalogoActivosPage = lazy(() => import("../features/patrimonio/pages/CatalogoActivosPage").then(m => ({ default: m.CatalogoActivosPage })));
-const NuevaAdquisicionPage = lazy(() => import("../features/patrimonio/pages/NuevaAdquisicionPage").then(m => ({ default: m.NuevaAdquisicionPage })));
-const GestionTiposActivoPage = lazy(() => import("../features/patrimonio/pages/GestionTiposActivoPage").then(m => ({ default: m.GestionTiposActivoPage })));
-const PlanAmortizacionPage = lazy(() => import("../features/patrimonio/pages/PlanAmortizacionPage").then(m => ({ default: m.PlanAmortizacionPage })));
+const GestionActivosPage = lazy(() => import("@/features/patrimonio/pages/GestionActivosPage").then(m => ({ default: m.GestionActivosPage })));
+const CatalogoActivosPage = lazy(() => import("@/features/patrimonio/pages/CatalogoActivosPage").then(m => ({ default: m.CatalogoActivosPage })));
+const NuevaAdquisicionPage = lazy(() => import("@/features/patrimonio/pages/NuevaAdquisicionPage").then(m => ({ default: m.NuevaAdquisicionPage })));
+const GestionTiposActivoPage = lazy(() => import("@/features/patrimonio/pages/GestionTiposActivoPage").then(m => ({ default: m.GestionTiposActivoPage })));
+const PlanAmortizacionPage = lazy(() => import("@/features/patrimonio/pages/PlanAmortizacionPage").then(m => ({ default: m.PlanAmortizacionPage })));
 
-const GestionActividadesPage = lazy(() => import("../features/academico/pages/GestionActividadesPage").then(m => ({ default: m.GestionActividadesPage })));
-const AsignacionJuradoPage = lazy(() => import("../features/academico/pages/AsignacionJuradoPage").then(m => ({ default: m.AsignacionJuradoPage })));
-const AsignarJuradoPage = lazy(() => import("../features/academico/pages/AsignarJuradoPage").then(m => ({ default: m.AsignarJuradoPage })));
-const BuscadorTalentoPage = lazy(() => import("../features/academico/pages/BuscadorTalentoPage").then(m => ({ default: m.BuscadorTalentoPage })));
-const GestionTiposActividadPage = lazy(() => import("../features/academico/pages/GestionTiposActividadPage").then(m => ({ default: m.GestionTiposActividadPage })));
+const GestionActividadesPage = lazy(() => import("@/features/academico/pages/GestionActividadesPage").then(m => ({ default: m.GestionActividadesPage })));
+const AsignacionJuradoPage = lazy(() => import("@/features/academico/pages/AsignacionJuradoPage").then(m => ({ default: m.AsignacionJuradoPage })));
+const AsignarJuradoPage = lazy(() => import("@/features/academico/pages/AsignarJuradoPage").then(m => ({ default: m.AsignarJuradoPage })));
+const BuscadorTalentoPage = lazy(() => import("@/features/academico/pages/BuscadorTalentoPage").then(m => ({ default: m.BuscadorTalentoPage })));
+const GestionTiposActividadPage = lazy(() => import("@/features/academico/pages/GestionTiposActividadPage").then(m => ({ default: m.GestionTiposActividadPage })));
 
-const SocioNotificacionesPage = lazy(() => import("../features/administracion/pages/SocioNotificacionesPage").then(m => ({ default: m.SocioNotificacionesPage })));
-const AdminNotificacionesPage = lazy(() => import("../features/administracion/pages/NotificacionesPage").then(m => ({ default: m.NotificacionesPage })));
-const AuditoriaPage = lazy(() => import("../features/auditoria/pages/AuditoriaPage").then(m => ({ default: m.AuditoriaPage })));
-const TransparenciaPage = lazy(() => import("../features/auditoria/pages/TransparenciaPage").then(m => ({ default: m.TransparenciaPage })));
-const PublicActividadesPage = lazy(() => import("../features/academico/pages/PublicCursosPage").then(m => ({ default: m.PublicCursosPage })));
-const DetalleActividadPage = lazy(() => import("../features/academico/pages/DetalleActividadPage").then(m => ({ default: m.DetalleActividadPage })));
+const SocioNotificacionesPage = lazy(() => import("@/features/administracion/pages/SocioNotificacionesPage").then(m => ({ default: m.SocioNotificacionesPage })));
+const AdminNotificacionesPage = lazy(() => import("@/features/administracion/pages/NotificacionesPage").then(m => ({ default: m.NotificacionesPage })));
+const AuditoriaPage = lazy(() => import("@/features/auditoria/pages/AuditoriaPage").then(m => ({ default: m.AuditoriaPage })));
+const TransparenciaPage = lazy(() => import("@/features/auditoria/pages/TransparenciaPage").then(m => ({ default: m.TransparenciaPage })));
+const PublicActividadesPage = lazy(() => import("@/features/academico/pages/PublicCursosPage").then(m => ({ default: m.PublicCursosPage })));
+const DetalleActividadPage = lazy(() => import("@/features/academico/pages/DetalleActividadPage").then(m => ({ default: m.DetalleActividadPage })));
+
 
 const SuspenseLoader = () => (
   <div className="flex h-screen w-screen items-center justify-center bg-slate-50/50 backdrop-blur-sm">

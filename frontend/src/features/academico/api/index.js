@@ -1,18 +1,27 @@
 import { supabase } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { brevoService } from '../../../services/brevo';
+import { apiCache } from '../../../utils/apiCache';
 
 export const academicoApi = {
   obtenerTiposActividad: async () => {
+    const cacheKey = 'academico:tipos_actividad';
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('tipo_actividad')
       .select('*')
       .order('nombre');
     if (error) throw error;
-    return data || [];
+    
+    const result = data || [];
+    apiCache.set(cacheKey, result);
+    return result;
   },
 
   crearTipoActividad: async (tipo) => {
+    apiCache.invalidate('academico');
     const { data, error } = await supabase
       .from('tipo_actividad')
       .insert([tipo])
@@ -22,6 +31,7 @@ export const academicoApi = {
   },
 
   actualizarTipoActividad: async (id, updates) => {
+    apiCache.invalidate('academico');
     const { data, error } = await supabase
       .from('tipo_actividad')
       .update(updates)
@@ -32,6 +42,7 @@ export const academicoApi = {
   },
 
   eliminarTipoActividad: async (id) => {
+    apiCache.invalidate('academico');
     const { error } = await supabase
       .from('tipo_actividad')
       .delete()
@@ -41,6 +52,7 @@ export const academicoApi = {
   },
 
   cancelarActividad: async (id) => {
+    apiCache.invalidate('academico');
     // 1. Obtener datos de la actividad y sus inscritos
     const { data: actividad, error: actErr } = await supabase
       .from('actividad')
@@ -125,6 +137,7 @@ export const academicoApi = {
   },
 
   crearActividad: async (actividad, imagenFile = null) => {
+    apiCache.invalidate('academico');
     const parsedCosto = (actividad.costo === '' || actividad.costo === null || actividad.costo === undefined) ? 0 : Number(actividad.costo);
     const { data, error } = await supabase
       .from('actividad')
@@ -220,13 +233,17 @@ export const academicoApi = {
   },
 
   obtenerActividades: async () => {
+    const cacheKey = 'academico:actividades';
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('actividad')
       .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion), inscripcion(id)')
       .order('fecha', { ascending: false });
 
     if (error) throw error;
-    return (data || []).map(d => ({ 
+    const result = (data || []).map(d => ({ 
       ...d, 
       nombre: d.titulo,
       tipo_nombre: d.tipo_actividad?.nombre || 'General',
@@ -238,9 +255,13 @@ export const academicoApi = {
       }) || [],
       inscritos_count: d.inscripcion?.length || 0
     }));
+
+    apiCache.set(cacheKey, result);
+    return result;
   },
 
   actualizarActividad: async (id, updates, imagenFile = null) => {
+    apiCache.invalidate('academico');
     const preparedUpdates = { ...updates };
     if (updates.nombre) preparedUpdates.titulo = updates.nombre;
 

@@ -28,6 +28,31 @@ const selloCache = new Map();
 const historialCache = new Map();
 const tipoCache = new Map();
 
+/**
+ * Ejecuta una función asíncrona con reintentos y retroceso exponencial.
+ * Si la operación falla, espera un tiempo creciente antes de reintentar.
+ * Evita saturar recursos externos y da tiempo a los peers para recuperarse.
+ * @param {Function} fn - Función asíncrona a ejecutar
+ * @param {number} maxRetries - Número máximo de reintentos (default: 3)
+ * @param {number} baseDelayMs - Tiempo base de espera en ms (default: 500)
+ */
+async function withRetry(fn, maxRetries = 3, baseDelayMs = 500) {
+    let lastError;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            lastError = err;
+            if (attempt < maxRetries) {
+                const delayMs = baseDelayMs * Math.pow(2, attempt); // 500, 1000, 2000 ms
+                console.warn(`[Backoff] Intento ${attempt + 1}/${maxRetries} fallido. Reintentando en ${delayMs}ms... Error: ${err.message}`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        }
+    }
+    throw lastError;
+}
+
 // Reconstruye eficientemente los índices en memoria cuando se carga o muta el ledger
 function reconstruirCaches() {
     selloCache.clear();
@@ -131,10 +156,12 @@ async function sellarTransaccion(tipoTabla, idRegistro, hashCalculado, idUsuario
         if (isOfflineMode) {
             return sellarMock(tipoTabla, idRegistro, hashCalculado, idUsuario);
         }
-        const resultado = await c.submitTransaction('SellarTransaccion', tipoTabla, idRegistro, hashCalculado, idUsuario);
+        const resultado = await withRetry(
+            () => c.submitTransaction('SellarTransaccion', tipoTabla, idRegistro, hashCalculado, idUsuario)
+        );
         return JSON.parse(resultado.toString());
     } catch (err) {
-        console.warn('[Fabric] Error en sellarTransaccion, activando MODO OFFLINE:', err.message);
+        console.warn('[Fabric] Error persistente en sellarTransaccion tras reintentos. Activando MODO OFFLINE:', err.message);
         isOfflineMode = true;
         return sellarMock(tipoTabla, idRegistro, hashCalculado, idUsuario);
     }
@@ -173,10 +200,12 @@ async function consultarSello(idRegistro) {
         if (isOfflineMode) {
             return consultarSelloMock(idRegistro);
         }
-        const resultado = await c.evaluateTransaction('ConsultarSello', idRegistro);
+        const resultado = await withRetry(
+            () => c.evaluateTransaction('ConsultarSello', idRegistro)
+        );
         return JSON.parse(resultado.toString());
     } catch (err) {
-        console.warn('[Fabric] Error en consultarSello, activando MODO OFFLINE:', err.message);
+        console.warn('[Fabric] Error persistente en consultarSello tras reintentos. Activando MODO OFFLINE:', err.message);
         isOfflineMode = true;
         return consultarSelloMock(idRegistro);
     }
@@ -192,10 +221,12 @@ async function obtenerHistorial(idRegistro) {
     try {
         const c = await inicializar();
         if (isOfflineMode) return historialCache.get(idRegistro) || [];
-        const resultado = await c.evaluateTransaction('ObtenerHistorial', idRegistro);
+        const resultado = await withRetry(
+            () => c.evaluateTransaction('ObtenerHistorial', idRegistro)
+        );
         return JSON.parse(resultado.toString());
     } catch (err) {
-        console.warn('[Fabric] Error en obtenerHistorial, activando MODO OFFLINE:', err.message);
+        console.warn('[Fabric] Error persistente en obtenerHistorial tras reintentos. Activando MODO OFFLINE:', err.message);
         isOfflineMode = true;
         return historialCache.get(idRegistro) || [];
     }
@@ -205,10 +236,12 @@ async function consultarPorTipo(tipoTabla) {
     try {
         const c = await inicializar();
         if (isOfflineMode) return tipoCache.get(tipoTabla) || [];
-        const resultado = await c.evaluateTransaction('ConsultarPorTipo', tipoTabla);
+        const resultado = await withRetry(
+            () => c.evaluateTransaction('ConsultarPorTipo', tipoTabla)
+        );
         return JSON.parse(resultado.toString());
     } catch (err) {
-        console.warn('[Fabric] Error en consultarPorTipo, activando MODO OFFLINE:', err.message);
+        console.warn('[Fabric] Error persistente en consultarPorTipo tras reintentos. Activando MODO OFFLINE:', err.message);
         isOfflineMode = true;
         return tipoCache.get(tipoTabla) || [];
     }
@@ -220,10 +253,12 @@ async function verificarIntegridad(idRegistro, hashAVerificar) {
         if (isOfflineMode) {
             return verificarIntegridadMock(idRegistro, hashAVerificar);
         }
-        const resultado = await c.evaluateTransaction('VerificarIntegridad', idRegistro, hashAVerificar);
+        const resultado = await withRetry(
+            () => c.evaluateTransaction('VerificarIntegridad', idRegistro, hashAVerificar)
+        );
         return JSON.parse(resultado.toString());
     } catch (err) {
-        console.warn('[Fabric] Error en verificarIntegridad, activando MODO OFFLINE:', err.message);
+        console.warn('[Fabric] Error persistente en verificarIntegridad tras reintentos. Activando MODO OFFLINE:', err.message);
         isOfflineMode = true;
         return verificarIntegridadMock(idRegistro, hashAVerificar);
     }

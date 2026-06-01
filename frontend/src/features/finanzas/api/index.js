@@ -1,10 +1,12 @@
 import { supabase } from '../../../services/supabase';
 import { brevoService } from '../../../services/brevo';
 import { blockchainService } from '../../../services/blockchain';
+import { apiCache } from '../../../utils/apiCache';
 
 export const finanzasApi = {
   // Nota: 'cuotas' ya no existe en el esquema nuevo. Se mapea a 'ingreso' temporalmente o se marca como pendiente.
   registrarPago: async (pago) => {
+    apiCache.invalidate('finanzas');
     const miembroId = pago.miembroId || pago.miembro_id || null;
     const { data, error } = await supabase
       .from('ingreso')
@@ -112,6 +114,7 @@ export const finanzasApi = {
   },
 
   devolverIngreso: async (id, usuarioId) => {
+    apiCache.invalidate('finanzas');
     // 1. Obtener el ingreso y verificar si está ligado a una inscripción
     const { data: currentIngreso, error: fetchErr } = await supabase
       .from('ingreso')
@@ -190,6 +193,10 @@ export const finanzasApi = {
   },
 
   obtenerCuotas: async (miembroId) => {
+    const cacheKey = `finanzas:cuotas:${miembroId || 'all'}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+
     let query = supabase.from('ingreso').select(`
       *,
       tipo:tipo_ingreso(nombre),
@@ -205,7 +212,7 @@ export const finanzasApi = {
     const { data, error } = await query;
     if (error) throw error;
     
-    return data?.map(d => ({
+    const result = data?.map(d => ({
       ...d,
       miembroId: d.miembro_id,
       socio_nombre: d.socio ? `${d.socio.nombre} ${d.socio.apellidoPaterno || ''} ${d.socio.apellidoMaterno || ''}`.trim() : 'Sin Asignar',
@@ -219,10 +226,17 @@ export const finanzasApi = {
       registrado_por_rol: d.registrador?.rol || null,
       comprobanteUrl: d.archivos?.find(a => a.tipo === 'comprobante_ingreso')?.url || d.archivos?.[0]?.url || null,
     })) || [];
+
+    apiCache.set(cacheKey, result);
+    return result;
   },
 
   // ── Historial de cuotas de membresía por miembro ──────────────────────────
   obtenerHistorialCuotasMiembro: async () => {
+    const cacheKey = 'finanzas:historial_cuotas';
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+
     // Trae todos los miembros (activos e inactivos) con su fecha de creación y campos de pausa
     const { data: miembros, error: mErr } = await supabase
       .from('miembro')
@@ -279,7 +293,7 @@ export const finanzasApi = {
       return d;
     };
 
-    return (miembros || []).map(m => {
+    const result = (miembros || []).map(m => {
       // 1. Determinar el límite superior temporal para la generación de cuotas
       let limiteHoy = new Date();
       if (m.estado === 'inactivo') {
@@ -402,6 +416,9 @@ export const finanzasApi = {
         fechaPausa: configUltima?.fecha_pausa || null,
       };
     });
+
+    apiCache.set(cacheKey, result);
+    return result;
   },
 
   _syncInProgressKeys: new Set(),
@@ -446,6 +463,10 @@ export const finanzasApi = {
   },
 
   obtenerConfiguracionCuotas: async () => {
+    const cacheKey = 'finanzas:config';
+    const cached = apiCache.get(cacheKey);
+    if (cached) return cached;
+
     const { data, error } = await supabase
       .from('configuracion_cuotas')
       .select('*')
@@ -453,10 +474,14 @@ export const finanzasApi = {
       .limit(1)
       .maybeSingle();
     if (error) console.warn('[Config Cuotas]', error.message);
-    return data || { pausado: false, fecha_pausa: null, dias_pausados: 0 };
+    
+    const result = data || { pausado: false, fecha_pausa: null, dias_pausados: 0 };
+    apiCache.set(cacheKey, result);
+    return result;
   },
 
   togglePausaCuotas: async (pausar, configActual) => {
+    apiCache.invalidate('finanzas');
     const hoy = new Date().toISOString();
     let payload;
 
@@ -492,6 +517,7 @@ export const finanzasApi = {
   },
 
   actualizarConfiguracionCuotas: async (payload) => {
+    apiCache.invalidate('finanzas');
     // Para conservar el historial e inmutabilidad, siempre insertamos un registro nuevo
     // en lugar de actualizar el ID existente.
     const cleanPayload = { ...payload };
@@ -526,6 +552,7 @@ export const finanzasApi = {
   },
 
   registrarEgreso: async (egreso) => {
+    apiCache.invalidate('finanzas');
     // Convertir strings vacíos a null para campos UUID (Supabase no acepta '' en UUID)
     const miembroId = egreso.miembro_id || egreso.registradoPor || null;
     const tipoEgresoId = egreso.tipo_egreso_id && egreso.tipo_egreso_id.trim() !== '' ? egreso.tipo_egreso_id : null;

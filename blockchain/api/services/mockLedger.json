@@ -806,5 +806,2885 @@
     "hashCalculado": "7b47e456c6ae5166dfdc8cddcfe0c4771fdc315b44f6364ad18efd432d4d1c6b",
     "idUsuario": "sistema-auto",
     "timestamp": "2026-05-31T05:24:52.058Z"
+  },
+  {
+    "txId": "3f9dce8c06c9d7b7be0619d645f0bb5f2774ab3bb2d57089816557ec9367f470",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-tq4l0up80l",
+    "hashCalculado": "hash-m4c1wtd2ap",
+    "idUsuario": "user-9xpd9u",
+    "timestamp": "2026-06-01T17:48:09.186Z"
+  },
+  {
+    "txId": "7dba00581d3de1529021278f8cfa22b9b7a7348b91f45ae901892aa0205373ff",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ujvnq6960x8",
+    "hashCalculado": "hash-iych0w78cg",
+    "idUsuario": "user-w1h8mb",
+    "timestamp": "2026-06-01T17:48:09.189Z"
+  },
+  {
+    "txId": "08431b54db335b56d9e31c7534dfbfa4b18d94790f6326c3ba3d7f16857fd0b0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-gbj4fa10df8",
+    "hashCalculado": "hash-hs04oziqw9o",
+    "idUsuario": "user-j94a94",
+    "timestamp": "2026-06-01T17:48:09.192Z"
+  },
+  {
+    "txId": "f394e4d8570c21cda1491e13b2aee82cb7a5dbe8d92e3213da9b5eda64cda944",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-vkmj1zud7e",
+    "hashCalculado": "hash-nsciaqq0g6",
+    "idUsuario": "user-sjjop3",
+    "timestamp": "2026-06-01T17:48:09.194Z"
+  },
+  {
+    "txId": "9efbba48eb58d15380092439e48c34a6d66798eb7b07e5d4a9b6bef094e8f73e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-mrmwmy1jr38",
+    "hashCalculado": "hash-j76ri8s4ht",
+    "idUsuario": "user-rqogs6",
+    "timestamp": "2026-06-01T17:48:09.197Z"
+  },
+  {
+    "txId": "ec66732513e9d409981b7b4e661c36bc211ffd7eba5735b17244169ba42728fc",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5w97xt1kawq",
+    "hashCalculado": "hash-juvr1f91jg",
+    "idUsuario": "user-qbkiwy",
+    "timestamp": "2026-06-01T17:48:09.199Z"
+  },
+  {
+    "txId": "d0906f8e434abf2a1b82636248881a73d36b013bdb0e6faebe753f146c0e8fba",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wn46o9uasrb",
+    "hashCalculado": "hash-tkaasq95r5b",
+    "idUsuario": "user-68fsaa",
+    "timestamp": "2026-06-01T17:48:09.200Z"
+  },
+  {
+    "txId": "9c6c4ed4601568c5161deb60aa4cc3665e966c66d25e71004cca3aef9d8b747d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ug4no9as4ue",
+    "hashCalculado": "hash-iwvdxtdtyh",
+    "idUsuario": "user-9h1xju",
+    "timestamp": "2026-06-01T17:48:09.202Z"
+  },
+  {
+    "txId": "8c66768f9337c71aba0a08203ec287db66800f4953862158208ef67bc983e5fb",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-d2i8vfwqmce",
+    "hashCalculado": "hash-k2viczqk8ts",
+    "idUsuario": "user-eb39nz",
+    "timestamp": "2026-06-01T17:48:09.204Z"
+  },
+  {
+    "txId": "9099587889b84f1fdb4f663e5a47fd5a900ef090f9fd3a2878f20a72f5cad139",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-z2r00f5gf89",
+    "hashCalculado": "hash-ikltjfpxygk",
+    "idUsuario": "user-7etmvp",
+    "timestamp": "2026-06-01T17:48:09.206Z"
+  },
+  {
+    "txId": "2b10c1ae9a021063d6fd925a156d4ab5636ad021a3e9a1b6e8b313481742804f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ty8yzhq2kk",
+    "hashCalculado": "hash-d10sbvwetws",
+    "idUsuario": "user-oi6m55",
+    "timestamp": "2026-06-01T17:48:09.228Z"
+  },
+  {
+    "txId": "93a854344cc293c15e1a9fce51304d5268acdf0a1800c6aaa5d61686f5658b75",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wk73umvkp8",
+    "hashCalculado": "hash-oj7slqevkp",
+    "idUsuario": "user-6lpzrk",
+    "timestamp": "2026-06-01T17:48:09.243Z"
+  },
+  {
+    "txId": "cefd63d0793cce55f259f260d2b67008d6818273987c080cd58885db1e12fdfe",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-n8sz7ljndy7",
+    "hashCalculado": "hash-p0nay3sl7a",
+    "idUsuario": "user-2pily6",
+    "timestamp": "2026-06-01T17:48:09.288Z"
+  },
+  {
+    "txId": "36b5ae95fa2a346dc7c79c490b2e4b991c39348356a29d28a85230db0d199e0d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-k2vz3ms6r7k",
+    "hashCalculado": "hash-bh95fan386w",
+    "idUsuario": "user-qfbtgm",
+    "timestamp": "2026-06-01T17:48:09.308Z"
+  },
+  {
+    "txId": "71edd60dd57e49c8cad70a6b562ac5412f8738758505513d82f923093ba81998",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ipc5x9lyl1",
+    "hashCalculado": "hash-dqt2jr3lkpt",
+    "idUsuario": "user-k6p3x1",
+    "timestamp": "2026-06-01T17:48:09.310Z"
+  },
+  {
+    "txId": "6cedd3ba8b0dde6a3e5064f9e33898fd855378d73533b3b5e854cbcce8697a2e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-r9a0ssogreo",
+    "hashCalculado": "hash-obphtoonlp",
+    "idUsuario": "user-08k0la",
+    "timestamp": "2026-06-01T17:48:09.312Z"
+  },
+  {
+    "txId": "59470fca0c1939c5e27a5dbc3b44157a2cfa303c62f75714d20ef81b74ad316f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1utfsm0bmo8",
+    "hashCalculado": "hash-999eliuag88",
+    "idUsuario": "user-ahd9tc",
+    "timestamp": "2026-06-01T17:48:09.314Z"
+  },
+  {
+    "txId": "81ed892b144e7ed015b67922943754bbe9a3c209053c6c1092ffdf0d6511cfea",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-fsm7gjl8yf4",
+    "hashCalculado": "hash-j6cynpa3m4",
+    "idUsuario": "user-lbni6q",
+    "timestamp": "2026-06-01T17:48:09.315Z"
+  },
+  {
+    "txId": "3607550934deb81e5ab06de8f92e6e70dbcf2074f46929060f804f09b155c175",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-dfkbaftms8i",
+    "hashCalculado": "hash-0bcn5eq5oy74",
+    "idUsuario": "user-2e2wop",
+    "timestamp": "2026-06-01T17:48:09.317Z"
+  },
+  {
+    "txId": "4bf1313daf789783eade1caca55ad791996d7fdd9af6bd2773d2eec0c4e9d494",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-2cy4dgdecpf",
+    "hashCalculado": "hash-vhd0fuem8l",
+    "idUsuario": "user-8viqn1",
+    "timestamp": "2026-06-01T17:48:09.319Z"
+  },
+  {
+    "txId": "ef664060322243ae245f3663b367d1615a9875d7850b4a755a9f222f7d03c471",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-07dbckese5gb",
+    "hashCalculado": "hash-lqwuxn770g",
+    "idUsuario": "user-cu4zvd",
+    "timestamp": "2026-06-01T17:48:09.321Z"
+  },
+  {
+    "txId": "e344e2cd58d75656a3c33a6e3b74bbf932c9434cdb422fb4ac394f2821a0558a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-lucuwtbds",
+    "hashCalculado": "hash-yz8qk9desd",
+    "idUsuario": "user-bzb00i",
+    "timestamp": "2026-06-01T17:48:09.322Z"
+  },
+  {
+    "txId": "6d8d2cfdbb1fb0488f13bfe9b0925877c418d002214efcff84a7b56886bd67b4",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g7muw176xjs",
+    "hashCalculado": "hash-8gpuu395ltu",
+    "idUsuario": "user-zd7vn3",
+    "timestamp": "2026-06-01T17:48:09.324Z"
+  },
+  {
+    "txId": "b20d017e35e437d51c61d36e0589ca2c29731bc71aab1eb3ea03dca59f379947",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-s1anbeuebvn",
+    "hashCalculado": "hash-73ipifbhbuk",
+    "idUsuario": "user-plauxy",
+    "timestamp": "2026-06-01T17:48:09.325Z"
+  },
+  {
+    "txId": "6732da8f7dcd98bb0f1ab746e5e3f89e5ac7badc1aeee13c517fc9a50186d888",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-dyenk7j5jbj",
+    "hashCalculado": "hash-7tm30nwb4qk",
+    "idUsuario": "user-bjctjj",
+    "timestamp": "2026-06-01T17:48:09.326Z"
+  },
+  {
+    "txId": "5bfe955dd923077c7b166c5621d9b61fda49f14527b4cda5a9487c32478db3a0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wc4axd7j6wn",
+    "hashCalculado": "hash-pjvf07jwc9q",
+    "idUsuario": "user-fokaos",
+    "timestamp": "2026-06-01T17:48:09.327Z"
+  },
+  {
+    "txId": "68237e2278f435a92127086dfcd89058a70eb9f731711f0862a9564924c68df9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-a6em3lykhb8",
+    "hashCalculado": "hash-kcjkbmd1u2n",
+    "idUsuario": "user-4f3fpk",
+    "timestamp": "2026-06-01T17:48:09.331Z"
+  },
+  {
+    "txId": "8a5b5525c5bda4883d7d7ef5f21dfb3242801f223e02cfd9d6082efb3beae616",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-zc0yncpym6h",
+    "hashCalculado": "hash-0xbxwd5teiua",
+    "idUsuario": "user-b3p3zl",
+    "timestamp": "2026-06-01T17:48:09.333Z"
+  },
+  {
+    "txId": "25c3d313a87c99d621b1725f92c3c2dd934c8da2ebb0e6f09482f793d5843d6d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qmnevlyb2c",
+    "hashCalculado": "hash-sge20xk397",
+    "idUsuario": "user-1lmmqg",
+    "timestamp": "2026-06-01T17:48:09.334Z"
+  },
+  {
+    "txId": "5094dc7a02e071d7d20900817ee74ff16842930defd11d713214d8d25c54714b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-4i0ilhmrjin",
+    "hashCalculado": "hash-1gze2m8vqrv",
+    "idUsuario": "user-7we3im",
+    "timestamp": "2026-06-01T17:48:09.336Z"
+  },
+  {
+    "txId": "51d0eceb754312dc854a5978167ac69afdcbf568592589695df11da91c348f58",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-fdg5grrle3g",
+    "hashCalculado": "hash-ydtlhi9m0j",
+    "idUsuario": "user-ay6jya",
+    "timestamp": "2026-06-01T17:48:09.337Z"
+  },
+  {
+    "txId": "fbce568454e677a1626aae41eefda904b56a8004af90987351cbba801f6e6504",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-t6pqyb9g66",
+    "hashCalculado": "hash-3ilusbbybxy",
+    "idUsuario": "user-68np6o",
+    "timestamp": "2026-06-01T17:48:09.338Z"
+  },
+  {
+    "txId": "de204793949469ca2df8819f576278e9d1daa7378a8a8c2b0859f7570414b788",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-uv6ou5xdj",
+    "hashCalculado": "hash-0tkz14o93xkr",
+    "idUsuario": "user-uek2r1",
+    "timestamp": "2026-06-01T17:48:09.339Z"
+  },
+  {
+    "txId": "e93c4ce2266c5f372554a82a11409d7956a4f14b68d190efab9693fbca4699a1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-zddfcsly0ok",
+    "hashCalculado": "hash-zl66hyn59l",
+    "idUsuario": "user-w627ci",
+    "timestamp": "2026-06-01T17:48:09.341Z"
+  },
+  {
+    "txId": "70ebdbf5dd78c231af46499ecf3a09eac98161b85f24f8cd186ba96cebb02d3e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-azke2uv2guh",
+    "hashCalculado": "hash-da3dmu832kq",
+    "idUsuario": "user-ee2sdp",
+    "timestamp": "2026-06-01T17:48:09.342Z"
+  },
+  {
+    "txId": "a63cd0417e1411d4578d91fcebfcc51804c39618155b262366e81a6596ff68a8",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-4guqk09amff",
+    "hashCalculado": "hash-0m39dzrirj2",
+    "idUsuario": "user-hcdjy0",
+    "timestamp": "2026-06-01T17:48:09.344Z"
+  },
+  {
+    "txId": "bcf55371e2bf62a3f20ac6e480b75eb0ec0aa996d668d504c5905baf80f2a535",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-nxve6tiegy7",
+    "hashCalculado": "hash-j17e1ukmvji",
+    "idUsuario": "user-lg9js8",
+    "timestamp": "2026-06-01T17:48:09.347Z"
+  },
+  {
+    "txId": "3ac20a12b50cd733aaaffb5b24fb6a5f2d184b9f5dea7bf32cd39286a463beba",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ix9mqx7y0mq",
+    "hashCalculado": "hash-krgti66v3t8",
+    "idUsuario": "user-qpwcyv",
+    "timestamp": "2026-06-01T17:48:09.349Z"
+  },
+  {
+    "txId": "82f6d73e37f193aa4620901661adbd9500ca3d279699f673f7fd203ad7be6bbd",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wy8xq8qsw4",
+    "hashCalculado": "hash-9kn7l89fuvf",
+    "idUsuario": "user-qywnte",
+    "timestamp": "2026-06-01T17:48:09.350Z"
+  },
+  {
+    "txId": "15e79e985a8df7f8cee5ba30d2fb9b79807d2036569782cf077030bfde28dffb",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xf7mdwlktx",
+    "hashCalculado": "hash-maa22nwroki",
+    "idUsuario": "user-vvffxy",
+    "timestamp": "2026-06-01T17:48:09.352Z"
+  },
+  {
+    "txId": "c593cb6b2bc8954421b1e8385ee4a74fc756182626ac120ad3ef27613faadc25",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-hzrw2mvwx4c",
+    "hashCalculado": "hash-3ngtvfy9j4a",
+    "idUsuario": "user-69ljf6",
+    "timestamp": "2026-06-01T17:48:09.353Z"
+  },
+  {
+    "txId": "8720ba4c840d9d23ddd4326079013c1f93cf59baab609e888ed7d6adfa84236e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-9rw4gj5mtsg",
+    "hashCalculado": "hash-enjjiwq9bph",
+    "idUsuario": "user-7jw6gc",
+    "timestamp": "2026-06-01T17:48:09.355Z"
+  },
+  {
+    "txId": "7bfd3660381b9d26d8c24368366ec31f3d030ed06ba82aa578450e9f3bc7b18b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-0fnejsy8xsm",
+    "hashCalculado": "hash-4lebzfqq4gc",
+    "idUsuario": "user-mqg8d3",
+    "timestamp": "2026-06-01T17:48:09.356Z"
+  },
+  {
+    "txId": "470a5da668d77c8a1ac815c2271b39fdecefbe6ca61c031e6f63dfb584b80a2f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-648t9234r15",
+    "hashCalculado": "hash-pf5ryqwut4",
+    "idUsuario": "user-48jvag",
+    "timestamp": "2026-06-01T17:48:09.357Z"
+  },
+  {
+    "txId": "32a5cbd08d55851a231ce8af124e55090c962eee94bb24964fe5cb93f34a8823",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-pjjtcv6xzcl",
+    "hashCalculado": "hash-smoj91youc",
+    "idUsuario": "user-6e5w3n",
+    "timestamp": "2026-06-01T17:48:09.359Z"
+  },
+  {
+    "txId": "401c7019ef65d26ad999828d469caff174f7f7e156bc83b897712e8ed631974b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-771zfo2x2qs",
+    "hashCalculado": "hash-ywuvyqd7fxo",
+    "idUsuario": "user-xeop13",
+    "timestamp": "2026-06-01T17:48:09.360Z"
+  },
+  {
+    "txId": "33153b7fa3f9beec1a98d4480a9a4f60f14bf4a5ac0110a933cbed3bd75bbeb4",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g5xwirpkssr",
+    "hashCalculado": "hash-y5s034gg0ma",
+    "idUsuario": "user-mh1df2",
+    "timestamp": "2026-06-01T17:48:09.363Z"
+  },
+  {
+    "txId": "acd0418dfda8d4af7c42cd765506164b2de4fd79cceec30c970b4cdb2057b6bf",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cnnqw69cn7t",
+    "hashCalculado": "hash-idzvwxyvfz",
+    "idUsuario": "user-2j5azo",
+    "timestamp": "2026-06-01T17:48:09.365Z"
+  },
+  {
+    "txId": "9ac03cfd1e46e7013de860f2ad98efdf1437a171660cc5aefa18f48d3d3c4b18",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g25zwe6nrga",
+    "hashCalculado": "hash-yuunkjqhsr",
+    "idUsuario": "user-dydfpo",
+    "timestamp": "2026-06-01T17:48:09.367Z"
+  },
+  {
+    "txId": "f69284fff3c187e8c0f1055f72ee29d988ea8540a123408c40dccba1dfd2971e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ugu9qqyl6uq",
+    "hashCalculado": "hash-b64y7gjeamc",
+    "idUsuario": "user-on8zyn",
+    "timestamp": "2026-06-01T17:48:09.368Z"
+  },
+  {
+    "txId": "83e433a009f576be775dd550be514072217362080f4eeeb935012c74a7b7ef1e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-q0zrwehwt9p",
+    "hashCalculado": "hash-790frayfnuw",
+    "idUsuario": "user-fldmk7",
+    "timestamp": "2026-06-01T17:48:09.374Z"
+  },
+  {
+    "txId": "aa23011c2ec0a369c8826f84adf18b18c710e64007cb729b05cc886f83d6ddda",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-9flxn1w111d",
+    "hashCalculado": "hash-nk4o8rr476h",
+    "idUsuario": "user-g7vcku",
+    "timestamp": "2026-06-01T17:48:09.377Z"
+  },
+  {
+    "txId": "d939fdaec188bd9cea22124d6be13489263c34475c4d3258d46121f19fcbf03a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-30hapxk66uj",
+    "hashCalculado": "hash-spqr6na51lb",
+    "idUsuario": "user-jqn38b",
+    "timestamp": "2026-06-01T17:48:09.379Z"
+  },
+  {
+    "txId": "80b32304a50ec879bf020faaea3b0faeda5be579dff6310fea0f9e918e562ed5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-imve6psq758",
+    "hashCalculado": "hash-f2t5x31a01p",
+    "idUsuario": "user-croa9e",
+    "timestamp": "2026-06-01T17:48:09.381Z"
+  },
+  {
+    "txId": "ecfc7e501ace0f993fd33962507f082d4fb949f263488df3fa246858cd5e0cda",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xuv6sw2bv9n",
+    "hashCalculado": "hash-jrc17h2fh4",
+    "idUsuario": "user-an8ets",
+    "timestamp": "2026-06-01T17:48:09.383Z"
+  },
+  {
+    "txId": "1f7f889e9668cb14a0c24781eff48100322a87f4bdcd5364b924073b12d5a2d0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-6uk8lm15t67",
+    "hashCalculado": "hash-hiitgip76cb",
+    "idUsuario": "user-lp0czp",
+    "timestamp": "2026-06-01T17:48:09.384Z"
+  },
+  {
+    "txId": "d8122ec2ca1232e1724e4fe14a99ca33e5b12cea3e219a2875cc73a2fda5c46f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-4jmcivhj185",
+    "hashCalculado": "hash-mz7ylbvqmqg",
+    "idUsuario": "user-b4lqxm",
+    "timestamp": "2026-06-01T17:48:09.385Z"
+  },
+  {
+    "txId": "5b1776f80b6e17257730f86a8e500f42cb533fa87ba4694dc9e9fcacd34630c1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-f1q3k6cly57",
+    "hashCalculado": "hash-73ynkcyx8a4",
+    "idUsuario": "user-ch4l3p",
+    "timestamp": "2026-06-01T17:48:09.387Z"
+  },
+  {
+    "txId": "df7a77b77f23d9804a6f746cb15da53211b27c2600a62600cd3bdf1b9c8eba5c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-3ag41ascosa",
+    "hashCalculado": "hash-3zhu7sxkehd",
+    "idUsuario": "user-3zc9xz",
+    "timestamp": "2026-06-01T17:48:09.388Z"
+  },
+  {
+    "txId": "773d565b39a429272d7074d3e8b7c6c8dcbb0ee7bb9519e6d30cf80e00dc4cae",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g757aefbucb",
+    "hashCalculado": "hash-vb7m0kjj2f9",
+    "idUsuario": "user-k9weyp",
+    "timestamp": "2026-06-01T17:48:09.389Z"
+  },
+  {
+    "txId": "191e748f68af295f4cc49f41d37e2365eae24ceb816152ecfa516b64b945f051",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-pzcet8vj9gq",
+    "hashCalculado": "hash-zv3lltniip",
+    "idUsuario": "user-8zsgzk",
+    "timestamp": "2026-06-01T17:48:09.390Z"
+  },
+  {
+    "txId": "28879767692fd2ab637c28cc35cce14951a69ab59c12c4e8621c83a25e0c4210",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-rxtl8ri25v",
+    "hashCalculado": "hash-3brn96buqda",
+    "idUsuario": "user-cj6774",
+    "timestamp": "2026-06-01T17:48:09.392Z"
+  },
+  {
+    "txId": "15b7013aa0026d81bde5e399115ec008171bbcaa595a5dc61757f22bd918701b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-81s8vo8nyfb",
+    "hashCalculado": "hash-typy4zc72r",
+    "idUsuario": "user-1p51jm",
+    "timestamp": "2026-06-01T17:48:09.393Z"
+  },
+  {
+    "txId": "87dca1e9948c64ed2a76c3b8481578a2d46a1c0b2e6e47d9ec7e1db9fc578561",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g9lb3y3ws8q",
+    "hashCalculado": "hash-xo9kx0dif5f",
+    "idUsuario": "user-duk0r3",
+    "timestamp": "2026-06-01T17:48:09.395Z"
+  },
+  {
+    "txId": "ba537ee19bc5252ab1c58a4bb136866c4cc4b2998d2275e1eb8e2194f0f8bb0f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-lzpqw9exlis",
+    "hashCalculado": "hash-rfzka59yc2",
+    "idUsuario": "user-vhsgzt",
+    "timestamp": "2026-06-01T17:48:09.397Z"
+  },
+  {
+    "txId": "b030c591a10f1dfa854563d46360914e6db5e40eaabdd569a1fcef49a7e6ebb5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-oy779d8b2d",
+    "hashCalculado": "hash-k7h8yaueb7l",
+    "idUsuario": "user-xsk5fv",
+    "timestamp": "2026-06-01T17:48:09.398Z"
+  },
+  {
+    "txId": "d5843512d82778e061e0f91eb1ace47ea212f3894e68e77e1397581d63330e35",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-mz9jt53f45r",
+    "hashCalculado": "hash-bzhz50xe7wj",
+    "idUsuario": "user-gg9htw",
+    "timestamp": "2026-06-01T17:48:09.399Z"
+  },
+  {
+    "txId": "6344e828e75dbd4324b1f62628f967114c54d0c0d46f7fb0439c968fe1421750",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-uawfzsb9aqb",
+    "hashCalculado": "hash-2m7w27cjlrj",
+    "idUsuario": "user-sd9am0",
+    "timestamp": "2026-06-01T17:48:09.401Z"
+  },
+  {
+    "txId": "2ac9e945941b4471ce2a48782ddb8ad9b66161a86a27c4169cd7eef5484d009d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-x0skbyiqt6g",
+    "hashCalculado": "hash-o9bl2kyjdg",
+    "idUsuario": "user-fbb9i3",
+    "timestamp": "2026-06-01T17:48:09.402Z"
+  },
+  {
+    "txId": "6a13175459aa388c9f7b1cb615cd27e9e191c16e6109425777f9991ae46ff6b5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-nwapsy0739",
+    "hashCalculado": "hash-66bnrhuujdq",
+    "idUsuario": "user-b4pu3m",
+    "timestamp": "2026-06-01T17:48:09.403Z"
+  },
+  {
+    "txId": "be27da164bd62c9cfe5b61bc32005ccdc1ac93804e2ce4429571836c3d01e128",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5zeoxgdvbed",
+    "hashCalculado": "hash-x08il9uts2",
+    "idUsuario": "user-knuvkz",
+    "timestamp": "2026-06-01T17:48:09.404Z"
+  },
+  {
+    "txId": "7599ce937182f434657b8795788ac5a8c1cf1aa20fa5d3b8108f7fdbacb598ed",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-2inksmxaiat",
+    "hashCalculado": "hash-rbyqc90yunj",
+    "idUsuario": "user-y2pmqv",
+    "timestamp": "2026-06-01T17:48:09.405Z"
+  },
+  {
+    "txId": "b192ff494a18b6bb8d6607d737bb4c158dba5d3e7c5bd6bb6fd07b11782c9037",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-e2g0r0x5gid",
+    "hashCalculado": "hash-my2n4x6tvha",
+    "idUsuario": "user-cyr86x",
+    "timestamp": "2026-06-01T17:48:09.406Z"
+  },
+  {
+    "txId": "ec85fabf8b2d8cc048b30d49c28e4e85ef834aebe9d46569ee8ce97a4d95956e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-t45jycyl5i",
+    "hashCalculado": "hash-r88wbi92apa",
+    "idUsuario": "user-3kyxjd",
+    "timestamp": "2026-06-01T17:48:09.407Z"
+  },
+  {
+    "txId": "f7c9e90c2adfb4309d344434aea5d10c6b892d0da90a27ef74848a22760d31b8",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-fv25grf4vl",
+    "hashCalculado": "hash-51a28mi61l6",
+    "idUsuario": "user-b4e4ab",
+    "timestamp": "2026-06-01T17:48:09.408Z"
+  },
+  {
+    "txId": "7a591cbe1c28d9d1efdf58ca41531649f39682e8afe55116589aa7980ee7c40d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-64czka43s9h",
+    "hashCalculado": "hash-g3vznndyv6g",
+    "idUsuario": "user-1qmpm6",
+    "timestamp": "2026-06-01T17:48:09.409Z"
+  },
+  {
+    "txId": "9bc54f5392357e74c5a4dd9ad18401aa2290babbac271bd56dbbbf3dc4636b60",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ldv0ibajwcb",
+    "hashCalculado": "hash-yuoz3kopcis",
+    "idUsuario": "user-tybo5v",
+    "timestamp": "2026-06-01T17:48:09.410Z"
+  },
+  {
+    "txId": "e26c1398e6f7bfed1073eec609f884146ae86f9be7797378938513fcec4240ba",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-nlk3q6ziycc",
+    "hashCalculado": "hash-8ijexs7cc1d",
+    "idUsuario": "user-jmpd0t",
+    "timestamp": "2026-06-01T17:48:09.411Z"
+  },
+  {
+    "txId": "42f0a74c94861ca96029824c1544f2083cabe1d8d748a35034ab2122992522fb",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-9g44qv3z7q",
+    "hashCalculado": "hash-0r9d7hb48v5n",
+    "idUsuario": "user-v29fik",
+    "timestamp": "2026-06-01T17:48:09.413Z"
+  },
+  {
+    "txId": "09a985fdddfe670720841649f24221a6777e196a1cd46eed7f841b08aac30c81",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-00sjbu2rtawq",
+    "hashCalculado": "hash-7m7zf5yv7pu",
+    "idUsuario": "user-qu9uxq",
+    "timestamp": "2026-06-01T17:48:09.415Z"
+  },
+  {
+    "txId": "281247bd12d106ca159062777102124099913f42442cc8f0770a01fa4a8bb09e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-90cdnqua1w",
+    "hashCalculado": "hash-h5fm854vztr",
+    "idUsuario": "user-wh8zwe",
+    "timestamp": "2026-06-01T17:48:09.416Z"
+  },
+  {
+    "txId": "4ec0fb742b4cb70e83b5ec1aa7a63a34871169cb271a175fb061b24c4782aa1b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-k3193ed0zc",
+    "hashCalculado": "hash-wkegufmedo",
+    "idUsuario": "user-uvm67x",
+    "timestamp": "2026-06-01T17:48:09.418Z"
+  },
+  {
+    "txId": "fb4fae5ed9888f7df13e4e02880cf91f4b5616b8b7887ee95b055b0d610dc327",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xkq36wn2euo",
+    "hashCalculado": "hash-5wnduz3sez3",
+    "idUsuario": "user-37sxfr",
+    "timestamp": "2026-06-01T17:48:09.419Z"
+  },
+  {
+    "txId": "373f1fcaab68b4381f231de688a26ad1c62347a6c8663ae7faf4783690e60841",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-sidmogb1mhm",
+    "hashCalculado": "hash-aq9dpy1e4jb",
+    "idUsuario": "user-77phyq",
+    "timestamp": "2026-06-01T17:48:09.420Z"
+  },
+  {
+    "txId": "71c6fb8ded66edbe7df9a1225ff44cb05126c2d90ac88304bfaea503e48035e7",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-stav6zkhgyo",
+    "hashCalculado": "hash-or39e7h3zs",
+    "idUsuario": "user-psvix8",
+    "timestamp": "2026-06-01T17:48:09.421Z"
+  },
+  {
+    "txId": "7b28c5b1ca0b3b172c8594fdf0c390ec732d02e1f2eee9bb1f4752cbcd56236b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-3v7vbkw19tv",
+    "hashCalculado": "hash-wfafqlr85lr",
+    "idUsuario": "user-r89mm8",
+    "timestamp": "2026-06-01T17:48:09.423Z"
+  },
+  {
+    "txId": "09834183eaeaa54aa545993af0205ccec93c97e6ac786567b4acb3af50ae1c89",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ysbc3us6mas",
+    "hashCalculado": "hash-vuxcnsjdkaa",
+    "idUsuario": "user-05bizq",
+    "timestamp": "2026-06-01T17:48:09.424Z"
+  },
+  {
+    "txId": "a01f7a4838dd89434a4162a0b87d19d7c706b1fcf7389c96fc33fb760228a5f1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-3dkypt1ymm4",
+    "hashCalculado": "hash-25i6b3rw74v",
+    "idUsuario": "user-tx2xr4",
+    "timestamp": "2026-06-01T17:48:09.425Z"
+  },
+  {
+    "txId": "fe28971257bba3dfb9e956663ae8a7d6ea8462b8d15719597898d22da7a4af9e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-kim13w8y6r",
+    "hashCalculado": "hash-farj3n64pcf",
+    "idUsuario": "user-b90krb",
+    "timestamp": "2026-06-01T17:48:09.426Z"
+  },
+  {
+    "txId": "b382251fba926de273f0341aabe9c8f8184e40344d7403ccfac35c6f963c0d78",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1onz4bxaz9r",
+    "hashCalculado": "hash-bfh62qbvvo8",
+    "idUsuario": "user-er0yge",
+    "timestamp": "2026-06-01T17:48:09.428Z"
+  },
+  {
+    "txId": "ef199d8004ca0d4ad6085ab81ebe17febb918996de359481b147509be5e78035",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-k36mn47abi",
+    "hashCalculado": "hash-4ve7bza4qb",
+    "idUsuario": "user-jilfmt",
+    "timestamp": "2026-06-01T17:48:09.429Z"
+  },
+  {
+    "txId": "8a33da6e75ab46db850cd246ca1c8e002f8e2f0cfad24770b65c2437b28c9f1b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-pdukf6m0qhe",
+    "hashCalculado": "hash-bdpnkp8wi1j",
+    "idUsuario": "user-k0n79p",
+    "timestamp": "2026-06-01T17:48:09.431Z"
+  },
+  {
+    "txId": "361182e5d9e1d3f378e3d75831dcea6fe192429dbfe8fc1fdd6230ce656100a3",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-6zw5zj4bpga",
+    "hashCalculado": "hash-b1t9vsju8hd",
+    "idUsuario": "user-zd02op",
+    "timestamp": "2026-06-01T17:48:09.432Z"
+  },
+  {
+    "txId": "1a52ab7ed87cb987255811f0927682ac85f9f0b26e9cdf234e461193569f5aaf",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-aaxpt0gf26l",
+    "hashCalculado": "hash-6zyeldozpwx",
+    "idUsuario": "user-0cw2xs",
+    "timestamp": "2026-06-01T17:48:09.433Z"
+  },
+  {
+    "txId": "4e8d05a29f239863b8c8c28f5edab8c2621cc15207d4b5ca052855a0c4d64b05",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-tmfxfbq5ain",
+    "hashCalculado": "hash-10jk6n4fscja",
+    "idUsuario": "user-5xc019",
+    "timestamp": "2026-06-01T17:48:09.435Z"
+  },
+  {
+    "txId": "96615daba1420b07104a87ef6b1d80f40a4a4980f84a330aa2b28b7a7300fc40",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ksdjo6t5lhs",
+    "hashCalculado": "hash-8kbplb082ob",
+    "idUsuario": "user-o95n4c",
+    "timestamp": "2026-06-01T17:48:09.436Z"
+  },
+  {
+    "txId": "cbbe346ae3b9a8395dbd43889e2a1bf1283c610f3ec991936e481fd33d7d0664",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-51zud9fslld",
+    "hashCalculado": "hash-mkkv7gvsaw9",
+    "idUsuario": "user-i020hf",
+    "timestamp": "2026-06-01T17:48:09.437Z"
+  },
+  {
+    "txId": "b947808883f9c50c488420971fb5f943233d6e93baee34b45388c4f7d22849b1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-a3033am66te",
+    "hashCalculado": "hash-e7zo49n90hr",
+    "idUsuario": "user-vt41e5",
+    "timestamp": "2026-06-01T17:48:09.438Z"
+  },
+  {
+    "txId": "976ac95d04d7d2b8d8cc6fa4238a656d818d3e12661dc7b5bbae9be707433762",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-nsr5z8awaje",
+    "hashCalculado": "hash-zl6gh87uwug",
+    "idUsuario": "user-4ctx3p",
+    "timestamp": "2026-06-01T17:48:09.439Z"
+  },
+  {
+    "txId": "b48fe3a5e0c0e107c06457a196f8d614b854be751cda34086ccaa50c58876d56",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-0nwdijh28yel",
+    "hashCalculado": "hash-z9x7ggg4lz9",
+    "idUsuario": "user-ic9c7t",
+    "timestamp": "2026-06-01T17:48:09.441Z"
+  },
+  {
+    "txId": "6770e8c8807144f934cf6618c34e76d433a25e06c41d749153c52f67367d83bc",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-16wtevicql5",
+    "hashCalculado": "hash-c8kt6exwclh",
+    "idUsuario": "user-8cyl78",
+    "timestamp": "2026-06-01T17:48:09.447Z"
+  },
+  {
+    "txId": "92e6896d5d6d7250f6b4af1eb429b6dd3a625ead22d21d2f55d2073c348aea23",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1loel8m75j4",
+    "hashCalculado": "hash-hcbpganozek",
+    "idUsuario": "user-gctcho",
+    "timestamp": "2026-06-01T17:48:09.449Z"
+  },
+  {
+    "txId": "84ee03f84bec29fa8d3585b99d44e5dc3a1ad6c53aebc625251f1c9e4d911dac",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8m0yew99og9",
+    "hashCalculado": "hash-na9v43qvd49",
+    "idUsuario": "user-9jw28u",
+    "timestamp": "2026-06-01T17:48:09.450Z"
+  },
+  {
+    "txId": "64f9022ff25665d722d2c504f077018f623367af9ebad6c2339e0e7e12108a85",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-pszgzkt0v6n",
+    "hashCalculado": "hash-37t398zlz0a",
+    "idUsuario": "user-08p8n7",
+    "timestamp": "2026-06-01T17:48:09.461Z"
+  },
+  {
+    "txId": "0895028246a32be05ded51da9a16d4fad783b5f0c65b82a59bdea264a5a4e569",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qtzvr9g3yp8",
+    "hashCalculado": "hash-0kc19pgc4dg",
+    "idUsuario": "user-ppsb9a",
+    "timestamp": "2026-06-01T17:48:09.463Z"
+  },
+  {
+    "txId": "6bf2654a7840fc5004f37c86ed950a637570ecb9ac081781eba0eb37e18dc52b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xnwsyhxlrp",
+    "hashCalculado": "hash-nnsfoa5ey8",
+    "idUsuario": "user-b2hfol",
+    "timestamp": "2026-06-01T17:48:09.467Z"
+  },
+  {
+    "txId": "b6d1a9babee8bda117c917acb6a502c3ca88a710cb3098ac5b753e45b7475dd9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-bke671jm46",
+    "hashCalculado": "hash-t9701lkwusn",
+    "idUsuario": "user-gouzky",
+    "timestamp": "2026-06-01T17:48:09.468Z"
+  },
+  {
+    "txId": "7254ab27c03cbf90efe028efb3caca6aa77a05a40815a0d2daa511695a3af36c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-kgo9mmslquq",
+    "hashCalculado": "hash-oypy5iuwzg",
+    "idUsuario": "user-pq98nj",
+    "timestamp": "2026-06-01T17:48:09.469Z"
+  },
+  {
+    "txId": "24ac4890cb613bec669b0c6847da77ebb5609f83deb6a02a1720322eca124a97",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-4tmhmd56aig",
+    "hashCalculado": "hash-nx8hqpj7vfo",
+    "idUsuario": "user-qhigtf",
+    "timestamp": "2026-06-01T17:48:09.471Z"
+  },
+  {
+    "txId": "c239fd0a85e1d1eb9846caf1e6a735e3887bb9b0e79cf796928578ca0922cb35",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-91h3tnalkd",
+    "hashCalculado": "hash-bq4ss4lgv8r",
+    "idUsuario": "user-6q21va",
+    "timestamp": "2026-06-01T17:48:09.472Z"
+  },
+  {
+    "txId": "cd51634bcc1c1679cd0bbbfd7170401690a25ca2ab3fe335f31eec939379a518",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-q5f3uqpn9lg",
+    "hashCalculado": "hash-o1qobqgbfl",
+    "idUsuario": "user-2nhtdy",
+    "timestamp": "2026-06-01T17:48:09.473Z"
+  },
+  {
+    "txId": "9cb7ba048de923488af453fb449d1e9052b1f697aa98118b96cc35a09b65e404",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-fq7pf27kl2u",
+    "hashCalculado": "hash-k3qnpamdc8",
+    "idUsuario": "user-48rfhu",
+    "timestamp": "2026-06-01T17:48:09.474Z"
+  },
+  {
+    "txId": "b9eda4df1365bf3cdb032b147aef8ad98d22d02e4632b3bc60b8636746864331",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qffqz62lxz",
+    "hashCalculado": "hash-pzue67z2c4",
+    "idUsuario": "user-9p2mb0",
+    "timestamp": "2026-06-01T17:48:09.475Z"
+  },
+  {
+    "txId": "d0fc69c9045576d804fe910ea13f1cfe6d40393865861ec77929362ce6111bbc",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-q8wvv14fn09",
+    "hashCalculado": "hash-q9yaz9tjtx",
+    "idUsuario": "user-w2xjrw",
+    "timestamp": "2026-06-01T17:48:09.476Z"
+  },
+  {
+    "txId": "fbbb5b1d9d9ccc5259fa24291760cd40e53d488f792ebd0e4d9a1da9ce04475e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-buze53o0bpa",
+    "hashCalculado": "hash-noqhhiuu7a",
+    "idUsuario": "user-hjvnqi",
+    "timestamp": "2026-06-01T17:48:09.477Z"
+  },
+  {
+    "txId": "b15a7629f0765a9e743353e5bc00d8383a8d52f0f34304513354c39d592d5b9c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-tz9l71dbqzc",
+    "hashCalculado": "hash-98k9p51l1j5",
+    "idUsuario": "user-puonfo",
+    "timestamp": "2026-06-01T17:48:09.478Z"
+  },
+  {
+    "txId": "5f41d238eec4ecb73ee5b3b1f982871ef4a148fac286e04ef95d2cdf058e2d3e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8d839pfqay6",
+    "hashCalculado": "hash-v9pijlq8ty",
+    "idUsuario": "user-crp3wh",
+    "timestamp": "2026-06-01T17:48:09.479Z"
+  },
+  {
+    "txId": "5bf2e8ba460f75bf066437261a40b209b4f503d48d278e93d51382f25c122540",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-tn59cfeilui",
+    "hashCalculado": "hash-dz70x2fg555",
+    "idUsuario": "user-0wwkua",
+    "timestamp": "2026-06-01T17:48:09.480Z"
+  },
+  {
+    "txId": "2ed3271c7fc9aa6edd57033e5b25f900dde8a77570c644a4d99462b140b466ad",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-9zxijq2wul4",
+    "hashCalculado": "hash-o4r52dbs9r",
+    "idUsuario": "user-mryu13",
+    "timestamp": "2026-06-01T17:48:09.481Z"
+  },
+  {
+    "txId": "ad75439cda2251e323ac9aa4b194a02b40b55e3b7223ad05a7fc2986258d2613",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-s78cquk0cgl",
+    "hashCalculado": "hash-0j9ng4qsn6e",
+    "idUsuario": "user-8ipgps",
+    "timestamp": "2026-06-01T17:48:09.483Z"
+  },
+  {
+    "txId": "f9044a24e6daf954067c123a40145e725565d392e3a941db17669a096a0d52fa",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-vn0ux21c93",
+    "hashCalculado": "hash-xsuij9q4le",
+    "idUsuario": "user-xytb74",
+    "timestamp": "2026-06-01T17:48:09.484Z"
+  },
+  {
+    "txId": "4d3df18e8e46f65239e7f9f8e1c5dcd00966ac4a1b331faefadf375805515525",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g5hmgwpbja5",
+    "hashCalculado": "hash-344ytybbetw",
+    "idUsuario": "user-f5l23x",
+    "timestamp": "2026-06-01T17:48:09.485Z"
+  },
+  {
+    "txId": "e84798417f0c7532ad10e287324557b9a4a4d9e85849cb0b5b5488295d2684a4",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1q0ur0t55l3j",
+    "hashCalculado": "hash-odyrb048nre",
+    "idUsuario": "user-04qvv5",
+    "timestamp": "2026-06-01T17:48:09.486Z"
+  },
+  {
+    "txId": "5302f5b5cd5e886d7e4c04c704365367f64764c13ee7c5cc7d8296102d75f120",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5lu4xt2qrgx",
+    "hashCalculado": "hash-k7mq4pru5jb",
+    "idUsuario": "user-cus0n9",
+    "timestamp": "2026-06-01T17:48:09.487Z"
+  },
+  {
+    "txId": "898b4d0ff9dd9f13357304b2804672ee66989f793fc8a1687c9856861dcd4ebb",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-psck9sg39f",
+    "hashCalculado": "hash-7wf6pocra16",
+    "idUsuario": "user-msrck9",
+    "timestamp": "2026-06-01T17:48:09.489Z"
+  },
+  {
+    "txId": "08c6d452abeea2e3875ccd26f82cedd980341e005cda14d040def0987c3d6179",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-r3ojgaeos7",
+    "hashCalculado": "hash-adfq3hru8p8",
+    "idUsuario": "user-fzv1qy",
+    "timestamp": "2026-06-01T17:48:09.491Z"
+  },
+  {
+    "txId": "a25873a60bc2898249ab4e4345b24a25b55ad045ce80e81f712c972d0e5a7b80",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xcn3z8r8ava",
+    "hashCalculado": "hash-t00jj4ebo2g",
+    "idUsuario": "user-s8brdl",
+    "timestamp": "2026-06-01T17:48:09.492Z"
+  },
+  {
+    "txId": "8c146bda09454ee7c4e7434e68984cbc9de05a0c594ff40fc4a81bb34d1f7819",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-eqwhx6fntij",
+    "hashCalculado": "hash-24z1g8gfov7",
+    "idUsuario": "user-jxe2ta",
+    "timestamp": "2026-06-01T17:48:09.493Z"
+  },
+  {
+    "txId": "f85eba8643638adb4c9df01129246ebbe4909cb227f4d241b7021fb73610760b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-horact7e1sc",
+    "hashCalculado": "hash-sdjfo8zjp3r",
+    "idUsuario": "user-fft9f1",
+    "timestamp": "2026-06-01T17:48:09.493Z"
+  },
+  {
+    "txId": "9ddb4434f5217316f6e41d1c47865b74b901303ee6446d7d0be96a364f463566",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-te000028q7",
+    "hashCalculado": "hash-4a2oqqszkni",
+    "idUsuario": "user-m774h4",
+    "timestamp": "2026-06-01T17:48:09.494Z"
+  },
+  {
+    "txId": "fcf134a5210c6d8457acb76cc7299ac207e0b438b5cf7f79efa3d0c39f2371bd",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-3zca1tn4oo1",
+    "hashCalculado": "hash-ux08s8b7vk",
+    "idUsuario": "user-4tca5n",
+    "timestamp": "2026-06-01T17:48:09.496Z"
+  },
+  {
+    "txId": "d2ba7f9240d22e63f0ddc73bfa1116edfe9d64dc305f6607add5107de632a8d2",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-gtbujdbl0wo",
+    "hashCalculado": "hash-wahbywqgd2j",
+    "idUsuario": "user-oqths8",
+    "timestamp": "2026-06-01T17:48:09.497Z"
+  },
+  {
+    "txId": "5c4736f72f4a1316542f0c8aa4adbffa519bab6cdfdfe33a1443df2ddc2ceb03",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-spplpk63qc",
+    "hashCalculado": "hash-gobrbx6q1o",
+    "idUsuario": "user-913f72",
+    "timestamp": "2026-06-01T17:48:09.498Z"
+  },
+  {
+    "txId": "a37484da10c4036c50d0a2c444f89a6fce983f7a340ccc2b3d423a6475d83205",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-vhdi2h2pw6h",
+    "hashCalculado": "hash-63u631r4luf",
+    "idUsuario": "user-h56r9r",
+    "timestamp": "2026-06-01T17:48:09.499Z"
+  },
+  {
+    "txId": "e0ab316c6f3ab3083057aa37a8b8cc1f5805f62b97cb07ed881212cf14794aa9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-n5yp0r1vylj",
+    "hashCalculado": "hash-3hroleca8pa",
+    "idUsuario": "user-42a1cf",
+    "timestamp": "2026-06-01T17:48:09.500Z"
+  },
+  {
+    "txId": "2369c7279e596926da8270cd66ea9edfb33012c3a1f419ecc346a95bd2df729e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ncuhezhurf",
+    "hashCalculado": "hash-bwx65hzyy2",
+    "idUsuario": "user-otje5u",
+    "timestamp": "2026-06-01T17:48:09.500Z"
+  },
+  {
+    "txId": "e67fb9975e4cce10cff35963eaf2cc3988af6dafe04db37d7d8b53debe4a2b49",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-pjulu1y317",
+    "hashCalculado": "hash-4lxvl957cnh",
+    "idUsuario": "user-tnetpz",
+    "timestamp": "2026-06-01T17:48:09.501Z"
+  },
+  {
+    "txId": "e42e095fee59d36a65db3a96fdc93084e155406b2c153d3ff17aa9bbdd406288",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-lz3eg94o97",
+    "hashCalculado": "hash-sm2qe8zp6bm",
+    "idUsuario": "user-l558c7",
+    "timestamp": "2026-06-01T17:48:09.502Z"
+  },
+  {
+    "txId": "1f2d2750bb76f5035860914e48657b3910dad96c5082fc321dcc5adc0b136012",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-hctjcip21ah",
+    "hashCalculado": "hash-hee5j8f2ott",
+    "idUsuario": "user-bzyta9",
+    "timestamp": "2026-06-01T17:48:09.502Z"
+  },
+  {
+    "txId": "76173b15dbee5e64c3342c0113d53250792acdeb4ddf27c61281a5852d64b2de",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-zs7cyuj65qq",
+    "hashCalculado": "hash-wn3zqu6g3ob",
+    "idUsuario": "user-vw31dm",
+    "timestamp": "2026-06-01T17:48:09.503Z"
+  },
+  {
+    "txId": "ce28731e74d822e9eaabee8733867b8f0bed99e14938814817129722aff4d6b9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-10zcv9jz0rx",
+    "hashCalculado": "hash-d9a3787b5dd",
+    "idUsuario": "user-l5dxi3",
+    "timestamp": "2026-06-01T17:48:09.505Z"
+  },
+  {
+    "txId": "29bd8ec378fd997255ac4e227af1d32d369dabf4c7ea9ad16e6755210bf8e20a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-uj2er11x29",
+    "hashCalculado": "hash-n6cbyseisa",
+    "idUsuario": "user-naliyz",
+    "timestamp": "2026-06-01T17:48:09.505Z"
+  },
+  {
+    "txId": "a2fd31c2eaf106c383c648cac74ab6d01aca6a1bd75d834b1000b72b7027fe4c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-na072cgtiti",
+    "hashCalculado": "hash-rtagrpif3d",
+    "idUsuario": "user-p2auvu",
+    "timestamp": "2026-06-01T17:48:09.506Z"
+  },
+  {
+    "txId": "c28e03b24b8227dd3186ebf7e08051fcb47ca09f3cd7b3e8a6608cecf99fc766",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8md6q9ljbu8",
+    "hashCalculado": "hash-es8kyug544a",
+    "idUsuario": "user-lv5058",
+    "timestamp": "2026-06-01T17:48:09.507Z"
+  },
+  {
+    "txId": "277b3d257a94a43129302639ad11a96531f246890b37babe315fcbbfa2ac5162",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wjz04eh9dp",
+    "hashCalculado": "hash-ltcqjzfmkb7",
+    "idUsuario": "user-apshk5",
+    "timestamp": "2026-06-01T17:48:09.508Z"
+  },
+  {
+    "txId": "0034b207b34e3c1cf59561a6256e41c60fa9b66ad353315d052e6dcfc9a9b139",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-aax5wr2j1xq",
+    "hashCalculado": "hash-6696po6n67a",
+    "idUsuario": "user-rjyw45",
+    "timestamp": "2026-06-01T17:48:09.509Z"
+  },
+  {
+    "txId": "0415d8855818fd563d9cc6bba33ef4d8fc5e5dbb47dde63002db1172c3341c32",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-d6eke4tqyc",
+    "hashCalculado": "hash-b1l7qaz92h",
+    "idUsuario": "user-742gbt",
+    "timestamp": "2026-06-01T17:48:09.509Z"
+  },
+  {
+    "txId": "98db825231254a9265efc86dc28a42f40eca75a5e5458faab34c3ba9cf72c2a0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-0i4cscppi8rd",
+    "hashCalculado": "hash-t99bydc9akg",
+    "idUsuario": "user-t3db6y",
+    "timestamp": "2026-06-01T17:48:09.510Z"
+  },
+  {
+    "txId": "b3f4cd55cb14b75d9a89c3ee2c36c961e5fe019d5d6a306e98a1b32b6ad6c7c1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xaf7ra1narl",
+    "hashCalculado": "hash-x53bxnstz6a",
+    "idUsuario": "user-xtvyex",
+    "timestamp": "2026-06-01T17:48:09.512Z"
+  },
+  {
+    "txId": "f224e91681e8e5c08bb6dd8c5ce968c9db3a31a260109098a1f69f8e94f1b7e0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wtds90e9r2",
+    "hashCalculado": "hash-9jpjcxwlm1j",
+    "idUsuario": "user-pmzcye",
+    "timestamp": "2026-06-01T17:48:09.514Z"
+  },
+  {
+    "txId": "384955205d11b6cd58168c13000ffcfe505197e76ed7b58817e8d6ae7718cea9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qxc9yzdhy1",
+    "hashCalculado": "hash-atnm84org85",
+    "idUsuario": "user-4ezuld",
+    "timestamp": "2026-06-01T17:48:09.520Z"
+  },
+  {
+    "txId": "2498787bd25dbf62e772861f2bd7d15b8a6bc7e199cbcb69588936d3e5b1a921",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-nmm6rlicnlj",
+    "hashCalculado": "hash-jmfd1uviop",
+    "idUsuario": "user-gpqk8s",
+    "timestamp": "2026-06-01T17:48:09.521Z"
+  },
+  {
+    "txId": "b8fbb943e49d333381a14a168b87caf17defeebca9303410a727054c3fa8d77e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-47crm4xyi8w",
+    "hashCalculado": "hash-cqh5086dme4",
+    "idUsuario": "user-u1mv66",
+    "timestamp": "2026-06-01T17:48:09.523Z"
+  },
+  {
+    "txId": "317f874c9e74129fb24fcee6967ffe6d1ccd028896452c53722b5fa15f7f7157",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-i2heubqjui",
+    "hashCalculado": "hash-zvmfjaat4b8",
+    "idUsuario": "user-wohqmp",
+    "timestamp": "2026-06-01T17:48:09.524Z"
+  },
+  {
+    "txId": "c9bec9941226fd4602c51d8f7da024a4df8a54cc7e22a889566a9a27e289ebc6",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-af27idwjc3",
+    "hashCalculado": "hash-9emir59xp7u",
+    "idUsuario": "user-xsv5ir",
+    "timestamp": "2026-06-01T17:48:09.525Z"
+  },
+  {
+    "txId": "50e242f4f2d509f69257525d346d3471b0206ff54357727302c94446888cf05c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qq04sqaxdm",
+    "hashCalculado": "hash-pfzwxoihon",
+    "idUsuario": "user-14y725",
+    "timestamp": "2026-06-01T17:48:09.526Z"
+  },
+  {
+    "txId": "469dbce63998930630a5606b21b9c1a8924ee70aab96a4c85cfeb6aa2c5540cb",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-l6gkjjskgkc",
+    "hashCalculado": "hash-srmauwp0yw",
+    "idUsuario": "user-m4q3y9",
+    "timestamp": "2026-06-01T17:48:09.527Z"
+  },
+  {
+    "txId": "b2d86e30aec3fcae3194b866c5865fa1b80f5fe15b823a354af11490429d1112",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g4tm15zhhcd",
+    "hashCalculado": "hash-kuluohh769r",
+    "idUsuario": "user-7fug2y",
+    "timestamp": "2026-06-01T17:48:09.528Z"
+  },
+  {
+    "txId": "64520429ba11a9e3688667d877f76844b6a2edc466aa3e72586a5387cdb660c8",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-6zpeu7c8pui",
+    "hashCalculado": "hash-qhxg4ogxls",
+    "idUsuario": "user-vky4sl",
+    "timestamp": "2026-06-01T17:48:09.531Z"
+  },
+  {
+    "txId": "5d039bc57369eee0260c4c77288c68c4c2975fa0bd306431484fff4544c72bc9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-rja1pdwyi5c",
+    "hashCalculado": "hash-4eozex28kse",
+    "idUsuario": "user-9u2dgu",
+    "timestamp": "2026-06-01T17:48:09.532Z"
+  },
+  {
+    "txId": "860efc45e8566751bd27a4e8093321fd5b284ac7680387c4de8e46d0e1914774",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-b0szmyk6w67",
+    "hashCalculado": "hash-mvd2gr05zpk",
+    "idUsuario": "user-7dooq9",
+    "timestamp": "2026-06-01T17:48:09.533Z"
+  },
+  {
+    "txId": "355d99c8eddd49ba9d8ff163d957f84c47e91aeaaab5bda39c5c10e8009feddd",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5pna5c7cdui",
+    "hashCalculado": "hash-7ubhph6zknk",
+    "idUsuario": "user-n0i6lh",
+    "timestamp": "2026-06-01T17:48:09.534Z"
+  },
+  {
+    "txId": "8ab37be017ba96e7d9a921a61237a16e510a44d40da8add2235c508ad565ec56",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-egwm7njdmz",
+    "hashCalculado": "hash-8bjy2ct40hs",
+    "idUsuario": "user-p76l1i",
+    "timestamp": "2026-06-01T17:48:09.535Z"
+  },
+  {
+    "txId": "93c3d435c8dd4f481f4925c1dab52233638c1bb4bfabec7290183e39d62ce8ac",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-k48tusldtzs",
+    "hashCalculado": "hash-irw4psh4nr",
+    "idUsuario": "user-dqw2h9",
+    "timestamp": "2026-06-01T17:48:09.536Z"
+  },
+  {
+    "txId": "8fe44cb6989141ef3d5139d649cf8551072b3fe515959c85e05fa33d6d57f89c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-w32g7252xns",
+    "hashCalculado": "hash-mjg8clv3izg",
+    "idUsuario": "user-46yrjh",
+    "timestamp": "2026-06-01T17:48:09.538Z"
+  },
+  {
+    "txId": "9e1e1c4047c443ebf9e4d61f948ec27944961d92d31c77dba02aa914b9ef9544",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xfc4tbo0wpg",
+    "hashCalculado": "hash-djpuf98qpca",
+    "idUsuario": "user-be0hi1",
+    "timestamp": "2026-06-01T17:48:09.539Z"
+  },
+  {
+    "txId": "8c18f7fc63513cea095d3e2574030c9690b702ff1ad33511deae185fdb307530",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-jj809kcuql",
+    "hashCalculado": "hash-z1wadm28tza",
+    "idUsuario": "user-i1ebu0",
+    "timestamp": "2026-06-01T17:48:09.540Z"
+  },
+  {
+    "txId": "cc1142840241c5e004517a250909bf884c6a58fedb35eeed2d730a7d9a115863",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-unmuxwryn2k",
+    "hashCalculado": "hash-mtbnqvjfu1",
+    "idUsuario": "user-sn3hbn",
+    "timestamp": "2026-06-01T17:48:09.541Z"
+  },
+  {
+    "txId": "f8b4a272d8b36814d4117ade24f08a767f16137e654efd126ee6ccbe75149cdf",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g90mr9bd4ls",
+    "hashCalculado": "hash-rx56jo5bls",
+    "idUsuario": "user-39j1bl",
+    "timestamp": "2026-06-01T17:48:09.542Z"
+  },
+  {
+    "txId": "cd7fc8c5b8987bcd8097a04048d7c27d0c3b17424c2a00b9f0ff8149cfad9c92",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xweo4o973yj",
+    "hashCalculado": "hash-kvmo61m4c2g",
+    "idUsuario": "user-evdw75",
+    "timestamp": "2026-06-01T17:48:09.543Z"
+  },
+  {
+    "txId": "fec83ee6be53a67dcf6f566fc5db4d31127333b6326c4d7b4ab66ec55fa5fc92",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-gf5p7xkz2hb",
+    "hashCalculado": "hash-yxqs9c7ns1",
+    "idUsuario": "user-vc0zv8",
+    "timestamp": "2026-06-01T17:48:09.544Z"
+  },
+  {
+    "txId": "325ddf589d1b2fab3d73d6398caca7dd1ba33e661f97ffe6171ad544f9d9ea08",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1vxgjacdcja",
+    "hashCalculado": "hash-vv068xbdt6",
+    "idUsuario": "user-twi604",
+    "timestamp": "2026-06-01T17:48:09.545Z"
+  },
+  {
+    "txId": "eb880f5d1f7cec701f587c24cb5b5643ce7d1d2a65034eebd9e915744481502a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ar1f1iexv6a",
+    "hashCalculado": "hash-rqaubgtcom",
+    "idUsuario": "user-68l10c",
+    "timestamp": "2026-06-01T17:48:09.547Z"
+  },
+  {
+    "txId": "108b59be9f8b8e6a3dd02d8bd416bd1dfcfe2268a0a3229236e3370b3c9c3f7d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-vaa1r9cyjkl",
+    "hashCalculado": "hash-o6f96yhi0c",
+    "idUsuario": "user-4v2odn",
+    "timestamp": "2026-06-01T17:48:09.548Z"
+  },
+  {
+    "txId": "254608035453320dec2b18810e17e16fbec0ff032d601f433a0263a42e52cc42",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-k4i0feb0ho",
+    "hashCalculado": "hash-9q742pv9kew",
+    "idUsuario": "user-p05dvc",
+    "timestamp": "2026-06-01T17:48:09.549Z"
+  },
+  {
+    "txId": "eb8ab647f9d333fd8e7882e450f2c694d99353f8310308561965a7be59a73497",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-54044iyvyar",
+    "hashCalculado": "hash-t2ojfomdlri",
+    "idUsuario": "user-t0rteh",
+    "timestamp": "2026-06-01T17:48:09.550Z"
+  },
+  {
+    "txId": "29e5d3fb60e6c95d5e788ba7eace2e387cab48fd4875332dd66a86fe556abcc6",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-sfwdtkq40kh",
+    "hashCalculado": "hash-h68slqd7ijg",
+    "idUsuario": "user-0x7s3g",
+    "timestamp": "2026-06-01T17:48:09.551Z"
+  },
+  {
+    "txId": "6a9bc30b9ab6a55e8a37f69d2d9cd21a64e447ccb03c04de536d37125e2c6b67",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qs8xmd2gpcs",
+    "hashCalculado": "hash-a5ug5l6y8jo",
+    "idUsuario": "user-2711ih",
+    "timestamp": "2026-06-01T17:48:09.552Z"
+  },
+  {
+    "txId": "e3137443610ea6a21f93267d645e973519f02ad40182ce0a7445369dbc805e9d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-uqg6uo2r3gq",
+    "hashCalculado": "hash-gfe2s25r1xr",
+    "idUsuario": "user-zcaeen",
+    "timestamp": "2026-06-01T17:48:09.553Z"
+  },
+  {
+    "txId": "c81ad3880037a59b1ff9fa63fded5f9d02ed9d48f23a99689ced786196b3f27a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ov7p0bfn7nj",
+    "hashCalculado": "hash-3mn1tp3r3ap",
+    "idUsuario": "user-22b2y5",
+    "timestamp": "2026-06-01T17:48:09.554Z"
+  },
+  {
+    "txId": "b3922142d8fd446fb27d29d41b5c54b3f53062051687aef35efa17639a63fe01",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8yzdqtgmz68",
+    "hashCalculado": "hash-9ux93flmn8v",
+    "idUsuario": "user-mw11vl",
+    "timestamp": "2026-06-01T17:48:09.554Z"
+  },
+  {
+    "txId": "dc54f61cdf5ba47e860ce7fc6fe6738b49b17960ec6d30ca2f862004e7a5d307",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-15jm41mdtw",
+    "hashCalculado": "hash-9vaepyrxp5f",
+    "idUsuario": "user-s5uco2",
+    "timestamp": "2026-06-01T17:48:09.555Z"
+  },
+  {
+    "txId": "36ebbfa329a0b9d2785c1392c6b45b28a60337cb6380809217ef2114ea2b7cbf",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-iexynid1v2",
+    "hashCalculado": "hash-p0ueziyy2v",
+    "idUsuario": "user-88ghcj",
+    "timestamp": "2026-06-01T17:48:09.556Z"
+  },
+  {
+    "txId": "ff97ce2dc3796210ea12cb0ab34a3ca3536e8e5ea05c9f882f2aedefd3320166",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-t43saqy8a39",
+    "hashCalculado": "hash-d1usqegu66",
+    "idUsuario": "user-29kk4y",
+    "timestamp": "2026-06-01T17:48:09.556Z"
+  },
+  {
+    "txId": "908d42dc0c4c1ecfbbb0e7741ef76ce208555345c7a393eba40eeaf36b2ef26d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cjqoqnboaqr",
+    "hashCalculado": "hash-y51b2b10w4",
+    "idUsuario": "user-vp7plq",
+    "timestamp": "2026-06-01T17:48:09.557Z"
+  },
+  {
+    "txId": "cc4a8ab0c099b2134a9da4ac340c5543e544e31f7e6b8032fc305be49986a0ec",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-b9e9mrdj626",
+    "hashCalculado": "hash-a1yi2rvvoec",
+    "idUsuario": "user-vyh1gx",
+    "timestamp": "2026-06-01T17:48:09.558Z"
+  },
+  {
+    "txId": "ccef62b89fbeddd3a541b4cd288fd9b66de5570a3dfbfec71542bf211da02608",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-mjoya0pqgat",
+    "hashCalculado": "hash-d5eqtiw2fbp",
+    "idUsuario": "user-s9bba1",
+    "timestamp": "2026-06-01T17:48:09.559Z"
+  },
+  {
+    "txId": "ac35c4fc9914964d7f479e23c98740f5fdec5b87c632f6c07242bcbb30a7b718",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-4al42mcdwig",
+    "hashCalculado": "hash-g6uyifq35kq",
+    "idUsuario": "user-tqfjfg",
+    "timestamp": "2026-06-01T17:48:09.560Z"
+  },
+  {
+    "txId": "a1c8a2770ce8811261df9f944630aaf6f3706431e83f92c7f849881c6b36d43d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-80y7higtd8f",
+    "hashCalculado": "hash-mav2nqeasdl",
+    "idUsuario": "user-iaidsj",
+    "timestamp": "2026-06-01T17:48:09.561Z"
+  },
+  {
+    "txId": "278e50cce7c7ef63f41830e9656f95b481a1c0966229e4530258a71215397aa8",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-k6bqlurt0vj",
+    "hashCalculado": "hash-zsi48d66uxp",
+    "idUsuario": "user-rixasw",
+    "timestamp": "2026-06-01T17:48:09.562Z"
+  },
+  {
+    "txId": "b30b93a8b8ab634169157fcd51c8de00d31889717748481489f882198ae209b4",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-l77ucnnczp",
+    "hashCalculado": "hash-1i486h1qiy6",
+    "idUsuario": "user-3lcqs9",
+    "timestamp": "2026-06-01T17:48:09.564Z"
+  },
+  {
+    "txId": "f1e42f2dedaaa463031b84a9a31d78af12be1486cf87d23cea37d2a228502146",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-etzkfvgo8cn",
+    "hashCalculado": "hash-20gymr7p3n0j",
+    "idUsuario": "user-y1ifa5",
+    "timestamp": "2026-06-01T17:48:09.564Z"
+  },
+  {
+    "txId": "c2009a4fe1ee55f5c769647aaaab4ecfa743a0e6bcafaa82992e759070902322",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-d9prmskjtdp",
+    "hashCalculado": "hash-b5aimq5zz05",
+    "idUsuario": "user-9c601s",
+    "timestamp": "2026-06-01T17:48:09.565Z"
+  },
+  {
+    "txId": "39271b53aa473c770776c8e569a0044c5ba24087c1a672dd43c46af222b67814",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cpk9i12xvus",
+    "hashCalculado": "hash-mwtg7ezn6dp",
+    "idUsuario": "user-7g9ihm",
+    "timestamp": "2026-06-01T17:48:09.566Z"
+  },
+  {
+    "txId": "467b73028e1c0e8cd932d34fb06f04182601661b64bebf40958e3c908a26c09c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-6wt17uq054x",
+    "hashCalculado": "hash-gpvzaccetws",
+    "idUsuario": "user-bzyo0z",
+    "timestamp": "2026-06-01T17:48:09.567Z"
+  },
+  {
+    "txId": "95402f49a58f5802671506e700f15e93b3d2b14a916cd6475c294bc6c6862b16",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-50rpu46brka",
+    "hashCalculado": "hash-7z20nqblcv4",
+    "idUsuario": "user-vwbmxj",
+    "timestamp": "2026-06-01T17:48:09.568Z"
+  },
+  {
+    "txId": "0b450c03e665e8c4b1351705c4fc042382e1645cfa2de63d7928fee7576ea33e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-b5u1ottjww8",
+    "hashCalculado": "hash-fyxlkgilezm",
+    "idUsuario": "user-555uh7",
+    "timestamp": "2026-06-01T17:48:09.568Z"
+  },
+  {
+    "txId": "fe3717057940d5da2e58b91c10a17c2a60d3ad22840f54c48b807ea5127045fc",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-29ujw7dc6vf",
+    "hashCalculado": "hash-09kb0s69iiqq",
+    "idUsuario": "user-7apa0x",
+    "timestamp": "2026-06-01T17:48:09.569Z"
+  },
+  {
+    "txId": "5f7604a84019de79972ba8379c9731f842c2a26edeee18f010dfc80a707393a8",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8mis3yzzvt",
+    "hashCalculado": "hash-96rgy4vm4ym",
+    "idUsuario": "user-l4o3vi",
+    "timestamp": "2026-06-01T17:48:09.570Z"
+  },
+  {
+    "txId": "bc90c6dd2c59cab7646e4488c730ac866ef9cfeea1ad3e2324f75fef8374a8c6",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5gtu3kmjhxf",
+    "hashCalculado": "hash-0g0rk4gubbx",
+    "idUsuario": "user-p2lv32",
+    "timestamp": "2026-06-01T17:48:09.571Z"
+  },
+  {
+    "txId": "bd0d7a172484f66d3ea35231b43386e1b7d450bc41ecd0656d35eba53df62e40",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-74dpv1peyas",
+    "hashCalculado": "hash-y3urogjpfm",
+    "idUsuario": "user-18oxvv",
+    "timestamp": "2026-06-01T17:48:09.575Z"
+  },
+  {
+    "txId": "14eeeb0e6e0442a555b0b48c02a420fa05b4bec57be86146d1c6bbadd5558f43",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-zpwjg1k7b9r",
+    "hashCalculado": "hash-hn2nm4d0pii",
+    "idUsuario": "user-nn5qzx",
+    "timestamp": "2026-06-01T17:48:09.577Z"
+  },
+  {
+    "txId": "6a16b5d92caa819bfc1d76797ef8f91d5b814468ea87444222d9e42dfb0ab958",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-4rjkca3xobs",
+    "hashCalculado": "hash-xxakozrwytq",
+    "idUsuario": "user-syoscl",
+    "timestamp": "2026-06-01T17:48:09.578Z"
+  },
+  {
+    "txId": "29194add01fc542a31dec8d54b7705aac266309d4a5a43bc370358acb33df110",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-o7z13myfpq",
+    "hashCalculado": "hash-v867s99zeu",
+    "idUsuario": "user-inbhh8",
+    "timestamp": "2026-06-01T17:48:09.580Z"
+  },
+  {
+    "txId": "0e67b4ef1625ae7b36619f52dae15cf14162e269538cb500795453583e445cf8",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-m6fmndo0wgn",
+    "hashCalculado": "hash-g6z51a3zo5u",
+    "idUsuario": "user-0koi7n",
+    "timestamp": "2026-06-01T17:48:09.581Z"
+  },
+  {
+    "txId": "a40b099ec4e32c7a6bc0b1fff23f70b53bab5c66bc423a00e82c2b66b91d1ffb",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-jjjzls17nb",
+    "hashCalculado": "hash-ufj1fljf4uh",
+    "idUsuario": "user-h35lto",
+    "timestamp": "2026-06-01T17:48:09.583Z"
+  },
+  {
+    "txId": "b472e0d9f80e5215ae29c2e03cd5ebba728b9df04a718f57c0ed2b86bb9fe1f1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-onbxukqsm4e",
+    "hashCalculado": "hash-5fsfs2aynoc",
+    "idUsuario": "user-ms9mfx",
+    "timestamp": "2026-06-01T17:48:09.583Z"
+  },
+  {
+    "txId": "51f9086d2d4d5611b7a3887f10912505e8555768ce4845e192389fb7a28819df",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-tjd0evlnhx",
+    "hashCalculado": "hash-ajokmzzlikf",
+    "idUsuario": "user-6iofz9",
+    "timestamp": "2026-06-01T17:48:09.584Z"
+  },
+  {
+    "txId": "9ffa9c2794e239249bac540618614429cd8b408352fb0218672ea0ad727888da",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-so17afd8f7",
+    "hashCalculado": "hash-ga0cpd3syyf",
+    "idUsuario": "user-mckpi1",
+    "timestamp": "2026-06-01T17:48:09.585Z"
+  },
+  {
+    "txId": "67f5806db1369d5ebe079770bcd72f3f98a461c2eba9d1b28a51141539ffe332",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-2rnzhf2np0w",
+    "hashCalculado": "hash-845ssuub5bw",
+    "idUsuario": "user-omsmk2",
+    "timestamp": "2026-06-01T17:48:09.586Z"
+  },
+  {
+    "txId": "2f6e4fb58d8b20fd05e222cb63c6213145f7d4eed1c87c3e20a1566fbd93e9d6",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g6b4k1z09lo",
+    "hashCalculado": "hash-olswhqs5ik8",
+    "idUsuario": "user-1trowe",
+    "timestamp": "2026-06-01T17:48:09.587Z"
+  },
+  {
+    "txId": "940deefda6e2a7b1817d25489bce73deac22ca8c0d7181c5f553a0483c61d7bc",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-lijyfmo9ru",
+    "hashCalculado": "hash-5dtp23zuuof",
+    "idUsuario": "user-od3ew1",
+    "timestamp": "2026-06-01T17:48:09.588Z"
+  },
+  {
+    "txId": "fb818d3c10a0393d0e33012e62a27ec09bad90ab4b1364e52aa313b2ec966cd5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-mawq92iogbk",
+    "hashCalculado": "hash-kxsfkeavjrn",
+    "idUsuario": "user-rq7bgp",
+    "timestamp": "2026-06-01T17:48:09.589Z"
+  },
+  {
+    "txId": "a6face2634639121ddfee938a0398aaf0fb562b395eb0c1ea9104c13df0028f4",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wipxf17u1t",
+    "hashCalculado": "hash-8sul5vpbmkj",
+    "idUsuario": "user-17mctg",
+    "timestamp": "2026-06-01T17:48:09.590Z"
+  },
+  {
+    "txId": "0a660d4d972ca01c33968eec07967a18b820439c5c3aa58837c3c337620ff892",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-tfrs2ui352",
+    "hashCalculado": "hash-9huu0sdpaxe",
+    "idUsuario": "user-3cz4xr",
+    "timestamp": "2026-06-01T17:48:09.590Z"
+  },
+  {
+    "txId": "f7e19e591ddc61b5eb133255cb7bc1ad712c69514af8ccdfffd6b8bf6f3030c1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-0gv5iqv61lc",
+    "hashCalculado": "hash-z1viayywwo",
+    "idUsuario": "user-kes0bv",
+    "timestamp": "2026-06-01T17:48:09.591Z"
+  },
+  {
+    "txId": "f43d5a2eb829e72f42893a598d0d973846ce2066388845909b5727e8e80c3d4b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-203jv9qvi2e",
+    "hashCalculado": "hash-ajk26cz7q8n",
+    "idUsuario": "user-bjqci6",
+    "timestamp": "2026-06-01T17:48:09.592Z"
+  },
+  {
+    "txId": "400cc8a6cde5425216e6a40078e6e7e5a4ddd9aee9a67e9ef8cddf361d7619af",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-amsq0f602an",
+    "hashCalculado": "hash-ji2rk6jq3wf",
+    "idUsuario": "user-wpgvdd",
+    "timestamp": "2026-06-01T17:48:09.593Z"
+  },
+  {
+    "txId": "8262d975ebca1a18538dd2dce19c9552901fe7d71c19ef7e80819df2bf462fbe",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-sb9t177q9p",
+    "hashCalculado": "hash-gmfpmbucho",
+    "idUsuario": "user-t3aw5s",
+    "timestamp": "2026-06-01T17:48:09.595Z"
+  },
+  {
+    "txId": "66edf09f802395005d8f971f65db9f0c07058676c258f393f7151b67551730f5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-befoq7z4wtr",
+    "hashCalculado": "hash-z9vj3byux5",
+    "idUsuario": "user-rmxpta",
+    "timestamp": "2026-06-01T17:48:09.597Z"
+  },
+  {
+    "txId": "341ea284390723469af7698070bc6534211412688bd9ae5276a39ec7216ea466",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qp84r54jpr",
+    "hashCalculado": "hash-d5zc278o7g",
+    "idUsuario": "user-3obbei",
+    "timestamp": "2026-06-01T17:48:09.598Z"
+  },
+  {
+    "txId": "ac5ee9fe0b61b5b78f5d2c0955d9f19a5dcf870623f3ddf05e629dd0458f95aa",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-c6jjfz6xzd5",
+    "hashCalculado": "hash-o9axwp02vv",
+    "idUsuario": "user-zmq0sq",
+    "timestamp": "2026-06-01T17:48:09.599Z"
+  },
+  {
+    "txId": "cc4679097bac4f05089f4f1177894321626d6a2cef3a5940b62fbbd5da7b9499",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-3mdwugbw74q",
+    "hashCalculado": "hash-s32sqy07hfa",
+    "idUsuario": "user-lmxkfy",
+    "timestamp": "2026-06-01T17:48:09.600Z"
+  },
+  {
+    "txId": "415e261001ebbafbf11d3859355afe2a44ac02ac037c8a621c33287884a71fac",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-chk6c99anmm",
+    "hashCalculado": "hash-btegc5xz6s9",
+    "idUsuario": "user-nh6sda",
+    "timestamp": "2026-06-01T17:48:09.601Z"
+  },
+  {
+    "txId": "397086916bb27ca01490629d954318c59450b1bc5e2710e4238d36c38d66faaa",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-uzclrwx60r",
+    "hashCalculado": "hash-onsao3ad35g",
+    "idUsuario": "user-wrjwwp",
+    "timestamp": "2026-06-01T17:48:09.602Z"
+  },
+  {
+    "txId": "11bab38c531e46aae0e2563c399933e0b5245b9ec56b612377abeac77fe6dace",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-72iepva5cth",
+    "hashCalculado": "hash-re6fce4ig1b",
+    "idUsuario": "user-b5wofh",
+    "timestamp": "2026-06-01T17:48:09.603Z"
+  },
+  {
+    "txId": "11a923bde11c317a5dc6d846c7a9439c33d8da57c2dcac7602e0582535db4216",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ip8k3izw1",
+    "hashCalculado": "hash-clryeudb1ur",
+    "idUsuario": "user-jqyjoy",
+    "timestamp": "2026-06-01T17:48:09.603Z"
+  },
+  {
+    "txId": "c4ba3b0b44d87542c3e06f8b04f6c4c882e0eaaf29502f5bc1e18fd8055f75c0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-k0z8ch6ddp",
+    "hashCalculado": "hash-gftt6nh3jwo",
+    "idUsuario": "user-aybxcj",
+    "timestamp": "2026-06-01T17:48:09.604Z"
+  },
+  {
+    "txId": "5537b922b21c00c408536fbc1fcb9a7d900b0b2966139026c00426921132710e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-90o8a0vlako",
+    "hashCalculado": "hash-198kxhlhsts",
+    "idUsuario": "user-3uyjdw",
+    "timestamp": "2026-06-01T17:48:09.605Z"
+  },
+  {
+    "txId": "9c9c418313e071d0a0746bcdfe264642e0b338bd7699ce85d6f74e72eccbbcc9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-jv1pj1rb6k",
+    "hashCalculado": "hash-7yjqlbpv17q",
+    "idUsuario": "user-wxayo1",
+    "timestamp": "2026-06-01T17:48:09.606Z"
+  },
+  {
+    "txId": "44b6bb08ba3456605b6cc071c7b4eea2e4ca0dcbbe9822e6eb856b89ea7282e4",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8z2s1bel37q",
+    "hashCalculado": "hash-m09kj9a883",
+    "idUsuario": "user-dj3mrf",
+    "timestamp": "2026-06-01T17:48:09.606Z"
+  },
+  {
+    "txId": "9af1554ad7c51fefee567d82428365d054d5e8d5e3a577bdc1bb2bc2c6d48899",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-rqbab3b4c3h",
+    "hashCalculado": "hash-2ta2ky10amo",
+    "idUsuario": "user-7orqcd",
+    "timestamp": "2026-06-01T17:48:09.607Z"
+  },
+  {
+    "txId": "409cd6bd1b93f5d8497145059463a1a0387dcc3e8de96fe4b493ccca1bbe773e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-a1orda2ko07",
+    "hashCalculado": "hash-kbo82zqawb",
+    "idUsuario": "user-fom3uu",
+    "timestamp": "2026-06-01T17:48:09.608Z"
+  },
+  {
+    "txId": "3658d1bd6bf1293e725936f82684ab4b0111be78d7c9926867fa32141256de5e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-0po4inj8ehpr",
+    "hashCalculado": "hash-j5qbryw7h6",
+    "idUsuario": "user-7o2qw8",
+    "timestamp": "2026-06-01T17:48:09.608Z"
+  },
+  {
+    "txId": "409b912df8c9415f066360dacd5f26a0e516f6f4ef63bc8d34f5cb0ae492729e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-pxf4t8w8kl",
+    "hashCalculado": "hash-bazj2tef40q",
+    "idUsuario": "user-uv4hk5",
+    "timestamp": "2026-06-01T17:48:09.609Z"
+  },
+  {
+    "txId": "8098d075f0838c936006215a6c37a21812adb5dd26321bff690d2ab01de3ddc0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-iyt69k7eg6d",
+    "hashCalculado": "hash-5vh1eo24qzd",
+    "idUsuario": "user-trlqov",
+    "timestamp": "2026-06-01T17:48:09.609Z"
+  },
+  {
+    "txId": "3c36c40289859b424bf87d89e126f6ec792124806186f27979e59fc42a2a44a2",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cdvtad09wp6",
+    "hashCalculado": "hash-94sp65nqg8i",
+    "idUsuario": "user-l71vaa",
+    "timestamp": "2026-06-01T17:48:09.610Z"
+  },
+  {
+    "txId": "452303ee900e703a1cfa66f0390a4861b68b43824f8819b18176cebaccb92d43",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-iqmj6nen59",
+    "hashCalculado": "hash-1u3w20vbnuj",
+    "idUsuario": "user-l1l6m1",
+    "timestamp": "2026-06-01T17:48:09.611Z"
+  },
+  {
+    "txId": "3c283bd4e064b2c8e7d87a9b1207f3daee41b753578ee464d480f778b5b41bca",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-kv4ydan6pim",
+    "hashCalculado": "hash-00xcr7fh2cyne",
+    "idUsuario": "user-829vu5",
+    "timestamp": "2026-06-01T17:48:09.613Z"
+  },
+  {
+    "txId": "fd9b93528a1aa516a504e98b501abdfe9f93055585b24dc85d9ebb66d3cdf097",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ahy4y4ull96",
+    "hashCalculado": "hash-obxykctcrqm",
+    "idUsuario": "user-trj1q3",
+    "timestamp": "2026-06-01T17:48:09.614Z"
+  },
+  {
+    "txId": "08dd44bdce2e69409a5f1444d649d1896338e696ceaf7505726c262fff13c921",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-u1u6acazw0h",
+    "hashCalculado": "hash-s1at2nlqajj",
+    "idUsuario": "user-ls3r95",
+    "timestamp": "2026-06-01T17:48:09.615Z"
+  },
+  {
+    "txId": "5dd46b0240383c94fd3e1ab391885a1cc7dd95a0415f58846c13d5c1d51f73a7",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-l45dagown3",
+    "hashCalculado": "hash-iorbaorj4b",
+    "idUsuario": "user-kk9ydt",
+    "timestamp": "2026-06-01T17:48:09.616Z"
+  },
+  {
+    "txId": "c55c7e4f0b05a52ee4505444a291412a184839aead16aeaf70373889b4839d01",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qeygkr05ft",
+    "hashCalculado": "hash-vjsnzebdax",
+    "idUsuario": "user-xdy3nv",
+    "timestamp": "2026-06-01T17:48:09.617Z"
+  },
+  {
+    "txId": "a22ba19bfb7997c7dd9b60a2d65ce4490234d638d3324fc45ce14a8c08208a35",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-43ibmp9szg",
+    "hashCalculado": "hash-1cfszzwapy9",
+    "idUsuario": "user-wbvl27",
+    "timestamp": "2026-06-01T17:48:09.618Z"
+  },
+  {
+    "txId": "a7e282bc4f56dfc726e676eb6c6748e66d994688854cdb6a966b0b8ba96bf40f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ow4act1uv1",
+    "hashCalculado": "hash-qxrai8x0dwc",
+    "idUsuario": "user-kiw2dr",
+    "timestamp": "2026-06-01T17:48:09.618Z"
+  },
+  {
+    "txId": "1aae19da3abd183fa0f1bfc92f91a61b8ef816cf2c3f604c7a88747555353e18",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g66d98sgt5",
+    "hashCalculado": "hash-e6ose6utjyt",
+    "idUsuario": "user-c3wsu0",
+    "timestamp": "2026-06-01T17:48:09.619Z"
+  },
+  {
+    "txId": "8c298b373df9be95270181f56476bd7ff55afb9af790c147b6814409f9638813",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xg3i8k1yop",
+    "hashCalculado": "hash-7savfo58p5m",
+    "idUsuario": "user-ta4y2j",
+    "timestamp": "2026-06-01T17:48:09.620Z"
+  },
+  {
+    "txId": "3fc6c466e1e68a5380f457d718986683da5b9270457f7404ac79a6b696400b77",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-khzef9dkwka",
+    "hashCalculado": "hash-n41um1vu8h",
+    "idUsuario": "user-cn1x1r",
+    "timestamp": "2026-06-01T17:48:09.621Z"
+  },
+  {
+    "txId": "0f50ab68efc537b7fec82d5798acdc71a7e102b070f9fd58a0e2448c03a20fcc",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-87dvbunv977",
+    "hashCalculado": "hash-5w6i0awumw5",
+    "idUsuario": "user-35qso1",
+    "timestamp": "2026-06-01T17:48:09.622Z"
+  },
+  {
+    "txId": "77694d138a8882256563b870eb60a0d631063f803bc93ab7ab4dc2a593473c39",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-b214auxgyh5",
+    "hashCalculado": "hash-woqs7ump67q",
+    "idUsuario": "user-pgm0up",
+    "timestamp": "2026-06-01T17:48:09.623Z"
+  },
+  {
+    "txId": "861773fe31745e013eb7c6030d462f4a15301c9b1a4c35bcb7c30b9d3558d66e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-izr2twifig",
+    "hashCalculado": "hash-waudbvqswe",
+    "idUsuario": "user-2cohgv",
+    "timestamp": "2026-06-01T17:48:09.628Z"
+  },
+  {
+    "txId": "c1bdffbce85c0cc17d9c23fa4f09bf824b5e35c98968a1599d040a153208fde0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-q731lfn6f0e",
+    "hashCalculado": "hash-196g5zifq7t",
+    "idUsuario": "user-znl447",
+    "timestamp": "2026-06-01T17:48:09.631Z"
+  },
+  {
+    "txId": "192cdb477b429fa897faafeba1b8c83795a1f6dfdc59d71e574481318a987be7",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-mxizd40m21f",
+    "hashCalculado": "hash-g16lpxgpgdr",
+    "idUsuario": "user-t0l3q4",
+    "timestamp": "2026-06-01T17:48:09.632Z"
+  },
+  {
+    "txId": "5467914f2788310da55b9d4b036c14dd09c8d31b8bd40edc39f363cf902aa787",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-fnz050mbb2q",
+    "hashCalculado": "hash-tdv7ei3thd",
+    "idUsuario": "user-feos61",
+    "timestamp": "2026-06-01T17:48:09.633Z"
+  },
+  {
+    "txId": "831985cec80b9a53177e9d59eefd9f3f693268fca0d66d81247fa763f3b62e31",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1yd1se7q8kv",
+    "hashCalculado": "hash-8aict75pqhp",
+    "idUsuario": "user-fxln3q",
+    "timestamp": "2026-06-01T17:48:09.634Z"
+  },
+  {
+    "txId": "c93dc21ff49839c259477eb941531c25307433df595a87642ced93a2118c2137",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-12oezvi4a25",
+    "hashCalculado": "hash-d01qsjpykbn",
+    "idUsuario": "user-fz1tsu",
+    "timestamp": "2026-06-01T17:48:09.636Z"
+  },
+  {
+    "txId": "090802eebb3ec26a377fd1da49619ceeab70f4b8cf805b0af287d5fecacba80f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5542qadtfk",
+    "hashCalculado": "hash-orwsvle0p6b",
+    "idUsuario": "user-ojdfhw",
+    "timestamp": "2026-06-01T17:48:09.637Z"
+  },
+  {
+    "txId": "d9491780ff90f59102543b69c1ad6e88467e03b9e0d973c79f943ef3a219dbfc",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-jqadk96stv",
+    "hashCalculado": "hash-he22so1wuj",
+    "idUsuario": "user-qz8jca",
+    "timestamp": "2026-06-01T17:48:09.637Z"
+  },
+  {
+    "txId": "99b884f61b1101c83ab38d801ded1a3821c647e0a3e7ddc2f6433bb49de4ac79",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-oq9jlyh14vq",
+    "hashCalculado": "hash-xq3xp4jepm",
+    "idUsuario": "user-srq9gq",
+    "timestamp": "2026-06-01T17:48:09.638Z"
+  },
+  {
+    "txId": "5ae466e1526216be8aa6817d426837043adb4a45e57114382e0224e217657f7c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-2xydbjduzdo",
+    "hashCalculado": "hash-o0o4lp0g2z",
+    "idUsuario": "user-troy0c",
+    "timestamp": "2026-06-01T17:48:09.639Z"
+  },
+  {
+    "txId": "26c58d93f1af9ba9e32d54826a2feaed895c12f31c352e0061772ea725bd161e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wbmxn6a1eok",
+    "hashCalculado": "hash-47jqr8lexzf",
+    "idUsuario": "user-e0sp74",
+    "timestamp": "2026-06-01T17:48:09.640Z"
+  },
+  {
+    "txId": "71efd0b9044e39ed66fb1ac833191afb0ae08953e5be7c2b1150b426548de04d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-827yvov9wz2",
+    "hashCalculado": "hash-vybce5xzfdn",
+    "idUsuario": "user-a2gb4q",
+    "timestamp": "2026-06-01T17:48:09.640Z"
+  },
+  {
+    "txId": "c20279c52c451dd91188f69612a5bef971c55650785dc296f5dbd4d84b7a0a39",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ep7xxph0439",
+    "hashCalculado": "hash-jzw0ep9a1gi",
+    "idUsuario": "user-s64tmi",
+    "timestamp": "2026-06-01T17:48:09.641Z"
+  },
+  {
+    "txId": "fd6c31a6dd4d9f7a8b2387fa9e722c03074eec812ff5a2b9c4c159d28dc481aa",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-551trrhzmci",
+    "hashCalculado": "hash-v2touuh5is",
+    "idUsuario": "user-weui8l",
+    "timestamp": "2026-06-01T17:48:09.641Z"
+  },
+  {
+    "txId": "604094ea3a063c247ed50d3f1c1a6c67d8c3c7e6d885bff256bd003af5e13f46",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-oquu3tumt5g",
+    "hashCalculado": "hash-y3v4r18axq",
+    "idUsuario": "user-xg4unm",
+    "timestamp": "2026-06-01T17:48:09.643Z"
+  },
+  {
+    "txId": "a4682c537007d64a0c61c1a7c30c46e485eda285afd6d30886e669de85219f7f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ttw4hx9napq",
+    "hashCalculado": "hash-p9oa06dlxr",
+    "idUsuario": "user-o5xzzc",
+    "timestamp": "2026-06-01T17:48:09.644Z"
+  },
+  {
+    "txId": "966970344def75b77004b3781c8c21267c68ab99d59a47dff86e4a403f4bf716",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-6gnyxp7x0vk",
+    "hashCalculado": "hash-16ekp1edkzq",
+    "idUsuario": "user-o4ja9v",
+    "timestamp": "2026-06-01T17:48:09.645Z"
+  },
+  {
+    "txId": "0f3bdd221d772d14d4bcf5e2a4c648ba62fb5a31ce33b808768963c015921434",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-v402fr58jas",
+    "hashCalculado": "hash-n9598uey4pj",
+    "idUsuario": "user-s98yvo",
+    "timestamp": "2026-06-01T17:48:09.646Z"
+  },
+  {
+    "txId": "3b8d66fd595d384b1b3719f7d108d7b659a932e1c529e961f473acc341d7e3f8",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-v6fx8rflxun",
+    "hashCalculado": "hash-js5vb4pweyo",
+    "idUsuario": "user-inrjwl",
+    "timestamp": "2026-06-01T17:48:09.647Z"
+  },
+  {
+    "txId": "e93a91323a3e529df928d6fad0d3367e24c4b32b8fe351b3edff0dbdb3b747ed",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-y0jicck4j1r",
+    "hashCalculado": "hash-j66i1ybdg7o",
+    "idUsuario": "user-meb76r",
+    "timestamp": "2026-06-01T17:48:09.648Z"
+  },
+  {
+    "txId": "bb3b1f335a9c2893ae2eb14c660e3131c750aee482ffebaf290ab04640df32a2",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-m6uneuah2x",
+    "hashCalculado": "hash-njymtiju09",
+    "idUsuario": "user-sywitz",
+    "timestamp": "2026-06-01T17:48:09.648Z"
+  },
+  {
+    "txId": "1f060b6e181cb0680720e1862bcb4f0284c2a270d6749e8bc9d41ea08dfb3d92",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-c07aequq8r9",
+    "hashCalculado": "hash-iom0llo2j9a",
+    "idUsuario": "user-q50aza",
+    "timestamp": "2026-06-01T17:48:09.649Z"
+  },
+  {
+    "txId": "42f306576bddb8003734a1fe18802532673b37730988c2da98cbc8c29b50d00c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-zllywzdtsb",
+    "hashCalculado": "hash-2rons3uwfj5",
+    "idUsuario": "user-vyu8mj",
+    "timestamp": "2026-06-01T17:48:09.650Z"
+  },
+  {
+    "txId": "8a5f9aa3e55b55c41c229a6a225bc38acc723ed406e97901a166ff0932123931",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wdfprpbpfo",
+    "hashCalculado": "hash-ha1hcs40e7s",
+    "idUsuario": "user-mlapv8",
+    "timestamp": "2026-06-01T17:48:09.651Z"
+  },
+  {
+    "txId": "26268421c3452dcc57ad1720804168ad4029979abb018dc660c1cb44704a6108",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-2njp0qr4qy2",
+    "hashCalculado": "hash-d9ux31ajqw",
+    "idUsuario": "user-pmbjz8",
+    "timestamp": "2026-06-01T17:48:09.652Z"
+  },
+  {
+    "txId": "d822307252301e17a1c4e74c803a6d06dc290fcad4f30b9d7ee68e548c4a508c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-gnt6omds2pj",
+    "hashCalculado": "hash-nnxiz1ok1pn",
+    "idUsuario": "user-uxzcjg",
+    "timestamp": "2026-06-01T17:48:09.654Z"
+  },
+  {
+    "txId": "5543e3b05a92d3b23b7a345cd4d7157137176b87ed6997ef47ec17b4af754b73",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-lgfk9rkfa9",
+    "hashCalculado": "hash-i8zea9obvzg",
+    "idUsuario": "user-koxnst",
+    "timestamp": "2026-06-01T17:48:09.655Z"
+  },
+  {
+    "txId": "2b7dd94781bf8f1e0ae2837df39b850e893a0d89b1696f18b7a64a081e1afe9d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-pfek7aigman",
+    "hashCalculado": "hash-9e37n2lgyvm",
+    "idUsuario": "user-5ty4uw",
+    "timestamp": "2026-06-01T17:48:09.656Z"
+  },
+  {
+    "txId": "87b24ca7ddfc1d7dbd6cfc0ea9c53ac50f4c7ac91a0b00fa47b5675400495b1c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-buub6da1ul",
+    "hashCalculado": "hash-tpzid61wrgn",
+    "idUsuario": "user-upg6qn",
+    "timestamp": "2026-06-01T17:48:09.657Z"
+  },
+  {
+    "txId": "780069d05c2272edac6232473fc31a5bf1c69926f3264d772bd037371703ff67",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-iu4qjyf8hcb",
+    "hashCalculado": "hash-xms86bar7a8",
+    "idUsuario": "user-9sxqj9",
+    "timestamp": "2026-06-01T17:48:09.658Z"
+  },
+  {
+    "txId": "870a3caf9bee39629c7e41b0d3194d591d8cf252f91249f4b8bff237d1f9ca09",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-3d0pg1uam7f",
+    "hashCalculado": "hash-0ia6l6o8p1kc",
+    "idUsuario": "user-u8dd1z",
+    "timestamp": "2026-06-01T17:48:09.660Z"
+  },
+  {
+    "txId": "648415aa2272b062dbc58fa50a2267aa8525e944d5deb897950b5c58fede8ef3",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cgtek4h8ub6",
+    "hashCalculado": "hash-0612ixj01n1p",
+    "idUsuario": "user-hf1le8",
+    "timestamp": "2026-06-01T17:48:09.661Z"
+  },
+  {
+    "txId": "de7a675f72fa47595c42b0352d4ec4a4529b07c2ff4591b121dc7e25e395bf01",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-4qidpm1lexx",
+    "hashCalculado": "hash-3qp5jkkxstu",
+    "idUsuario": "user-jaq91l",
+    "timestamp": "2026-06-01T17:48:09.663Z"
+  },
+  {
+    "txId": "9cb7e8d24a7c1bdba92e68441ba142ef61377505cad6a1f0c154c9325458dc3f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-9qq213xl6f6",
+    "hashCalculado": "hash-2q1i31rrmlr",
+    "idUsuario": "user-th86j5",
+    "timestamp": "2026-06-01T17:48:09.664Z"
+  },
+  {
+    "txId": "60e3f3a48686a735983ee9436ace28d70e04ab2edae3f3314d4697c09de67d8d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-gxtyjz0nhk9",
+    "hashCalculado": "hash-i0ja0jzph3",
+    "idUsuario": "user-7ikm9i",
+    "timestamp": "2026-06-01T17:48:09.665Z"
+  },
+  {
+    "txId": "4f6044d4100772ff1ad4ca8c6437ad092a53fbb4cf342e12147935dc9f594d3a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-i43cmhuiov",
+    "hashCalculado": "hash-o1kb8sjhx6k",
+    "idUsuario": "user-bovx47",
+    "timestamp": "2026-06-01T17:48:09.666Z"
+  },
+  {
+    "txId": "dbf0c9a8ff4783b675b05680c4bf1f9839e85e7301adf26c8433a69685be07a5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qj0w8op09l",
+    "hashCalculado": "hash-jwaj3orkpk8",
+    "idUsuario": "user-226xar",
+    "timestamp": "2026-06-01T17:48:09.667Z"
+  },
+  {
+    "txId": "e1cdde20db51400f4bc75d62a8d64b24a340fc3a502a113c2f30ebcbb054b744",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-9i05o1f3fm",
+    "hashCalculado": "hash-p1uggbcxj3",
+    "idUsuario": "user-5c2rbv",
+    "timestamp": "2026-06-01T17:48:09.668Z"
+  },
+  {
+    "txId": "af065a9ca5ff5b4c1edc8b19e04e1ac6d48ddcd2d0ee9628a0b622a411ca032e",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-phr34qtio8n",
+    "hashCalculado": "hash-nwj0wj4ej4",
+    "idUsuario": "user-bo4orz",
+    "timestamp": "2026-06-01T17:48:09.669Z"
+  },
+  {
+    "txId": "fd8ba2a437523c9373b6deaf13559852b06932fa98689f103d9b14b08ff6836c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-9wwen0cqga",
+    "hashCalculado": "hash-dqmiarwyrpu",
+    "idUsuario": "user-l860qr",
+    "timestamp": "2026-06-01T17:48:09.670Z"
+  },
+  {
+    "txId": "9351b4b5a7545ae07d36e9f77e4ea44894e2e5176c118bd97b284ad0eacd8d5d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cwuutv9q1fv",
+    "hashCalculado": "hash-kfex8y25cgr",
+    "idUsuario": "user-39854j",
+    "timestamp": "2026-06-01T17:48:09.671Z"
+  },
+  {
+    "txId": "135c9a45b9ae980f44d323c4bfc97e5ffeb5fd00a5ca66bba99991ba67363675",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-xfywylkqxu",
+    "hashCalculado": "hash-4e4lip04zpc",
+    "idUsuario": "user-85omn5",
+    "timestamp": "2026-06-01T17:48:09.672Z"
+  },
+  {
+    "txId": "73dc54923e3203d14a7fea62564b6670e299931a94e76c360d124f80ec311f69",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-vou459zj7ni",
+    "hashCalculado": "hash-i2p20g9re2i",
+    "idUsuario": "user-3jhmne",
+    "timestamp": "2026-06-01T17:48:09.673Z"
+  },
+  {
+    "txId": "11b014ec5a5bc9b6248a5b76f613afae0c9aeb302040a41971a6daae33f6f0ba",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-jqesufhy6i",
+    "hashCalculado": "hash-vr9b83cj7q",
+    "idUsuario": "user-6dzomv",
+    "timestamp": "2026-06-01T17:48:09.674Z"
+  },
+  {
+    "txId": "a9279e6a8c73466da53c949fa495ae4bc9a9bfc8abac646fb1d53d36632db9c0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-spebjpeh7ne",
+    "hashCalculado": "hash-413d32veswc",
+    "idUsuario": "user-upannf",
+    "timestamp": "2026-06-01T17:48:09.675Z"
+  },
+  {
+    "txId": "6c7fab3f96ce76d84e48217970b3faed7534fd2aaeee0e48240a433258f5c1c5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-gnbz76q4ntk",
+    "hashCalculado": "hash-lcyogn31ma",
+    "idUsuario": "user-pqc84i",
+    "timestamp": "2026-06-01T17:48:09.676Z"
+  },
+  {
+    "txId": "845eba64cee7517944a4dc642439ebd68943c10a97443f01efa5d23315a0ccfb",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-lwpv1dadxlo",
+    "hashCalculado": "hash-cg11zli6dph",
+    "idUsuario": "user-n4hac9",
+    "timestamp": "2026-06-01T17:48:09.677Z"
+  },
+  {
+    "txId": "ad0f981438b627d42d34674d07c7289ea531237e69fc7912e9aa33ee06a9ba0f",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-enukhkd21h",
+    "hashCalculado": "hash-lq73tsy4h98",
+    "idUsuario": "user-vuo6xo",
+    "timestamp": "2026-06-01T17:48:09.678Z"
+  },
+  {
+    "txId": "ed0b9d79fb4a28ef8060488db4a346a57e399ee159bc2c4a0a3eb4e5ac242a46",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-p76w85d84h",
+    "hashCalculado": "hash-6hz8igxsq8v",
+    "idUsuario": "user-4z39zg",
+    "timestamp": "2026-06-01T17:48:09.680Z"
+  },
+  {
+    "txId": "4f8ca9128568a47bdd829f979692167a25e844ade7b26330b2d19259fece558a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-q5de3akzehq",
+    "hashCalculado": "hash-0pmdz64jqec",
+    "idUsuario": "user-dypce3",
+    "timestamp": "2026-06-01T17:48:09.682Z"
+  },
+  {
+    "txId": "c9c6d2ba9049a9a33cc9112979889779549532288f57a548ccbdd7e69d404870",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-l7g6yv9xh7a",
+    "hashCalculado": "hash-9aec9123ayf",
+    "idUsuario": "user-yjqomy",
+    "timestamp": "2026-06-01T17:59:54.718Z"
+  },
+  {
+    "txId": "2a393a06dd5531a282f62d7453e12d8ea243116a75ae81f7293a694db0f91f63",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-sj07p9il6r",
+    "hashCalculado": "hash-s50v5qge3f",
+    "idUsuario": "user-vpzfuj",
+    "timestamp": "2026-06-01T17:59:54.722Z"
+  },
+  {
+    "txId": "9ee1cc451cbf9054856324fb192a1ab421c4dcb43190097eb7901597eee163a6",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ev9t2mp19xa",
+    "hashCalculado": "hash-h6qj0ins2a4",
+    "idUsuario": "user-t7h8qy",
+    "timestamp": "2026-06-01T17:59:54.724Z"
+  },
+  {
+    "txId": "b79fd97a850a1b7e28ccc4d3d26d49c4f114fade6879384acde0af7eaf2c5a95",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-6hqr6v3g0ze",
+    "hashCalculado": "hash-w79h4raypjp",
+    "idUsuario": "user-rn78iw",
+    "timestamp": "2026-06-01T17:59:54.742Z"
+  },
+  {
+    "txId": "1e1a3f9b60b066b856434b32852c99724e7201b4939096eb2ae5cd01cd6525a5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-yqsivxli7r",
+    "hashCalculado": "hash-bs6tbowpx3t",
+    "idUsuario": "user-lany3h",
+    "timestamp": "2026-06-01T17:59:54.744Z"
+  },
+  {
+    "txId": "0531d982604c42c51bec5f9d4eca0dba3637232d0c7493c3f1ab4cd15cf739f3",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ugt6v0jj8e",
+    "hashCalculado": "hash-tdqd1i1w9t",
+    "idUsuario": "user-ox1e66",
+    "timestamp": "2026-06-01T17:59:54.746Z"
+  },
+  {
+    "txId": "b49941d39029c8d85413f820046b33ec0974a65a284305cc1b25b638d75217b0",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-eg8zo3ispck",
+    "hashCalculado": "hash-ergo04v1pnb",
+    "idUsuario": "user-4r4grv",
+    "timestamp": "2026-06-01T17:59:54.747Z"
+  },
+  {
+    "txId": "7cb6aa597a1309cfd9138550e69d23cc3d1cf84b19815d62a52794d320684095",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-3ovzb7rwogh",
+    "hashCalculado": "hash-skp3v463vp",
+    "idUsuario": "user-ocsdx9",
+    "timestamp": "2026-06-01T17:59:54.749Z"
+  },
+  {
+    "txId": "d1175274517383944f2b687ba3e1f4a5bf415c872b460fc83422f8b69bdcc5d3",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-c9fr3lyahfq",
+    "hashCalculado": "hash-guywqhhb5kp",
+    "idUsuario": "user-rol94e",
+    "timestamp": "2026-06-01T17:59:54.751Z"
+  },
+  {
+    "txId": "bac8689e651fb45d297379d72f8b7b120707732a52b558d190d76d178413335b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-57aoaml4pz9",
+    "hashCalculado": "hash-bfotx0qts2f",
+    "idUsuario": "user-oxb166",
+    "timestamp": "2026-06-01T17:59:54.753Z"
+  },
+  {
+    "txId": "cb029c53afc5f8613f970af8b7716affd97882ccc3b373ab4d705bc9852550f1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-kefctjscnu",
+    "hashCalculado": "hash-p1p15bndmm",
+    "idUsuario": "user-z0lwfq",
+    "timestamp": "2026-06-01T17:59:54.755Z"
+  },
+  {
+    "txId": "155cf06d016320c1c541bf53588b4af73ebf5e39146241f2983785544429ae74",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8xvj6pbwe7",
+    "hashCalculado": "hash-lt6ploor46d",
+    "idUsuario": "user-w7id51",
+    "timestamp": "2026-06-01T17:59:54.756Z"
+  },
+  {
+    "txId": "b9a9397d30b73e4b01e3475daff91f94efb5f29e4f8617a8baf7761911c9a19c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8ru1pqfjetx",
+    "hashCalculado": "hash-7kobyq48r4x",
+    "idUsuario": "user-0g4e67",
+    "timestamp": "2026-06-01T17:59:54.758Z"
+  },
+  {
+    "txId": "4b5d75bc64aeb517104e1f13004d36aec6e4f5be596400814d4af5f9b83dd231",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-mfa25ltb1pd",
+    "hashCalculado": "hash-h0u9zi9syni",
+    "idUsuario": "user-nunhs1",
+    "timestamp": "2026-06-01T17:59:54.780Z"
+  },
+  {
+    "txId": "2a0e0d601158971bbd5bb2a00d12ec42d1d908ce6fbc19b6b1b02de0c7a25d78",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-g2zz2eo6ivl",
+    "hashCalculado": "hash-vr3i55kjwmp",
+    "idUsuario": "user-g1l08v",
+    "timestamp": "2026-06-01T17:59:54.783Z"
+  },
+  {
+    "txId": "d6678d7ff26cb5c55533f23cab983b1839cfac206f33af77f517f5fd0375c961",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-4ki3zyxtveh",
+    "hashCalculado": "hash-o4dd4949eh8",
+    "idUsuario": "user-j5z3rb",
+    "timestamp": "2026-06-01T17:59:54.784Z"
+  },
+  {
+    "txId": "16050fc851b419d9a96923ceb36d786073863a1e5c841db8d1208f4928623138",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5xody27n2d",
+    "hashCalculado": "hash-8jo89awwb38",
+    "idUsuario": "user-7l2wea",
+    "timestamp": "2026-06-01T17:59:54.786Z"
+  },
+  {
+    "txId": "b54514aee51a85f1b5231d16f8033f1a9bbf15feac4837abc86bf14350b757fb",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-jpl2q3ttn2n",
+    "hashCalculado": "hash-nah0uatvd9f",
+    "idUsuario": "user-96rwdv",
+    "timestamp": "2026-06-01T17:59:54.792Z"
+  },
+  {
+    "txId": "2d22906073d05b7d022e527110d2b87b1a90df1fc68fcb9b8fe56df6f9ed4957",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-rcxrxwxnfa",
+    "hashCalculado": "hash-tsy7mhgk01",
+    "idUsuario": "user-v78ntz",
+    "timestamp": "2026-06-01T17:59:54.802Z"
+  },
+  {
+    "txId": "85a4eddfdec29f86a8eeac063d616816d1ae7f316e9575bb64667e4a34ae5f3a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-jlhojgrr5cj",
+    "hashCalculado": "hash-wwa3ugup7ga",
+    "idUsuario": "user-r88fyp",
+    "timestamp": "2026-06-01T17:59:54.804Z"
+  },
+  {
+    "txId": "ed45195062dd677df09814b7ace66d3e03ed247ec715a1c03337019855258ec5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-uhbjrtprtnr",
+    "hashCalculado": "hash-obc81tftzt",
+    "idUsuario": "user-jun3t1",
+    "timestamp": "2026-06-01T17:59:54.805Z"
+  },
+  {
+    "txId": "1aa4e122638c726ade5ef5f81d39dd910d8c57b7afe0ff44cf9a5f891f540fc9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-mljyp37cvy",
+    "hashCalculado": "hash-gb9nm1t47jp",
+    "idUsuario": "user-ssg1hc",
+    "timestamp": "2026-06-01T17:59:54.807Z"
+  },
+  {
+    "txId": "78a04fe35488cfecfbf16ba65de220eac68e07c056243676508faa153dd11d06",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1ko7kvswnsn",
+    "hashCalculado": "hash-cx2643o7xya",
+    "idUsuario": "user-zzmk6v",
+    "timestamp": "2026-06-01T17:59:54.808Z"
+  },
+  {
+    "txId": "9ef3facff86d9ac2d27c23086c2f9a263e80cb767dd48a201bdb1b037e94519b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-9lbbqbm3w9s",
+    "hashCalculado": "hash-b71kxjcd3me",
+    "idUsuario": "user-s0xxcy",
+    "timestamp": "2026-06-01T17:59:54.810Z"
+  },
+  {
+    "txId": "04c6903784afeaa411bbcf1d12480fccd127f1aa6bed3f88577bb455c7095f93",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-hmu4r1ljfh",
+    "hashCalculado": "hash-8hijvvljmsr",
+    "idUsuario": "user-2heejh",
+    "timestamp": "2026-06-01T17:59:54.823Z"
+  },
+  {
+    "txId": "5f83addc1177ef71b1128215f9696a95553e9999acc5b9582c3a711b0c174d27",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-kqf07gx7n4",
+    "hashCalculado": "hash-mg6kyt18ui",
+    "idUsuario": "user-9fn94r",
+    "timestamp": "2026-06-01T17:59:54.825Z"
+  },
+  {
+    "txId": "48ed8e2965a342ae47681ca208fdb402baac015556aa8c8d844deefdb4f9dde5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cysi0twkjc",
+    "hashCalculado": "hash-yqk45pklmh",
+    "idUsuario": "user-mzloja",
+    "timestamp": "2026-06-01T17:59:54.826Z"
+  },
+  {
+    "txId": "85551b771c1417a3480c1561c097fdcc135be431665e932816480df9dd8bb90d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wsrpb8mb18",
+    "hashCalculado": "hash-gxodf650ts",
+    "idUsuario": "user-bk2ij7",
+    "timestamp": "2026-06-01T17:59:54.827Z"
+  },
+  {
+    "txId": "91d8a940440156c818984668c371a845e9a19a645ef69012e75eb77681be2fce",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-zl937lxgsea",
+    "hashCalculado": "hash-9gxujoinjqu",
+    "idUsuario": "user-ogp1r4",
+    "timestamp": "2026-06-01T17:59:54.829Z"
+  },
+  {
+    "txId": "24222e848ce2f891fd409dfc76280ca518853bd8b2e105ab1608cfed5c136ed3",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ar037wte1wt",
+    "hashCalculado": "hash-bbji1xge3u7",
+    "idUsuario": "user-mleuc2",
+    "timestamp": "2026-06-01T17:59:54.830Z"
+  },
+  {
+    "txId": "3a2a8296cfeb17cf5ec9cd8666877d26b4f04d329b5d39c70c0741952ea83d1d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-bd0zm268ihu",
+    "hashCalculado": "hash-m4v6abn5f4",
+    "idUsuario": "user-l8e304",
+    "timestamp": "2026-06-01T17:59:54.832Z"
+  },
+  {
+    "txId": "29f9d03593cd63a6ab430ad2e2b85056775e5c1dd8b8b688094e955749bba9b9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ahjdwqswrh7",
+    "hashCalculado": "hash-uq0k3kccm4l",
+    "idUsuario": "user-xvcb0s",
+    "timestamp": "2026-06-01T17:59:54.833Z"
+  },
+  {
+    "txId": "f21fb3d8bd56580b7e6b39ee41d6fd6f0362d9965b58b4a4aebe1a90734f5140",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5fou1z18p1f",
+    "hashCalculado": "hash-0vkbau7uw39",
+    "idUsuario": "user-ibrtqh",
+    "timestamp": "2026-06-01T17:59:54.855Z"
+  },
+  {
+    "txId": "13d650c39a0916b379dd7dd63c3e458cf4d78dbc513883b40cebef337b46e342",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-l2mgbd2f0bf",
+    "hashCalculado": "hash-mu0pb7ic9d",
+    "idUsuario": "user-h4egh0",
+    "timestamp": "2026-06-01T17:59:54.856Z"
+  },
+  {
+    "txId": "607182eda2568e973f82e03783ee4a4a15cb70045a5352bd77810fd1e490cdfe",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-z90vsmi4mzs",
+    "hashCalculado": "hash-2fzhbpd0xol",
+    "idUsuario": "user-qqboiv",
+    "timestamp": "2026-06-01T17:59:54.858Z"
+  },
+  {
+    "txId": "c6c1cb113d6b55167f29b3bd60683dc801ac2e330f54b4f9a13411b37142aaee",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-dbjc54025n",
+    "hashCalculado": "hash-hyqq33qjhxw",
+    "idUsuario": "user-aats4o",
+    "timestamp": "2026-06-01T17:59:54.859Z"
+  },
+  {
+    "txId": "dea1026299d099c5e59d7b07b2b0e56e66f7b5366b8ef3a0a663bf5b14944727",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1v10f8y71i1",
+    "hashCalculado": "hash-4ahfvv182xb",
+    "idUsuario": "user-x3ksyh",
+    "timestamp": "2026-06-01T17:59:54.861Z"
+  },
+  {
+    "txId": "33e9abd83e626ef636518a2d48c08e80b1453c9f41890ca2df3a95ccf67340e5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8hnwcs9jh2r",
+    "hashCalculado": "hash-e6112abk8rr",
+    "idUsuario": "user-6z3qq7",
+    "timestamp": "2026-06-01T17:59:54.862Z"
+  },
+  {
+    "txId": "22a8789707a8e195654c316209f483e633b964933c533dc902472d6eac8993d9",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-8oygxveaqjp",
+    "hashCalculado": "hash-einhuytgz8s",
+    "idUsuario": "user-bu5qjg",
+    "timestamp": "2026-06-01T17:59:54.864Z"
+  },
+  {
+    "txId": "4c06c029a0dff329e19c46f5f6b97ec9722ae181b5fad320d632aaefb7833e1b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cjtdwyp76hl",
+    "hashCalculado": "hash-x283kcpap7a",
+    "idUsuario": "user-ezj50n",
+    "timestamp": "2026-06-01T17:59:54.866Z"
+  },
+  {
+    "txId": "010f8be3e7891911be883751fdafd37f5c4b7dc0a8a39006ea874afed96749d4",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-0no53qsyqjgj",
+    "hashCalculado": "hash-lqm6yp6s2v",
+    "idUsuario": "user-u5z2ut",
+    "timestamp": "2026-06-01T17:59:54.868Z"
+  },
+  {
+    "txId": "fbdbf2c7c85e361a411a1d8cd5258a2df04ce25cea955936d7e683fe52522246",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-pgl4lfzyjap",
+    "hashCalculado": "hash-27lnu9hhxwk",
+    "idUsuario": "user-5e8p91",
+    "timestamp": "2026-06-01T17:59:54.869Z"
+  },
+  {
+    "txId": "8d002093186d5cd1f6148c6b70aff0aeea59d50a6a7ebb6d554187e8e9cdf6d3",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-1pp0t6zxntrj",
+    "hashCalculado": "hash-l05o8vbg8nm",
+    "idUsuario": "user-auxyqr",
+    "timestamp": "2026-06-01T17:59:54.871Z"
+  },
+  {
+    "txId": "10386f98e1f3b8a60491b3cc6922202fac0983ee2fe1c951a0b41ad2841e8ec8",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-uhi6ixt11w",
+    "hashCalculado": "hash-eg9w395tlrh",
+    "idUsuario": "user-38c8sf",
+    "timestamp": "2026-06-01T17:59:54.872Z"
+  },
+  {
+    "txId": "159321ad1f19cdd8c9659c99f2d8c954d3f0e4b01d0dc1ae44895f4d0b5e56e1",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-i6snit1b2w8",
+    "hashCalculado": "hash-r9nuladf6kc",
+    "idUsuario": "user-hgcsj5",
+    "timestamp": "2026-06-01T17:59:54.874Z"
+  },
+  {
+    "txId": "dd7909bb5d55769c7f661043764dc48524babd0d02b61795e629da2b7ca6bf27",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-0vrsl70yb0i",
+    "hashCalculado": "hash-9twoytowf9",
+    "idUsuario": "user-6mixy1",
+    "timestamp": "2026-06-01T17:59:54.876Z"
+  },
+  {
+    "txId": "56e29512c20c54913bf8e0854820b81f952caaf3d8d34f5017b266f7bad57832",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-16abw0bk7um",
+    "hashCalculado": "hash-1fg1u2mwcqm",
+    "idUsuario": "user-2si54f",
+    "timestamp": "2026-06-01T17:59:54.877Z"
+  },
+  {
+    "txId": "41bc1115ca680024d59392c6895549995e0c5133f87d60e6df3467c509a0fbe5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-lpzpk93rsel",
+    "hashCalculado": "hash-y29u6auf1lr",
+    "idUsuario": "user-jzltg5",
+    "timestamp": "2026-06-01T17:59:54.879Z"
+  },
+  {
+    "txId": "229ee39b4cd14f6089c9c7c535b8632b4a60301dfb9e253d5be5d334e0ee58b2",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-wznscs62tu",
+    "hashCalculado": "hash-mrzajjbs7v8",
+    "idUsuario": "user-cjh35b",
+    "timestamp": "2026-06-01T17:59:54.880Z"
+  },
+  {
+    "txId": "cec38754419a06145f48ff4724b7ebce32169b3fbc38d8e5992532a59d5473dd",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-ho5qzw52o9v",
+    "hashCalculado": "hash-3o2li386pa",
+    "idUsuario": "user-segaom",
+    "timestamp": "2026-06-01T17:59:54.882Z"
+  },
+  {
+    "txId": "b2b3adbf202383cb507b17e222e79617c2895b06c77e50d73871c0eb67242a1a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-63ap5as2ya5",
+    "hashCalculado": "hash-ppoar1svbe",
+    "idUsuario": "user-eqi41j",
+    "timestamp": "2026-06-01T17:59:54.891Z"
+  },
+  {
+    "txId": "fc8b0c4f71cb566030bf4f6e2b618e8884ec362754338e33222f708afb6fb324",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-kzrj6jj5gjg",
+    "hashCalculado": "hash-f7b0q5qzvn9",
+    "idUsuario": "user-7u87pa",
+    "timestamp": "2026-06-01T17:59:54.893Z"
+  },
+  {
+    "txId": "71c2e6df6a8bd65e50152fa7cc46d52355e1e6d8cf99e7e8e11648d75ef411f5",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-cukc57zzf0b",
+    "hashCalculado": "hash-58cikjrn4bx",
+    "idUsuario": "user-xqcsyz",
+    "timestamp": "2026-06-01T17:59:54.895Z"
+  },
+  {
+    "txId": "cce182da9617c3122741a0fe80733226c05dc87d4071b24e1ae0e1b738cc90a3",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-5e4vyigj8co",
+    "hashCalculado": "hash-jh3c25xahlq",
+    "idUsuario": "user-ij4yt8",
+    "timestamp": "2026-06-01T17:59:54.896Z"
+  },
+  {
+    "txId": "3367b89e6a4801434991a7fdb1dc2f453fc769554a1170c70e0067684adcd911",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-7hrhyvz3awc",
+    "hashCalculado": "hash-fs2epqd974",
+    "idUsuario": "user-bbnqi5",
+    "timestamp": "2026-06-01T17:59:54.897Z"
+  },
+  {
+    "txId": "7952542b27eecb5e5d9f45992c25c15d2d664a057dec696b4a3399ed4c33eab4",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-tul6cicf2jk",
+    "hashCalculado": "hash-yqbapi5rra",
+    "idUsuario": "user-wjxs7k",
+    "timestamp": "2026-06-01T17:59:54.898Z"
+  },
+  {
+    "txId": "ef97eab82ecd15c28b5ff1d503d49ecee75552a2059bc7c7a96cf6db66942393",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-bhf8rgq3p29",
+    "hashCalculado": "hash-7rnpaat8ho",
+    "idUsuario": "user-f0n52z",
+    "timestamp": "2026-06-01T17:59:54.900Z"
+  },
+  {
+    "txId": "8626326627a55782371c8f388e158a0bbccb8bc18c49d92784a1b13435c51d9d",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-w4kw5g2mrxl",
+    "hashCalculado": "hash-f0452v808s",
+    "idUsuario": "user-45ehwf",
+    "timestamp": "2026-06-01T17:59:54.901Z"
+  },
+  {
+    "txId": "bbfbb465c8e8f0dde733d2b64a1e0d0afb51864f45b91b0d40c88dcdc4418a6b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-yzk2n63uom8",
+    "hashCalculado": "hash-2r48vjt1xps",
+    "idUsuario": "user-f2zjll",
+    "timestamp": "2026-06-01T17:59:54.902Z"
+  },
+  {
+    "txId": "c2179b6cbbb7a6755efda78bdd2890c66547afec55d9ace2384898ca5a9690f3",
+    "tipoTabla": "ingreso",
+    "idRegistro": "reg-qonjda6g33g",
+    "hashCalculado": "hash-wug19h9evz",
+    "idUsuario": "user-l7a1ux",
+    "timestamp": "2026-06-01T17:59:54.903Z"
   }
 ]

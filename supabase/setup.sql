@@ -1,8 +1,9 @@
 -- ==========================================
--- 1. LIMPIEZA TOTAL Y PREPARACIÓN
+-- 1. PREPARACIÓN DEL ESQUEMA (PRODUCCIÓN)
 -- ==========================================
-DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA public;
+-- ADVERTENCIA: Este archivo NO realiza DROP SCHEMA en producción para evitar pérdida de datos accidental.
+-- Si se ejecuta localmente por primera vez, asegúrese de que el esquema "public" esté creado y limpio.
+-- Para reinicios completos locales, use el script "reset_local.sql".
 
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role, authenticator;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role, authenticator;
@@ -11,6 +12,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres, an
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pg_trgm" SCHEMA public;
 
 -- ==========================================
 -- 1.5. ALMACENAMIENTO DE ARCHIVOS (CLOUDINARY)
@@ -26,7 +28,7 @@ DELETE FROM auth.users;
 -- ==========================================
 -- 2. CREACIÓN DE TABLAS
 -- ==========================================
-CREATE TABLE public.miembro (
+CREATE TABLE IF NOT EXISTS public.miembro (
     id uuid PRIMARY KEY, 
     nombre text NOT NULL,
     "apellidoPaterno" text,
@@ -44,7 +46,7 @@ CREATE TABLE public.miembro (
     actualizacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.notificacion (
+CREATE TABLE IF NOT EXISTS public.notificacion (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
     titulo text NOT NULL,
@@ -53,7 +55,7 @@ CREATE TABLE public.notificacion (
     creacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.tipo_actividad (
+CREATE TABLE IF NOT EXISTS public.tipo_actividad (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     nombre text NOT NULL,
     descripcion text,
@@ -61,7 +63,7 @@ CREATE TABLE public.tipo_actividad (
     actualizacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.actividad (
+CREATE TABLE IF NOT EXISTS public.actividad (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     tipo_actividad_id uuid REFERENCES public.tipo_actividad(id) ON DELETE SET NULL,
@@ -86,7 +88,7 @@ CREATE TABLE public.actividad (
     actualizacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.inscripcion (
+CREATE TABLE IF NOT EXISTS public.inscripcion (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
     actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
@@ -96,7 +98,7 @@ CREATE TABLE public.inscripcion (
     creacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.tipo_ingreso (
+CREATE TABLE IF NOT EXISTS public.tipo_ingreso (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     nombre text NOT NULL UNIQUE,
     descripcion text,
@@ -109,7 +111,7 @@ INSERT INTO public.tipo_ingreso (nombre, descripcion)
 VALUES ('Pago de Actividad', 'Pago por inscripción a actividades académicas o eventos con costo.')
 ON CONFLICT (nombre) DO NOTHING;
 
-CREATE TABLE public.tipo_egreso (
+CREATE TABLE IF NOT EXISTS public.tipo_egreso (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     nombre text NOT NULL UNIQUE,
     descripcion text,
@@ -122,7 +124,7 @@ INSERT INTO public.tipo_egreso (nombre, descripcion)
 VALUES ('Pago de Activos', 'Egresos destinados a la adquisición, mantenimiento o gestión de activos institucionales.')
 ON CONFLICT (nombre) DO NOTHING;
 
-CREATE TABLE public.tipo_activo (
+CREATE TABLE IF NOT EXISTS public.tipo_activo (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     nombre text NOT NULL,
     descripcion text,
@@ -130,7 +132,7 @@ CREATE TABLE public.tipo_activo (
     actualizacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.activos (
+CREATE TABLE IF NOT EXISTS public.activos (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     tipo_activo_id uuid REFERENCES public.tipo_activo(id) ON DELETE SET NULL,
@@ -147,7 +149,7 @@ CREATE TABLE public.activos (
     actualizacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.ingreso (
+CREATE TABLE IF NOT EXISTS public.ingreso (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     registrado_por uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
@@ -164,7 +166,7 @@ CREATE TABLE public.ingreso (
     creacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.egreso (
+CREATE TABLE IF NOT EXISTS public.egreso (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     tipo_egreso_id uuid REFERENCES public.tipo_egreso(id),
@@ -178,7 +180,7 @@ CREATE TABLE public.egreso (
     creacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.detalles (
+CREATE TABLE IF NOT EXISTS public.detalles (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     egreso_id uuid REFERENCES public.egreso(id) ON DELETE CASCADE,
     nombre text NOT NULL,
@@ -187,7 +189,7 @@ CREATE TABLE public.detalles (
     creacion timestamptz DEFAULT now()
 );
 
-CREATE TABLE public.archivo (
+CREATE TABLE IF NOT EXISTS public.archivo (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
     egreso_id uuid REFERENCES public.egreso(id) ON DELETE CASCADE,
@@ -205,7 +207,7 @@ CREATE TABLE public.archivo (
 );
 
 
-CREATE TABLE public.jurado (
+CREATE TABLE IF NOT EXISTS public.jurado (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
     actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
@@ -236,6 +238,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_update_actividad_status ON public.actividad;
 CREATE TRIGGER tr_update_actividad_status
   BEFORE INSERT OR UPDATE ON public.actividad
   FOR EACH ROW EXECUTE FUNCTION public.update_academico_status();
@@ -250,6 +253,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_decrease_cupos ON public.inscripcion;
 CREATE TRIGGER tr_decrease_cupos
   AFTER INSERT ON public.inscripcion
   FOR EACH ROW EXECUTE FUNCTION public.decrease_cupos();
@@ -270,6 +274,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_update_activo_saldo ON public.egreso;
 CREATE TRIGGER tr_update_activo_saldo
   AFTER INSERT ON public.egreso
   FOR EACH ROW EXECUTE FUNCTION public.update_activo_saldo();
@@ -390,6 +395,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_blockchain_ingreso ON public.ingreso;
 CREATE TRIGGER tr_blockchain_ingreso
 BEFORE INSERT ON public.ingreso
 FOR EACH ROW EXECUTE FUNCTION public.sellar_ingreso();
@@ -416,6 +422,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_blockchain_egreso ON public.egreso;
 CREATE TRIGGER tr_blockchain_egreso
 BEFORE INSERT ON public.egreso
 FOR EACH ROW EXECUTE FUNCTION public.sellar_egreso();
@@ -442,6 +449,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_blockchain_activo ON public.activos;
 CREATE TRIGGER tr_blockchain_activo
 BEFORE INSERT ON public.activos
 FOR EACH ROW EXECUTE FUNCTION public.sellar_activo();
@@ -478,6 +486,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_blockchain_archivo ON public.archivo;
 CREATE TRIGGER tr_blockchain_archivo
 BEFORE INSERT ON public.archivo
 FOR EACH ROW EXECUTE FUNCTION public.sellar_archivo();
@@ -505,6 +514,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_blockchain_actividad ON public.actividad;
 CREATE TRIGGER tr_blockchain_actividad
 BEFORE INSERT ON public.actividad
 FOR EACH ROW EXECUTE FUNCTION public.sellar_actividad();
@@ -541,6 +551,24 @@ CREATE INDEX IF NOT EXISTS idx_actividad_blockchain_sync ON public.actividad(cre
 CREATE INDEX IF NOT EXISTS idx_activos_blockchain_sync ON public.activos(creacion DESC, hash_actual);
 CREATE INDEX IF NOT EXISTS idx_ingreso_blockchain_sync ON public.ingreso(creacion DESC, hash_actual);
 CREATE INDEX IF NOT EXISTS idx_egreso_blockchain_sync ON public.egreso(creacion DESC, hash_actual);
+
+-- Índices Adicionales de Rendimiento y Claves Foráneas Faltantes
+CREATE INDEX IF NOT EXISTS idx_ingreso_inscripcion ON public.ingreso(inscripcion_id) WHERE inscripcion_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_egreso_activo ON public.egreso(activo_id) WHERE activo_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_detalles_egreso ON public.detalles(egreso_id);
+
+-- Índices en Columnas Filtradas y Ordenadas Frecuentemente
+CREATE INDEX IF NOT EXISTS idx_miembro_estado ON public.miembro(estado);
+CREATE INDEX IF NOT EXISTS idx_miembro_rol ON public.miembro(rol);
+CREATE INDEX IF NOT EXISTS idx_actividad_fecha_estado_pub ON public.actividad(fecha, estado, publicado);
+CREATE INDEX IF NOT EXISTS idx_ingreso_fecha_estado ON public.ingreso(fecha, estado);
+CREATE INDEX IF NOT EXISTS idx_detalles_fecha ON public.detalles(fecha);
+
+-- Meta-Indexing: Índices de Trigramas GIN para Búsquedas de Texto (ilike)
+CREATE INDEX IF NOT EXISTS idx_miembro_nombre_trgm ON public.miembro USING gin (nombre gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_actividad_titulo_trgm ON public.actividad USING gin (titulo gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_ingreso_desc_trgm ON public.ingreso USING gin (descripcion gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_egreso_concepto_trgm ON public.egreso USING gin (concepto gin_trgm_ops);
 
 -- ==========================================
 -- 4. SEGURIDAD DE FILAS (RLS)
@@ -614,6 +642,24 @@ ALTER TABLE public.configuracion_cuotas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_amortizacion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.jurado ENABLE ROW LEVEL SECURITY;
 
+-- Eliminar políticas existentes antes de crearlas para evitar errores de duplicación
+DROP POLICY IF EXISTS "Acceso total" ON public.miembro;
+DROP POLICY IF EXISTS "Acceso total" ON public.notificacion;
+DROP POLICY IF EXISTS "Acceso total" ON public.tipo_actividad;
+DROP POLICY IF EXISTS "Acceso total" ON public.actividad;
+DROP POLICY IF EXISTS "Acceso total" ON public.tipo_ingreso;
+DROP POLICY IF EXISTS "Acceso total" ON public.tipo_egreso;
+DROP POLICY IF EXISTS "Acceso total" ON public.ingreso;
+DROP POLICY IF EXISTS "Acceso total" ON public.egreso;
+DROP POLICY IF EXISTS "Acceso total" ON public.activos;
+DROP POLICY IF EXISTS "Acceso total" ON public.detalles;
+DROP POLICY IF EXISTS "Acceso total" ON public.archivo;
+DROP POLICY IF EXISTS "Acceso total" ON public.inscripcion;
+DROP POLICY IF EXISTS "Acceso total" ON public.tipo_activo;
+DROP POLICY IF EXISTS "Acceso total" ON public.configuracion_cuotas;
+DROP POLICY IF EXISTS "Acceso total" ON public.plan_amortizacion;
+DROP POLICY IF EXISTS "Acceso total" ON public.jurado;
+
 CREATE POLICY "Acceso total" ON public.miembro FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.notificacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.tipo_actividad FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -632,6 +678,13 @@ CREATE POLICY "Acceso total" ON public.plan_amortizacion FOR ALL TO authenticate
 CREATE POLICY "Acceso total" ON public.jurado FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- Políticas para permitir la lectura pública (visitantes sin sesión iniciada)
+DROP POLICY IF EXISTS "Lectura publica de miembros" ON public.miembro;
+DROP POLICY IF EXISTS "Lectura publica de tipo_actividad" ON public.tipo_actividad;
+DROP POLICY IF EXISTS "Lectura publica de actividad" ON public.actividad;
+DROP POLICY IF EXISTS "Lectura publica de archivo" ON public.archivo;
+DROP POLICY IF EXISTS "Lectura publica de jurado" ON public.jurado;
+DROP POLICY IF EXISTS "Lectura publica de ingresos" ON public.ingreso;
+
 CREATE POLICY "Lectura publica de miembros" ON public.miembro FOR SELECT TO anon USING (estado = 'activo');
 CREATE POLICY "Lectura publica de tipo_actividad" ON public.tipo_actividad FOR SELECT TO anon USING (true);
 CREATE POLICY "Lectura publica de actividad" ON public.actividad FOR SELECT TO anon USING (true);
@@ -639,9 +692,35 @@ CREATE POLICY "Lectura publica de archivo" ON public.archivo FOR SELECT TO anon 
 CREATE POLICY "Lectura publica de jurado" ON public.jurado FOR SELECT TO anon USING (true);
 CREATE POLICY "Lectura publica de ingresos" ON public.ingreso FOR SELECT TO anon USING (true);
 
--- Habilitar tiempo real para las tablas correspondientes
-alter publication supabase_realtime add table public.miembro;
-alter publication supabase_realtime add table public.notificacion;
-alter publication supabase_realtime add table public.plan_amortizacion;
+-- Habilitar tiempo real para las tablas correspondientes de forma segura
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'miembro'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.miembro;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'notificacion'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.notificacion;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'plan_amortizacion'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.plan_amortizacion;
+    END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';

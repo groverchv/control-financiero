@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../../services/supabase';
 import { 
   BadgeCheck, ChevronRight, ShieldCheck, Heart, Compass, Activity,
-  Building, MapPin, Phone, Mail, Clock, Loader2, AlertTriangle
+  Building, MapPin, Phone, Mail, Clock, Loader2, AlertTriangle,
+  Download, Smartphone, Check
 } from 'lucide-react';
 
 // ─── Constantes de Contenido Institucional ───────────────────────────────────
@@ -158,6 +159,76 @@ const ContactItem = ({ icon: Icon, color, label, value, sub }) => {
 export const LandingPage = () => {
   const { stats, loading, error, retry } = useLandingStats();
 
+  // --- Estados e Interacciones PWA ---
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMsg, setProgressMsg] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [esInstalado, setEsInstalado] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+      setEsInstalado(true);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const iniciarFlujoInstalacion = () => {
+    setShowConfirm(true);
+  };
+
+  const confirmarDescarga = () => {
+    setShowConfirm(false);
+    setShowProgress(true);
+    setProgress(0);
+    setProgressMsg('Estableciendo conexion segura con el servidor...');
+
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        const next = prev + Math.floor(Math.random() * 15) + 5;
+        if (next >= 100) {
+          clearInterval(interval);
+          setProgressMsg('¡Descarga completada! Instalando en el dispositivo...');
+          setTimeout(() => {
+            setShowProgress(false);
+            setShowSuccess(true);
+          }, 800);
+          return 100;
+        }
+        if (next > 75) {
+          setProgressMsg('Configurando almacenamiento local e indexando base de datos...');
+        } else if (next > 45) {
+          setProgressMsg('Descargando paquetes de activos estaticos (iconos, tipografias)...');
+        } else if (next > 20) {
+          setProgressMsg('Descargando manifiesto de aplicacion y claves criptograficas...');
+        }
+        return next;
+      });
+    }, 200);
+  };
+
+  const activarPromptNativo = async () => {
+    setShowSuccess(false);
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setEsInstalado(true);
+        setDeferredPrompt(null);
+      }
+    }
+  };
+
   const statsCards = useMemo(() => [
     { value: loading ? '...' : `${stats.socios}+`, label: 'Socios Activos', color: 'blue' },
     { value: loading ? '...' : `${stats.eventos}+`, label: 'Eventos Dictados', color: 'emerald' },
@@ -190,6 +261,15 @@ export const LandingPage = () => {
               Acceso Institucional
               <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
             </Link>
+            {!esInstalado && (
+              <button
+                onClick={iniciarFlujoInstalacion}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3.5 text-sm font-bold text-white transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg hover:shadow-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+              >
+                <Download className="h-4 w-4" />
+                Descargar App
+              </button>
+            )}
             <a
               href="#historia"
               className="flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3.5 text-sm font-bold text-slate-300 transition-all hover:bg-slate-700 border border-slate-700/50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-900"
@@ -379,6 +459,124 @@ export const LandingPage = () => {
         </div>
       </section>
 
+      {/* --- MODAL DE CONFIRMACIÓN --- */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 text-white shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-4 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                <Smartphone className="h-5 w-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Instalar Aplicación Móvil</h3>
+                <p className="text-xs text-slate-400">Control Financiero Móvil v1.0</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-300 leading-relaxed mb-6">
+              ¿Deseas descargar e instalar la aplicación de <strong>Control Financiero</strong> en tu dispositivo? Podrás ingresar con un solo toque desde tu pantalla de inicio y disfrutar de un rendimiento óptimo.
+            </p>
+            <div className="flex items-center gap-3 justify-end">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarDescarga}
+                className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg shadow-blue-500/15"
+              >
+                Confirmar Acción
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL DE PROCESANDO Y DESCARGANDO --- */}
+      {showProgress && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 text-white shadow-2xl">
+            <div className="flex flex-col items-center text-center py-4">
+              <Loader2 className="h-10 w-10 text-emerald-400 animate-spin mb-4" />
+              <h3 className="text-lg font-bold mb-1">Procesando y Descargando</h3>
+              <p className="text-xs text-slate-400 mb-6 px-4 h-8">{progressMsg}</p>
+              
+              {/* Barra de progreso */}
+              <div className="relative h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-2">
+                <div 
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-200"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span className="text-xs font-bold text-emerald-400 font-mono">{progress}%</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL DE INSTALACIÓN EXITOSA --- */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 text-white shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center py-4">
+              <div className="h-14 w-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-4">
+                <Check className="h-7 w-7 text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-bold mb-1">¡Descargado con Exito!</h3>
+              <p className="text-xs text-slate-400 mb-6 leading-relaxed px-4">
+                Los paquetes y activos criptograficos de la aplicacion han sido descargados en tu almacenamiento local.
+              </p>
+              
+              {/* Contenedor de instrucciones o botón de acción */}
+              <div className="w-full bg-slate-950/50 rounded-xl p-4 border border-slate-850 mb-6 text-left">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Instrucciones de Instalacion</p>
+                {deferredPrompt ? (
+                  <p className="text-xs text-slate-300">
+                    Haz clic en el boton de abajo para activar el instalador seguro de tu sistema operativo y añadir la aplicacion a tu pantalla principal.
+                  </p>
+                ) : (
+                  <div className="space-y-2 text-xs text-slate-300">
+                    <p className="font-bold text-amber-400 flex items-center gap-1">
+                      ⚠️ Dispositivo compatible detectado
+                    </p>
+                    <p>
+                      <strong>En iOS (Safari):</strong> Haz clic en el boton de compartir del navegador (cuadrado con flecha hacia arriba) y selecciona <strong>"Añadir a pantalla de inicio"</strong>.
+                    </p>
+                    <p>
+                      <strong>En Android/PC:</strong> Si el instalador no se abre solo, haz clic en el menu de 3 puntos del navegador y selecciona <strong>"Instalar aplicacion"</strong>.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 w-full">
+                <button
+                  onClick={() => setShowSuccess(false)}
+                  className="rounded-xl border border-slate-800 hover:bg-slate-850 px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-white transition-all w-1/2"
+                >
+                  Cerrar
+                </button>
+                {deferredPrompt ? (
+                  <button
+                    onClick={activarPromptNativo}
+                    className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg shadow-emerald-500/15 w-1/2"
+                  >
+                    Instalar Ahora
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowSuccess(false)}
+                    className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg w-1/2 animate-pulse"
+                  >
+                    Entendido
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

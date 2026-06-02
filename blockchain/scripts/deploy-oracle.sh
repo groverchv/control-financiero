@@ -76,13 +76,12 @@ else
 fi
 
 # 3. Instalar Node.js v18 y npm
-if ! command -v node &> /dev/null; then
   log "Instalando Node.js v18 LTS..."
-  curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
   if [ "$PM" = "apt" ]; then
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
     apt install -y nodejs
   else
+    curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
     $PM install -y nodejs
   fi
   log "Node.js $(node -v) y npm $(npm -v) instalados."

@@ -1,6 +1,12 @@
 /**
- * Servicio de correo electronico transaccional con Brevo (Sendinblue)
- * Envia notificaciones por email a los socios de la institucion.
+ * Servicio de correo electronico transaccional con Brevo
+ *
+ * UNICO USO: Envio de emails relacionados a cuotas de membresia:
+ *  1. notificarPagoPendiente  → Factura cuando se genera una cuota
+ *  2. notificarPagoRegistrado → Recibo cuando se registra el pago
+ *
+ * Todas las demas notificaciones del sistema se gestionan
+ * internamente en la tabla `notificacion` de la base de datos.
  */
 import { supabase } from './supabase';
 
@@ -9,8 +15,24 @@ const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
 const SENDER = {
   name: 'Control Financiero Institucional',
-  email: 'notificaciones@controlfinanciero.org'
+  email: import.meta.env.VITE_BREVO_SENDER_EMAIL || 'notificaciones@controlfinanciero.org'
 };
+
+// ─── Utilidades ────────────────────────────────────────────────────────────────
+
+const formatFecha = (fechaStr) => {
+  if (!fechaStr) return '—';
+  try {
+    const date = new Date(fechaStr);
+    if (isNaN(date.getTime())) return String(fechaStr);
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return String(fechaStr);
+  }
+};
+
+const formatMonto = (monto) =>
+  new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(monto) || 0);
 
 const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
 <!DOCTYPE html>
@@ -43,7 +65,7 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
             <td style="padding:24px 40px;border-top:1px solid #f1f5f9;background-color:#f8fafc;">
               <p style="margin:0;color:#94a3b8;font-size:11px;text-align:center;">
                 Control Financiero Institucional ${new Date().getFullYear()}. Todos los derechos reservados.<br/>
-                Este correo es generado automaticamente, por favor no responda a este mensaje.
+                Este correo es generado automaticamente, no responda a este mensaje.
               </p>
             </td>
           </tr>
@@ -86,516 +108,270 @@ const enviarEmail = async ({ to, subject, htmlContent }) => {
 };
 
 /**
- * Guarda una notificacion en la base de datos para que aparezca en el portal
+ * Verifica que el miembro este activo antes de enviar email.
+ * Retorna true si puede recibir notificaciones.
  */
-const guardarNotificacionDB = async (miembroId, titulo, descripcion) => {
-  try {
-    if (!miembroId) return;
-
-    // Verificar si el miembro está activo
-    const { data: miembro } = await supabase
-      .from('miembro')
-      .select('estado')
-      .eq('id', miembroId)
-      .maybeSingle();
-
-    if (miembro && miembro.estado === 'inactivo') {
-      console.warn(`[Brevo] Evitando guardar notificación para miembro inactivo: ${miembroId}`);
-      return;
-    }
-
-    await supabase.from('notificacion').insert([{
-      miembro_id: miembroId,
-      titulo,
-      descripcion,
-      estado: 'pendiente'
-    }]);
-  } catch (err) {
-    console.error('[Brevo] Error guardando notificacion en BD:', err);
-  }
+const miembroActivo = async (miembroId) => {
+  if (!miembroId) return true;
+  const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
+  return !data || data.estado !== 'inactivo';
 };
+
+// ─── Emails de cuotas ──────────────────────────────────────────────────────────
 
 export const brevoService = {
 
-  notificarCancelacionActividad: async ({ destinatarios, curso }) => {
-    const accentColor = '#e11d48'; // Rose-600 for cancellation
+  /**
+   * FACTURA DE CUOTA GENERADA
+   * Se envia cuando el sistema detecta una nueva cuota pendiente.
+   * Si el socio tiene deudas anteriores, se muestran en el email.
+   *
+   * @param {string} params.email         Correo del socio
+   * @param {string} params.nombre        Nombre completo del socio
+   * @param {number} params.monto         Monto de la cuota actual
+   * @param {string} params.periodoKey    Periodo (ej: "2025-06")
+   * @param {string} params.miembroId     ID del miembro
+   * @param {Array}  params.deudasExtra   Cuotas anteriores pendientes [{mes, monto}]
+   */
+  notificarPagoPendiente: async ({ email, nombre, monto, periodoKey, miembroId, deudasExtra = [] }) => {
+    if (!await miembroActivo(miembroId)) return { success: false, error: 'Miembro inactivo' };
+
+    // Formatear periodoKey para el asunto de forma amigable (ej: "Min 1/6/2026 14:27" -> "Junio 2026")
+    const parsePeriodoToNombre = (periodoStr) => {
+      if (!periodoStr) return 'Membresía';
+      const cleanStr = periodoStr.replace(/^(Min|Día|Sem)\s+/, '');
+      const matchSpanish = cleanStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (matchSpanish) {
+        const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(matchSpanish[2]) - 1];
+        return `${mesNombre} ${matchSpanish[3]}`;
+      }
+      const matchIso = cleanStr.match(/^(\d{4})-(\d{2})$/);
+      if (matchIso) {
+        const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(matchIso[2]) - 1];
+        return `${mesNombre} ${matchIso[1]}`;
+      }
+      return cleanStr;
+    };
+
+    const periodoLimpio = parsePeriodoToNombre(periodoKey);
+    const hayDeudasExtra = deudasExtra.length > 0;
+    const totalDeuda = deudasExtra.reduce((acc, d) => acc + Number(d.monto || monto), Number(monto));
+
+    const filasDeudaExtra = hayDeudasExtra
+      ? deudasExtra.map(d => `
+          <tr style="border-top:1px solid #edf2f7;">
+            <td style="padding:10px 0;color:#64748b;font-size:13px;font-weight:600;">Cuota pendiente: ${parsePeriodoToNombre(d.mes)}</td>
+            <td style="padding:10px 0;color:#d97706;font-size:13px;font-weight:700;text-align:right;">Bs. ${formatMonto(d.monto || monto)}</td>
+          </tr>`).join('')
+      : '';
+
     const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Actividad Cancelada</h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Lamentamos informarle que la actividad <strong>${curso.nombre}</strong> programada para el <strong>${curso.fecha}</strong> ha sido cancelada por razones administrativas.
+      <h2 style="margin:0 0 4px;color:#d97706;font-size:22px;font-weight:800;text-align:center;">FACTURA DE CUOTA</h2>
+      <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Aviso de cobro generado automáticamente</p>
+
+      <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+        Estimado/a <strong>${nombre}</strong>, te informamos que se ha generado tu cuota de membresía correspondiente al período de <strong>${periodoLimpio}</strong>.
       </p>
-      
-      <div style="background-color:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:20px;margin-bottom:24px;">
-        <h3 style="margin:0 0 8px;color:#9f1239;font-size:14px;font-weight:700;text-transform:uppercase;">Información Importante</h3>
-        <p style="margin:0;color:#e11d48;font-size:13px;font-weight:600;line-height:1.5;">
-          Al ser una actividad con costo (Bs. ${curso.costo}), todos los socios inscritos que realizaron el pago entran en <strong>MODO DE DEVOLUCIÓN</strong>. 
-          Por favor, póngase en contacto con la administración para gestionar su reembolso.
-        </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;margin-bottom:${hayDeudasExtra ? '16px' : '24px'};">
+        <tr>
+          <td style="padding:20px 24px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Concepto</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">Cuota de membresía</td>
+              </tr>
+              <tr style="border-top:1px solid #fde68a;">
+                <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Período</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${periodoLimpio}</td>
+              </tr>
+              <tr style="border-top:1px solid #fde68a;">
+                <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Estado de Pago</td>
+                <td style="padding:8px 0;color:#b45309;font-size:13px;font-weight:700;text-align:right;">⚠ Pendiente</td>
+              </tr>
+              <tr style="border-top:1px solid #fde68a;">
+                <td style="padding:10px 0 0;color:#78716c;font-size:13px;font-weight:600;">Monto Cuota</td>
+                <td style="padding:10px 0 0;color:#d97706;font-size:22px;font-weight:800;text-align:right;">Bs. ${formatMonto(monto)}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      ${hayDeudasExtra ? `
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:12px;margin-bottom:24px;">
+        <tr>
+          <td style="padding:16px 24px;">
+            <p style="margin:0 0 12px;color:#92400e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">⚠ También tienes cuotas pendientes anteriores:</p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              ${filasDeudaExtra}
+              <tr style="border-top:2px solid #fcd34d;">
+                <td style="padding:12px 0 0;color:#92400e;font-size:14px;font-weight:800;">TOTAL ADEUDADO</td>
+                <td style="padding:12px 0 0;color:#b45309;font-size:18px;font-weight:800;text-align:right;">Bs. ${formatMonto(totalDeuda)}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>` : ''}
+
+      <div style="background-color:#fffbeb;border-radius:8px;padding:12px 20px;margin-bottom:20px;text-align:center;">
+        <p style="margin:0;color:#b45309;font-size:13px;font-weight:700;">Acérquese a secretaría para realizar su pago.</p>
+      </div>
+    `;
+
+    if (!email || email === 'no-reply@control.com') return { success: true };
+
+    return enviarEmail({
+      to: { email, name: nombre },
+      subject: `[Control Financiero] 📑 Aviso de Cobro — Cuota de Membresía de ${periodoLimpio}`,
+      htmlContent: baseTemplate('Factura de Cuota', content, '#d97706'),
+    });
+  },
+
+  /**
+   * RECIBO DE PAGO DE CUOTA
+   * Se envia cuando se confirma el pago de una cuota.
+   * Detalla el concepto, monto, fecha y estado de deuda restante.
+   *
+   * @param {string} params.email                 Correo del socio
+   * @param {string} params.nombre                Nombre completo del socio
+   * @param {number} params.monto                 Monto pagado
+   * @param {string} params.fecha                 Fecha del pago
+   * @param {string} params.concepto              Descripcion del pago (ej: "Cuota 2025-06")
+   * @param {string} params.miembroId             ID del miembro
+   * @param {string} params.registradoPorNombre   Nombre del admin que registro el pago
+   * @param {number} params.cuotasPendientes      Cuotas restantes despues de este pago
+   */
+  notificarPagoRegistrado: async ({
+    email, nombre, monto, fecha, concepto = 'Cuota de membresía',
+    miembroId, registradoPorNombre, cuotasPendientes = 0
+  }) => {
+    if (!await miembroActivo(miembroId)) return { success: false, error: 'Miembro inactivo' };
+
+    const fechaPago = formatFecha(fecha);
+    const montoFormateado = formatMonto(monto);
+    const numeroRecibo = `RCP-${Date.now().toString().slice(-8)}`;
+
+    const content = `
+      <h2 style="margin:0 0 4px;color:#16a34a;font-size:22px;font-weight:800;text-align:center;">RECIBO DE PAGO</h2>
+      <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Comprobante digital — ${numeroRecibo}</p>
+
+      <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+        Estimado/a <strong>${nombre}</strong>, nos complace confirmar que tu pago ha sido registrado y procesado exitosamente en nuestra secretaría:
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdf4;border:1px solid #86efac;border-radius:12px;margin-bottom:24px;">
+        <tr>
+          <td style="padding:20px 24px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">N° Recibo</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${numeroRecibo}</td>
+              </tr>
+              <tr style="border-top:1px solid #bbf7d0;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Concepto</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${concepto}</td>
+              </tr>
+              <tr style="border-top:1px solid #bbf7d0;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha de Pago</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaPago}</td>
+              </tr>
+              ${registradoPorNombre ? `
+              <tr style="border-top:1px solid #bbf7d0;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Registrado por</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${registradoPorNombre}</td>
+              </tr>` : ''}
+              <tr style="border-top:1px solid #bbf7d0;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Estado de Transacción</td>
+                <td style="padding:8px 0;color:#16a34a;font-size:13px;font-weight:700;text-align:right;">✓ Confirmado y Sellado</td>
+              </tr>
+              <tr style="border-top:1px solid #bbf7d0;">
+                <td style="padding:12px 0 0;color:#166534;font-size:14px;font-weight:800;">MONTO PAGADO</td>
+                <td style="padding:12px 0 0;color:#16a34a;font-size:24px;font-weight:800;text-align:right;">Bs. ${montoFormateado}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <div style="background-color:#dcfce7;border-radius:8px;padding:12px 20px;margin-bottom:${cuotasPendientes > 0 ? '16px' : '0'};text-align:center;">
+        <p style="margin:0;color:#166534;font-size:14px;font-weight:700;">✔ COMPROBANTE DE PAGO REGISTRADO</p>
       </div>
 
-      <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6;">
-        Pedimos disculpas por los inconvenientes causados.
-      </p>
-    `;
-
-    const htmlContent = baseTemplate('Notificación de Cancelación', content, accentColor);
-    
-    // Send in bulk or sequentially. Brevo API allows up to 100 on transactional, 
-    // but here we just map all recipients to the 'to' array.
-    const to = destinatarios.map(d => ({ email: d.email, name: d.nombre }));
-    
-    return await enviarEmail({
-      to,
-      subject: `CANCELADO: ${curso.nombre}`,
-      htmlContent
-    });
-  },
-
-  notificarPagoRegistrado: async ({ email, nombre, monto, fecha, concepto = 'Cuota mensual', miembroId }) => {
-    if (miembroId) {
-      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
-      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
-    }
-
-    const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Pago Registrado Exitosamente</h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>, le confirmamos que su pago ha sido registrado correctamente en el sistema institucional.
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:24px;">
-        <tr>
-          <td style="padding:16px 20px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Concepto</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${concepto}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Monto</td>
-                <td style="padding:6px 0;color:#16a34a;font-size:18px;font-weight:800;text-align:right;">Bs. ${monto}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fecha}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0;color:#64748b;font-size:13px;">Gracias por mantener al dia sus obligaciones con la institucion.</p>
-    `;
-
-    await guardarNotificacionDB(miembroId, 'Pago registrado', `Se registro su pago de Bs. ${monto} por concepto de: ${concepto}. Fecha: ${fecha}.`);
-
-    return enviarEmail({
-      to: { email, name: nombre },
-      subject: `Confirmacion de pago - Bs. ${monto}`,
-      htmlContent: baseTemplate('Confirmacion de Pago', content, '#16a34a'),
-    });
-  },
-
-  notificarPagoPendiente: async ({ email, nombre, monto, fechaLimite, diasRetraso = 0, miembroId, periodoKey }) => {
-    if (miembroId) {
-      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
-      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
-    }
-
-    const esRetraso = diasRetraso > 0;
-    const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">
-        ${esRetraso ? 'Aviso: Pago con Retraso' : 'Recordatorio de Pago Pendiente'}
-      </h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>, ${esRetraso
-          ? `le informamos que registra un pago con <strong>${diasRetraso} dias de retraso</strong>.`
-          : 'le recordamos que tiene un pago pendiente por realizar.'}
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:${esRetraso ? '#fef2f2' : '#fffbeb'};border:1px solid ${esRetraso ? '#fecaca' : '#fde68a'};border-radius:12px;margin-bottom:24px;">
-        <tr>
-          <td style="padding:16px 20px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Monto adeudado</td>
-                <td style="padding:6px 0;color:${esRetraso ? '#dc2626' : '#d97706'};font-size:18px;font-weight:800;text-align:right;">Bs. ${monto}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Periodo</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${periodoKey || 'Pendiente'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha limite</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaLimite}</td>
-              </tr>
-              ${esRetraso ? `
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Dias de retraso</td>
-                <td style="padding:6px 0;color:#dc2626;font-size:13px;font-weight:800;text-align:right;">${diasRetraso} dias</td>
-              </tr>` : ''}
-            </table>
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0;color:#64748b;font-size:13px;">
-        Por favor, regularice su situacion lo antes posible. Si ya realizo el pago, ignore este mensaje.
-      </p>
-    `;
-
-    const tituloBase = esRetraso ? 'Pago con retraso' : 'Pago pendiente';
-    const tituloFinal = periodoKey ? `${tituloBase}: ${periodoKey}` : tituloBase;
-
-    await guardarNotificacionDB(miembroId, tituloFinal,
-      esRetraso ? `Tiene un pago de Bs. ${monto} con ${diasRetraso} dias de retraso del periodo ${periodoKey || ''}. Fecha limite: ${fechaLimite}.`
-                : `Recordatorio: tiene un pago pendiente de Bs. ${monto} del periodo ${periodoKey || ''}. Fecha limite: ${fechaLimite}.`
-    );
-
-    return enviarEmail({
-      to: { email, name: nombre },
-      subject: esRetraso ? `Aviso de pago con retraso - ${diasRetraso} dias` : 'Recordatorio: Pago pendiente',
-      htmlContent: baseTemplate(esRetraso ? 'Pago con Retraso' : 'Pago Pendiente', content, esRetraso ? '#dc2626' : '#d97706'),
-    });
-  },
-
-  notificarNuevoEvento: async ({ destinatarios, evento }) => {
-    const fechaFormateada = new Date(evento.fecha && typeof evento.fecha === 'string' && evento.fecha.includes('-') ? evento.fecha.split('T')[0] + 'T00:00:00' : evento.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Nuevo Evento Institucional</h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Le informamos que se ha programado un nuevo evento institucional. A continuacion los detalles:
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;margin-bottom:24px;">
-        <tr>
-          <td style="padding:20px;">
-            <h3 style="margin:0 0 12px;color:#1e40af;font-size:18px;font-weight:800;">${evento.nombre}</h3>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaFormateada}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Ubicacion</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${evento.ubicacion || 'Por confirmar'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Costo</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${evento.costo > 0 ? `Bs. ${evento.costo}` : 'Gratuito'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Cupos disponibles</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${evento.cupos || evento.asistentes || 'Limitados'}</td>
-              </tr>
-            </table>
-            ${evento.descripcion ? `<p style="margin:16px 0 0;color:#475569;font-size:13px;line-height:1.6;border-top:1px solid #dbeafe;padding-top:12px;">${evento.descripcion}</p>` : ''}
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0;color:#64748b;font-size:13px;">Ingrese al portal institucional para inscribirse y asegurar su lugar.</p>
-    `;
-
-    const results = [];
-    for (const dest of destinatarios) {
-      // Verificar si el destinatario está activo
-      const { data } = await supabase.from('miembro').select('estado').eq('id', dest.id).maybeSingle();
-      if (data && data.estado === 'inactivo') {
-        console.warn(`[Brevo] Evitando notificar nuevo evento a miembro inactivo: ${dest.id}`);
-        continue;
-      }
-
-      await guardarNotificacionDB(dest.id, 'Nuevo evento: ' + evento.nombre, `Se ha programado el evento "${evento.nombre}" para el ${fechaFormateada}. Ubicacion: ${evento.ubicacion || 'Por confirmar'}. Costo: ${evento.costo > 0 ? 'Bs. ' + evento.costo : 'Gratuito'}.`);
-      const result = await enviarEmail({
-        to: { email: dest.email, name: dest.nombre },
-        subject: `Nuevo evento institucional: ${evento.nombre}`,
-        htmlContent: baseTemplate('Nuevo Evento', content, '#1e3a5f'),
-      });
-      results.push(result);
-    }
-    return results;
-  },
-
-  notificarNuevoCurso: async ({ destinatarios, curso }) => {
-    const fechaFormateada = new Date(curso.fecha && typeof curso.fecha === 'string' && curso.fecha.includes('-') ? curso.fecha.split('T')[0] + 'T00:00:00' : curso.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Nueva Actividad Academica Disponible</h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Le informamos que se ha registrado una nueva actividad academica. A continuacion los detalles:
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;margin-bottom:24px;">
-        <tr>
-          <td style="padding:20px;">
-            <h3 style="margin:0 0 12px;color:#047857;font-size:18px;font-weight:800;">${curso.nombre}</h3>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Tipo de Actividad</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.tipo_nombre || 'General'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha de inicio</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaFormateada}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Hora de Evento</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.hora ? curso.hora.substring(0, 5) : '19:00'} Hrs</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Modalidad</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;text-transform:capitalize;">${curso.modalidad || 'Presencial'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Inversion</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.costo > 0 ? `Bs. ${curso.costo}` : 'Sin costo'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Cupos disponibles</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.cupos || 'Limitados'}</td>
-              </tr>
-            </table>
-            ${curso.descripcion ? `<p style="margin:16px 0 0;color:#475569;font-size:13px;line-height:1.6;border-top:1px solid #d1fae5;padding-top:12px;">${curso.descripcion}</p>` : ''}
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0;color:#64748b;font-size:13px;">Visite el portal para inscribirse y reservar su plaza.</p>
-    `;
-
-    const results = [];
-    for (const dest of destinatarios) {
-      // Verificar si el destinatario está activo
-      const { data } = await supabase.from('miembro').select('estado').eq('id', dest.id).maybeSingle();
-      if (data && data.estado === 'inactivo') {
-        console.warn(`[Brevo] Evitando notificar nuevo curso a miembro inactivo: ${dest.id}`);
-        continue;
-      }
-
-      await guardarNotificacionDB(
-        dest.id, 
-        'Nueva actividad: ' + curso.nombre, 
-        `Se ha registrado la actividad de tipo (${curso.tipo_nombre || 'General'}) "${curso.nombre}" para el ${fechaFormateada} a las ${curso.hora ? curso.hora.substring(0, 5) : '19:00'} Hrs. Modalidad: ${curso.modalidad || 'Presencial'}. Costo: ${curso.costo > 0 ? 'Bs. ' + curso.costo : 'Sin costo'}.`
-      );
-      const result = await enviarEmail({
-        to: { email: dest.email, name: dest.nombre },
-        subject: `Nueva actividad academica (${curso.tipo_nombre || 'General'}): ${curso.nombre}`,
-        htmlContent: baseTemplate('Nueva Actividad Academica', content, '#059669'),
-      });
-      results.push(result);
-    }
-    return results;
-  },
-
-  notificarInscripcionEvento: async ({ email, nombre, evento, miembroId }) => {
-    if (miembroId) {
-      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
-      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
-    }
-
-    const fechaFormateada = new Date(evento.fecha && typeof evento.fecha === 'string' && evento.fecha.includes('-') ? evento.fecha.split('T')[0] + 'T00:00:00' : evento.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Inscripcion Confirmada</h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>, su participacion en el siguiente evento ha sido registrada exitosamente.
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:24px;">
-        <tr>
-          <td style="padding:20px;">
-            <h3 style="margin:0 0 12px;color:#15803d;font-size:18px;font-weight:800;">${evento.nombre}</h3>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaFormateada}</td>
-              </tr>
-              ${evento.hora ? `
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Hora</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${evento.hora.substring(0, 5)}</td>
-              </tr>` : ''}
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Ubicacion</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${evento.ubicacion || 'Por confirmar'}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0;color:#64748b;font-size:13px;">Le esperamos. Recuerde asistir puntualmente.</p>
-    `;
-
-    await guardarNotificacionDB(miembroId, 'Inscripcion confirmada: ' + evento.nombre, `Su inscripcion al evento "${evento.nombre}" ha sido confirmada. Fecha: ${fechaFormateada}. Ubicacion: ${evento.ubicacion || 'Por confirmar'}.`);
-
-    return enviarEmail({
-      to: { email, name: nombre },
-      subject: `Inscripcion confirmada - ${evento.nombre}`,
-      htmlContent: baseTemplate('Inscripcion Confirmada', content, '#15803d'),
-    });
-  },
-
-  notificarInscripcionCurso: async ({ email, nombre, curso, miembroId }) => {
-    if (miembroId) {
-      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
-      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
-    }
-
-    const fechaFormateada = new Date(curso.fecha && typeof curso.fecha === 'string' && curso.fecha.includes('-') ? curso.fecha.split('T')[0] + 'T00:00:00' : curso.fecha).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Inscripcion Academica Confirmada</h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>, su inscripcion en la siguiente actividad academica ha sido procesada correctamente.
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;margin-bottom:24px;">
-        <tr>
-          <td style="padding:20px;">
-            <h3 style="margin:0 0 12px;color:#047857;font-size:18px;font-weight:800;">${curso.nombre}</h3>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Tipo de Actividad</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.tipo_nombre || 'General'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha de inicio</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${fechaFormateada}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Hora de Evento</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.hora ? curso.hora.substring(0, 5) : '19:00'} Hrs</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Modalidad</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;text-transform:capitalize;">${curso.modalidad || 'Presencial'}</td>
-              </tr>
-              ${curso.costo > 0 ? `
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Costo de Inscripcion</td>
-                <td style="padding:6px 0;color:#dc2626;font-size:14px;font-weight:800;text-align:right;">Bs. ${curso.costo}</td>
-              </tr>` : `
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Costo de Inscripcion</td>
-                <td style="padding:6px 0;color:#16a34a;font-size:13px;font-weight:700;text-align:right;">Sin costo</td>
-              </tr>`}
-            </table>
-          </td>
-        </tr>
-      </table>
-      ${curso.costo > 0 ? `
-      <div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:24px;">
-        <p style="margin:0;color:#b91c1c;font-size:13px;font-weight:700;">
-          ⚠️ Esta actividad tiene un costo de <strong>Bs. ${curso.costo}</strong>. 
-          Por favor, acercarse a secretaria para regularizar el pago correspondiente.
+      ${cuotasPendientes > 0 ? `
+      <div style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 20px;text-align:center;">
+        <p style="margin:0;color:#92400e;font-size:13px;font-weight:600;">
+          ⚠ Recuerda que aún tienes <strong>${cuotasPendientes}</strong> cuota(s) pendiente(s) de pago en tu cuenta.
         </p>
       </div>` : ''}
-      <p style="margin:0;color:#64748b;font-size:13px;">Le deseamos exito en su capacitacion. Recuerde revisar los requisitos previos.</p>
     `;
 
-    await guardarNotificacionDB(
-      miembroId,
-      'Inscripcion confirmada: ' + curso.nombre,
-      `Su inscripcion a la actividad de tipo (${curso.tipo_nombre || 'General'}) "${curso.nombre}" ha sido confirmada. Fecha: ${fechaFormateada} a las ${curso.hora ? curso.hora.substring(0, 5) : '19:00'} Hrs. Modalidad: ${curso.modalidad || 'Presencial'}.${curso.costo > 0 ? ` Costo pendiente: Bs. ${curso.costo}. Por favor regularice el pago en secretaria.` : ' Sin costo.'}`
-    );
+    if (!email || email === 'no-reply@control.com') return { success: true };
 
     return enviarEmail({
       to: { email, name: nombre },
-      subject: `Inscripcion confirmada (${curso.tipo_nombre || 'General'}) - ${curso.nombre}`,
-      htmlContent: baseTemplate('Inscripcion Academica', content, '#059669'),
+      subject: `[Control Financiero] ✅ Confirmación de Pago — Recibo de ${concepto}`,
+      htmlContent: baseTemplate('Recibo de Pago', content, '#16a34a'),
     });
   },
 
-  notificarCambioActividad: async ({ destinatarios, curso }) => {
+  /**
+   * BIENVENIDA AL NUEVO MIEMBRO
+   * Se envia cuando se registra un usuario en el sistema.
+   * Funciona con cualquier tipo de correo (Google, institucional, etc.)
+   *
+   * @param {string} params.email     Correo del socio
+   * @param {string} params.nombre    Nombre completo o primer nombre del socio
+   * @param {string} params.rol       Rol asignado al usuario
+   */
+  enviarBienvenida: async ({ email, nombre, rol }) => {
+    const rolFormateado = rol ? (rol.charAt(0).toUpperCase() + rol.slice(1)) : 'Miembro';
     const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">Modificación de Actividad Académica</h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Le informamos que la actividad académica <strong>"${curso.nombre}"</strong> en la que se encuentra inscrito ha sido actualizada por el administrador.
+      <h2 style="margin:0 0 4px;color:#1e3a5f;font-size:22px;font-weight:800;text-align:center;">¡TE DAMOS LA BIENVENIDA!</h2>
+      <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Tu cuenta ha sido creada exitosamente</p>
+
+      <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+        Estimado/a <strong>${nombre}</strong>, nos alegra mucho darte la bienvenida a nuestra institucion. Tu cuenta de acceso al sistema de <strong>Control Financiero</strong> ya esta activa.
       </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;margin-bottom:24px;">
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px;">
         <tr>
-          <td style="padding:20px;">
-            <h3 style="margin:0 0 12px;color:#b45309;font-size:15px;font-weight:800;">Detalles de la Actualización:</h3>
-            <p style="margin:0 0 16px;color:#475569;font-size:14px;line-height:1.6;">
-              Se han realizado las siguientes modificaciones en la actividad:
-            </p>
-            ${curso.detalles}
-            <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #fef3c7;margin-top:16px;padding-top:12px;">
+          <td style="padding:20px 24px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nueva Fecha</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.fecha || 'Sin cambios'}</td>
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Correo Registrado</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${email}</td>
               </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nueva Hora</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.hora ? curso.hora.substring(0, 5) : 'Sin cambios'} Hrs</td>
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Rol asignado</td>
+                <td style="padding:8px 0;color:#1e3a5f;font-size:13px;font-weight:700;text-align:right;">${rolFormateado}</td>
               </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nueva Ubicación</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${curso.ubicacion || 'Sin cambios'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nueva Modalidad</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;text-transform:capitalize;">${curso.modalidad || 'Sin cambios'}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600;">Nuevo Costo</td>
-                <td style="padding:6px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">Bs. ${curso.costo}</td>
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Estado de la cuenta</td>
+                <td style="padding:8px 0;color:#16a34a;font-size:13px;font-weight:700;text-align:right;">✓ Activo</td>
               </tr>
             </table>
           </td>
         </tr>
       </table>
-      <p style="margin:0;color:#64748b;font-size:13px;">Por favor tome nota de estos cambios. Ingrese al portal para ver más detalles.</p>
-    `;
 
-    const results = [];
-    for (const dest of destinatarios) {
-      // Verificar si el destinatario está activo
-      const { data } = await supabase.from('miembro').select('estado').eq('id', dest.id).maybeSingle();
-      if (data && data.estado === 'inactivo') {
-        console.warn(`[Brevo] Evitando notificar cambio de curso a miembro inactivo: ${dest.id}`);
-        continue;
-      }
-
-      await guardarNotificacionDB(
-        dest.id, 
-        'Actividad modificada: ' + curso.nombre, 
-        `Se han actualizado detalles de la actividad "${curso.nombre}". Cambios: ${curso.cambiosSimple}.${curso.unenrollment ? ' IMPORTANTE: Debido a estos cambios se ha anulado su registro. Si sigue de acuerdo con la actividad, por favor vuelva a inscribirse.' : ''}`
-      );
-      
-      const result = await enviarEmail({
-        to: { email: dest.email, name: dest.nombre },
-        subject: `ACTUALIZACIÓN: Actividad académica "${curso.nombre}"`,
-        htmlContent: baseTemplate('Actividad Actualizada', content, '#d97706'),
-      });
-      results.push(result);
-    }
-    return results;
-  },
-
-  enviarNotificacionGeneral: async ({ email, nombre, titulo, mensaje, tipo = 'info', miembroId }) => {
-    if (miembroId) {
-      const { data } = await supabase.from('miembro').select('estado').eq('id', miembroId).maybeSingle();
-      if (data && data.estado === 'inactivo') return { success: false, error: 'Miembro inactivo' };
-    }
-
-    const colores = {
-      info: { accent: '#1e3a5f', bg: '#eff6ff', border: '#bfdbfe' },
-      success: { accent: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-      warning: { accent: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-      error: { accent: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-    };
-    const c = colores[tipo] || colores.info;
-
-    const content = `
-      <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;font-weight:700;">${titulo}</h2>
-      <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>,
+      <p style="margin:0 0 20px;color:#475569;font-size:14px;line-height:1.6;text-align:center;">
+        Ahora puedes iniciar sesion para ver tus actividades academicas, estado de cuenta, realizar pagos de cuotas y mas.
       </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:${c.bg};border:1px solid ${c.border};border-radius:12px;margin-bottom:24px;">
-        <tr>
-          <td style="padding:20px;">
-            <p style="margin:0;color:#334155;font-size:14px;line-height:1.7;">${mensaje}</p>
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0;color:#64748b;font-size:13px;">Si tiene consultas, contacte a la administracion de la institucion.</p>
+
+      <div style="text-align:center;margin-bottom:24px;">
+        <a href="${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173'}" style="display:inline-block;background-color:#1e3a5f;color:#ffffff;padding:12px 28px;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;box-shadow:0 4px 12px rgba(30,58,95,0.2);">
+          Acceder al Portal
+        </a>
+      </div>
     `;
 
-    await guardarNotificacionDB(miembroId, titulo, mensaje);
+    if (!email || email === 'no-reply@control.com') return { success: true };
 
     return enviarEmail({
       to: { email, name: nombre },
-      subject: titulo,
-      htmlContent: baseTemplate(titulo, content, c.accent),
+      subject: `[Control Financiero] 🌟 ¡Tu cuenta ha sido creada con éxito! Bienvenida`,
+      htmlContent: baseTemplate('Bienvenida', content, '#1e3a5f'),
     });
   },
 };

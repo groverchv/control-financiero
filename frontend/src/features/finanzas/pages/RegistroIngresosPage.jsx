@@ -278,27 +278,42 @@ export const RegistroCuotasPage = () => {
   const esMembresiaOrdinaria = tipoSeleccionado?.nombre === 'Membresía Ordinaria' || tipoSeleccionado?.nombre === 'Cuota Mensual';
   const registroSocio = historialSocios.find(h => h.miembro.id === form.miembroBuscador);
 
+  // Helper para convertir el formato de mes a nombre amigable en español de forma robusta
+  const parseMesToNombre = (mesStr) => {
+    if (!mesStr) return '';
+    
+    // 1. Intentar parsear como YYYY-MM (ej: 2026-06)
+    const matchIso = mesStr.match(/^(\d{4})-(\d{2})$/);
+    if (matchIso) {
+      const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(matchIso[2]) - 1];
+      return `${mesNombre} ${matchIso[1]}`;
+    }
+
+    // 2. Intentar parsear formato DD/MM/YYYY con o sin prefijo (ej: "Min 1/6/2026 14:24")
+    const matchSpanish = mesStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (matchSpanish) {
+      const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(matchSpanish[2]) - 1];
+      return `${mesNombre} ${matchSpanish[3]}`;
+    }
+
+    // 3. Fallback a objeto Date de JS
+    const d = new Date(mesStr);
+    if (!isNaN(d.getTime())) {
+      const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][d.getMonth()];
+      return `${mesNombre} ${d.getFullYear()}`;
+    }
+
+    return mesStr;
+  };
+
   useEffect(() => {
     // En modo cuota: auto-rellenar cuando se selecciona un socio
     if (modoIngreso === 'cuota' && form.miembroBuscador) {
       if (registroSocio && registroSocio.proximaPendiente) {
         const mes = registroSocio.proximaPendiente.mes;
-        let desc = '';
-        // Intentar parsear como YYYY-MM
-        const partes = mes && mes.match(/^(\d{4})-(\d{2})$/);
-        if (partes) {
-          const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(partes[2]) - 1];
-          desc = `Cuota de membresía correspondiente a ${mesNombre} ${partes[1]}.`;
-        } else {
-          // Intentar parsear como timestamp ISO
-          const d = new Date(mes);
-          if (!isNaN(d.getTime())) {
-            const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][d.getMonth()];
-            desc = `Cuota de membresía correspondiente a ${mesNombre} ${d.getFullYear()}.`;
-          } else {
-            desc = `Cuota de membresía correspondiente a ${mes}.`;
-          }
-        }
+        const periodoNombre = parseMesToNombre(mes);
+        const desc = `Cuota de membresía correspondiente a ${periodoNombre}.`;
+        
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({
           ...prev,
@@ -313,10 +328,8 @@ export const RegistroCuotasPage = () => {
       // Modo extra: auto-completar solo si es tipo cuota (fallback al comportamiento anterior)
       if (esMembresiaOrdinaria && registroSocio && registroSocio.proximaPendiente) {
         const mes = registroSocio.proximaPendiente.mes;
-        const partes = mes && mes.match(/^(\d{4})-(\d{2})$/);
-        let desc = partes
-          ? `Cuota de membresía correspondiente a ${ ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(partes[2]) - 1]} ${partes[1]}.`
-          : `Cuota de membresía correspondiente a ${mes}.`;
+        const periodoNombre = parseMesToNombre(mes);
+        const desc = `Cuota de membresía correspondiente a ${periodoNombre}.`;
         setForm(prev => ({ ...prev, monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 150), fecha: getCuotaGeneracionDate(registroSocio.proximaPendiente), descripcion: desc }));
       }
     }

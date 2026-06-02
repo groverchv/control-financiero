@@ -287,14 +287,14 @@ BEGIN
     IF NEW.actividad_id IS NOT NULL THEN
         SELECT titulo INTO v_titulo_actividad FROM public.actividad WHERE id = NEW.actividad_id;
     ELSE
-        v_titulo_actividad := COALESCE(NEW.actividad_externa, 'Actividad externa / general');
+        v_titulo_actividad := COALESCE(NEW.actividad_externa, 'Actividad externa');
     END IF;
 
     INSERT INTO public.notificacion (miembro_id, titulo, descripcion)
     VALUES (
         NEW.miembro_id,
         'Asignación como Jurado',
-        'Has sido designado como jurado para la actividad: ' || v_titulo_actividad || '. Detalle: ' || COALESCE(NEW.descripcion, 'Sin observaciones.')
+        'Jurado asignado para: ' || v_titulo_actividad || COALESCE('. Detalle: ' || NEW.descripcion, '')
     );
 
     RETURN NEW;

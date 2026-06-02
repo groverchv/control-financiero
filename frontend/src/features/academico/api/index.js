@@ -1,6 +1,6 @@
 import { supabase } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
-import { brevoService } from '../../../services/brevo';
+
 import { apiCache } from '../../../utils/apiCache';
 
 export const academicoApi = {
@@ -93,19 +93,17 @@ export const academicoApi = {
           nombre: ins.miembro.nombre
         }));
 
-      if (destinatarios.length > 0) {
-        // Notificar cancelación vía Brevo
+      // Notificar cancelación en el sistema interno
+      for (const dest of destinatarios) {
         try {
-          await brevoService.notificarCancelacionActividad({
-            destinatarios,
-            curso: {
-              nombre: actividad.titulo,
-              fecha: actividad.fecha,
-              costo: actividad.costo
-            }
-          });
-        } catch (emailErr) {
-          console.error('[Brevo] Error al enviar notificaciones de cancelación:', emailErr);
+          await supabase.from('notificacion').insert([{
+            miembro_id: dest.id,
+            titulo: `Actividad cancelada: ${actividad.titulo}`,
+            descripcion: `La actividad "${actividad.titulo}" fue cancelada.${actividad.costo > 0 ? ` Reembolso: Bs. ${actividad.costo}.` : ''}`,
+            estado: 'pendiente'
+          }]);
+        } catch (notifErr) {
+          console.error('[Notif] Error guardando notificación de cancelación:', notifErr);
         }
       }
 
@@ -115,7 +113,7 @@ export const academicoApi = {
           await supabase.from('notificacion').insert([{
             miembro_id: ins.miembro_id,
             titulo: 'Actividad Cancelada - Reembolso Pendiente',
-            descripcion: `La actividad "${actividad.titulo}" ha sido cancelada. Usted entra en modo de devolución. Por favor contacte con administración para su reembolso de Bs. ${actividad.costo}.`,
+            descripcion: `La actividad "${actividad.titulo}" fue cancelada. Reembolso disponible: Bs. ${actividad.costo}.`,
             estado: 'pendiente'
           }]);
         }
@@ -190,26 +188,20 @@ export const academicoApi = {
         .eq('estado', 'activo');
 
       if (socios?.length > 0) {
-        const destinatarios = socios
-          .filter(s => s.correoElectronico)
-          .map(s => ({ id: s.id, email: s.correoElectronico, nombre: s.nombre }));
-
-        brevoService.notificarNuevoCurso({
-          destinatarios,
-          curso: { 
-            nombre: actividad.nombre || actividad.titulo, 
-            fecha: actividad.fecha, 
-            hora: actividad.hora,
-            modalidad: actividad.modalidad,
-            costo: actividad.costo, 
-            cupos: actividad.cupos,
-            descripcion: actividad.descripcion,
-            tipo_nombre: tipoNombre
-          }
-        }).catch(err => console.error('[Brevo] Error notificando nueva actividad:', err));
+        const fechaFormateada = actividad.fecha
+          ? new Date(actividad.fecha.split('T')[0] + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '—';
+        const notificaciones = socios.map(s => ({
+          miembro_id: s.id,
+          titulo: `Nueva actividad: ${actividad.nombre || actividad.titulo}`,
+          descripcion: `Actividad (${tipoNombre}) "${actividad.nombre || actividad.titulo}" el ${fechaFormateada} a las ${actividad.hora ? actividad.hora.substring(0, 5) : '—'} Hrs. Costo: ${actividad.costo > 0 ? 'Bs. ' + actividad.costo : 'Gratuito'}.`,
+          estado: 'pendiente'
+        }));
+        supabase.from('notificacion').insert(notificaciones)
+          .catch(err => console.error('[Notif] Error guardando notificaciones de nueva actividad:', err));
       }
     } catch (emailErr) {
-      console.error('[Brevo] Error obteniendo socios para notificación:', emailErr);
+      console.error('[Notif] Error obteniendo socios para notificación:', emailErr);
     }
 
     // Volver a obtener para incluir todas las relaciones (similar a obtenerActividades)
@@ -388,27 +380,21 @@ export const academicoApi = {
             }));
 
           if (destinatarios.length > 0) {
-            const newDateVal = finalUpdates.fecha || currentAct.fecha;
-            const fechaFormateada = new Date(newDateVal && typeof newDateVal === 'string' && newDateVal.includes('-') ? newDateVal.split('T')[0] + 'T00:00:00' : newDateVal).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            
             if (shouldUnenroll) {
               changesList.push(`<li><b>Importante:</b> Debido a estos cambios se ha anulado su registro. Si sigue de acuerdo con la actividad, por favor vuelva a inscribirse.</li>`);
             }
 
-            brevoService.notificarCambioActividad({
-              destinatarios,
-              curso: {
-                nombre: finalUpdates.titulo || currentAct.titulo,
-                fecha: fechaFormateada,
-                hora: finalUpdates.hora || currentAct.hora,
-                ubicacion: finalUpdates.ubicacion || currentAct.ubicacion,
-                modalidad: finalUpdates.modalidad || currentAct.modalidad,
-                costo: finalUpdates.costo !== undefined ? finalUpdates.costo : currentAct.costo,
-                cambiosSimple: changesSimple.join(', '),
-                detalles: `<ul style="margin:0;padding-left:20px;line-height:1.6;font-size:14px;color:#475569;">${changesList.join('')}</ul>`,
-                unenrollment: shouldUnenroll
-              }
-            }).catch(err => console.error('[Brevo] Error al enviar notificaciones de cambio de actividad:', err));
+            // Notificar cambios en el sistema interno
+            const nombreAct = finalUpdates.titulo || currentAct.titulo;
+            const descCambio = `Cambios en "${nombreAct}": ${changesSimple.join(', ')}.${shouldUnenroll ? ' Su inscripción fue anulada, puede reinscribirse.' : ''}`;
+            const notificacionesCambio = destinatarios.map(d => ({
+              miembro_id: d.id,
+              titulo: `Actividad modificada: ${nombreAct}`,
+              descripcion: descCambio,
+              estado: 'pendiente'
+            }));
+            supabase.from('notificacion').insert(notificacionesCambio)
+              .catch(err => console.error('[Notif] Error guardando notificaciones de cambio:', err));
 
             if (shouldUnenroll) {
               // R23: Gestionar deudas y anulaciones
@@ -428,7 +414,7 @@ export const academicoApi = {
                   await supabase.from('notificacion').insert([{
                     miembro_id: ins.miembro_id,
                     titulo: 'Inscripción Anulada - Reembolso Pendiente',
-                    descripcion: `Due al cambio crítico de datos en la actividad "${currentAct.titulo}", su inscripción ha sido anulada. Como el pago ya fue realizado, se ha habilitado su modo de devolución de Bs. ${currentAct.costo}.`,
+                    descripcion: `Inscripción anulada para "${currentAct.titulo}" por cambios críticos. Reembolso disponible: Bs. ${currentAct.costo}.`,
                     estado: 'pendiente'
                   }]);
                 }
@@ -740,36 +726,25 @@ export const academicoApi = {
       throw error;
     }
 
-
-
-    // Enviar email de confirmación (en segundo plano)
     try {
-      const { data: miembro } = await supabase
-        .from('miembro')
-        .select('nombre, "correoElectronico"')
-        .eq('id', miembroId)
+      // Notificar inscripción en el sistema interno
+      const { data: itemInfo } = await supabase
+        .from('actividad')
+        .select('titulo, fecha, hora, costo')
+        .eq('id', actividadId)
         .single();
 
-      if (miembro?.correoElectronico) {
-        const { data: itemInfo } = await supabase
-          .from('actividad')
-          .select('titulo, fecha, hora, ubicacion, modalidad, costo, tipo_actividad:tipo_actividad_id(nombre)')
-          .eq('id', actividadId)
-          .single();
-
-        brevoService.notificarInscripcionCurso({
-          email: miembro.correoElectronico,
-          nombre: miembro.nombre,
-          curso: { 
-            ...itemInfo, 
-            nombre: itemInfo.titulo,
-            tipo_nombre: itemInfo.tipo_actividad?.nombre || 'General'
-          },
-          miembroId
-        }).catch(err => console.error('[Brevo] Error en email de inscripcion:', err));
-      }
+      const fechaInsc = itemInfo?.fecha
+        ? new Date(itemInfo.fecha.split('T')[0] + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : '—';
+      supabase.from('notificacion').insert([{
+        miembro_id: miembroId,
+        titulo: `Inscripción confirmada: ${itemInfo?.titulo || 'Actividad'}`,
+        descripcion: `Inscripción a "${itemInfo?.titulo || 'Actividad'}" confirmada. Inicio: ${fechaInsc} a las ${itemInfo?.hora ? itemInfo.hora.substring(0, 5) : '—'} Hrs.${itemInfo?.costo > 0 ? ` Costo: Bs. ${itemInfo.costo}.` : ''}`,
+        estado: 'pendiente'
+      }]).catch(err => console.error('[Notif] Error guardando notificación de inscripción:', err));
     } catch (emailErr) {
-      console.error('[Brevo] Error enviando confirmación de inscripción:', emailErr);
+      console.error('[Notif] Error enviando confirmación de inscripción:', emailErr);
     }
 
     return true;

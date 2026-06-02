@@ -189,7 +189,7 @@ export const patrimonioApi = {
 
   _syncAmortizacionKeys: new Set(),
 
-  sincronizarNotificacionesAmortizacion: async (userId, userEmail, userNombre) => {
+  sincronizarNotificacionesAmortizacion: async (userId) => {
     try {
       if (!userId) return;
 
@@ -202,7 +202,6 @@ export const patrimonioApi = {
       const { data: activos } = await supabase.from('activos').select('id, nombre');
       const { data: notifs } = await supabase.from('notificacion').select('titulo').eq('miembro_id', userId).ilike('titulo', 'Recordatorio de Amortización:%');
 
-      const { brevoService } = await import('../../../services/brevo.js');
       const hoy = new Date();
 
       for (const p of planes) {
@@ -221,15 +220,13 @@ export const patrimonioApi = {
           if (!yaNotificada) {
             patrimonioApi._syncAmortizacionKeys.add(syncKey);
             const montoFormateado = new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(p.monto);
-            
-            await brevoService.enviarNotificacionGeneral({
-              email: userEmail || 'admin@control.com',
-              nombre: userNombre || 'Administrador',
+            const descAmort = `Cuota ${p.numero} de "${activoNombre}" (${montoFormateado}) vence el ${fechaVenc.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}.${diffDias < 0 ? ' VENCIDA.' : ''}`;
+            await supabase.from('notificacion').insert([{
+              miembro_id: userId,
               titulo: tituloEsperado,
-              mensaje: `El pago de la cuota ${p.numero} por la amortización de "${activoNombre}" vence el ${fechaVenc.toLocaleDateString('es-ES')}. El monto a pagar es de ${montoFormateado}. Por favor, realice el egreso correspondiente para evitar deudas de la institución.`,
-              tipo: diffDias < 0 ? 'error' : 'warning',
-              miembroId: userId
-            });
+              descripcion: descAmort,
+              estado: 'pendiente'
+            }]);
           }
         }
       }

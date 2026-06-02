@@ -50,7 +50,7 @@ export const finanzasApi = {
         .eq('id', pago.inscripcionId);
     }
 
-    // Enviar email de confirmación de pago al socio si existe miembroId (en segundo plano)
+    // Enviar recibo de pago al socio si existe miembroId (en segundo plano)
     try {
       if (miembroId) {
         const { data: miembro } = await supabase
@@ -59,27 +59,28 @@ export const finanzasApi = {
           .eq('id', miembroId)
           .single();
 
-        if (miembro?.correoElectronico) {
-          brevoService.notificarPagoRegistrado({
-            email: miembro.correoElectronico,
-            nombre: miembro.nombre,
-            monto: pago.monto,
-            fecha: pago.fecha || new Date().toLocaleDateString('es-ES'),
-            concepto: pago.descripcion || 'Cuota mensual',
-            miembroId
-          }).catch(err => console.error('[Brevo] Error notificando pago registrado:', err));
-        } else {
-          // Si no tiene correo pero si es miembro, solo guardamos en BD
-          await supabase.from('notificacion').insert([{
-            miembro_id: miembroId,
-            titulo: 'Pago registrado',
-            descripcion: `Se registro su pago de Bs. ${pago.monto} por concepto de: ${pago.descripcion || 'Cuota mensual'}. Fecha: ${pago.fecha || new Date().toLocaleDateString('es-ES')}.`,
-            estado: 'pendiente'
-          }]);
+        // Calcular cuotas que quedan pendientes después de este pago
+        let cuotasPendientesRestantes = 0;
+        try {
+          const historial = await finanzasApi.obtenerHistorialCuotasMiembro();
+          const dataMiembro = historial.find(h => h.miembro.id === miembroId);
+          cuotasPendientesRestantes = dataMiembro?.mesesDeuda || 0;
+        } catch (e) {
+          // No es crítico si falla
         }
+
+        brevoService.notificarPagoRegistrado({
+          email: miembro?.correoElectronico || 'no-reply@control.com',
+          nombre: miembro?.nombre || 'Socio',
+          monto: pago.monto,
+          fecha: pago.fecha || new Date().toISOString().split('T')[0],
+          concepto: pago.descripcion || 'Cuota de membresía',
+          miembroId,
+          cuotasPendientes: cuotasPendientesRestantes,
+        }).catch(err => console.error('[Brevo] Error enviando recibo de pago:', err));
       }
     } catch (emailErr) {
-      console.error('[Brevo] Error enviando confirmación de pago:', emailErr);
+      console.error('[Brevo] Error enviando recibo de pago:', emailErr);
     }
 
     // R15: Recargar el objeto completo (con tipo, socio y archivos) para actualizar la UI sin F5
@@ -428,15 +429,15 @@ export const finanzasApi = {
       const { data: notifs } = await supabase
         .from('notificacion')
         .select('miembro_id, titulo')
-        .ilike('titulo', 'Pago pendiente:%');
+        .ilike('titulo', 'Cuota generada:%');
 
       const { brevoService } = await import('../../../services/brevo.js');
       const montoCuota = config?.monto_cuota || 150;
 
-      for (const { miembro, proximaPendiente } of historial) {
+      for (const { miembro, cronograma, proximaPendiente } of historial) {
         if (!proximaPendiente) continue;
 
-        const tituloEsperado = `Pago pendiente: ${proximaPendiente.mes}`;
+        const tituloEsperado = `Cuota generada: ${proximaPendiente.mes}`;
         const syncKey = `${miembro.id}-${tituloEsperado}`;
 
         if (finanzasApi._syncInProgressKeys.has(syncKey)) continue;
@@ -445,15 +446,19 @@ export const finanzasApi = {
 
         if (!yaNotificada) {
           finanzasApi._syncInProgressKeys.add(syncKey);
-          // Generar la notificacion en DB y enviar Email de forma silenciosa
+
+          // Calcular cuotas pendientes anteriores (deudas acumuladas, excluye la más próxima)
+          const cuotasPreviasPendientes = (cronograma || [])
+            .filter(c => !c.pagado && c.mes !== proximaPendiente.mes)
+            .map(c => ({ mes: c.mes, monto: montoCuota }));
+
           await brevoService.notificarPagoPendiente({
             email: miembro.correoElectronico || 'no-reply@control.com',
-            nombre: `${miembro.nombre} ${miembro.apellidoPaterno}`,
+            nombre: `${miembro.nombre} ${miembro.apellidoPaterno || ''}`.trim(),
             monto: montoCuota,
-            fechaLimite: proximaPendiente.fechaVencimientoAjustada,
-            diasRetraso: 0,
+            periodoKey: proximaPendiente.mes,
             miembroId: miembro.id,
-            periodoKey: proximaPendiente.mes
+            deudasExtra: cuotasPreviasPendientes,
           });
         }
       }

@@ -1,6 +1,7 @@
 import { supabase, supabaseAdmin } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { brevoService } from '../../../services/brevo';
+
 import { encryptPassword, decryptPassword } from '../../../utils/encryption';
 
 export const administracionApi = {
@@ -51,7 +52,17 @@ export const administracionApi = {
       }
     });
 
-    if (authError) throw authError;
+    if (authError) {
+      let mensaje = authError.message;
+      if (mensaje.includes('already been registered')) {
+        mensaje = 'Ya existe un usuario registrado con esta dirección de correo electrónico.';
+      } else if (mensaje.includes('should be at least')) {
+        mensaje = 'La contraseña debe tener al menos 6 caracteres.';
+      } else if (mensaje.includes('invalid')) {
+        mensaje = 'La dirección de correo electrónico no es válida.';
+      }
+      throw new Error(mensaje);
+    }
 
     // 2. Si se pasaron campos adicionales, actualizamos la tabla miembro
     const updates = {};
@@ -76,15 +87,24 @@ export const administracionApi = {
 
     if (error) throw error;
 
-    // Enviar email de bienvenida al nuevo socio (en segundo plano)
-    const emailToNotify = data?.correoElectronico || emailToUse;
-    if (emailToNotify) {
-      brevoService.enviarNotificacionGeneral({
-        email: emailToNotify,
-        nombre: data?.nombre || miembro.nombre,
+    // Guardar notificación de bienvenida en el sistema interno
+    try {
+      await supabase.from('notificacion').insert([{
+        miembro_id: data?.id,
         titulo: '¡Bienvenido!',
-        mensaje: `Tu cuenta ha sido creada exitosamente. ¡Te damos una cordial bienvenida!`,
-        tipo: 'success'
+        descripcion: 'Tu cuenta ha sido creada. ¡Te damos una cordial bienvenida a la institución!',
+        estado: 'pendiente'
+      }]);
+    } catch (err) {
+      console.error('[Notif] Error guardando notificación de bienvenida:', err);
+    }
+
+    // Enviar correo de bienvenida por Brevo
+    if (data?.correoElectronico) {
+      brevoService.enviarBienvenida({
+        email: data.correoElectronico,
+        nombre: `${data.nombre || ''} ${data.apellidoPaterno || ''}`.trim(),
+        rol: data.rol
       }).catch(err => console.error('[Brevo] Error enviando email de bienvenida:', err));
     }
 
@@ -257,7 +277,7 @@ export const administracionApi = {
    * @param {string} [params.miembroId] - ID del miembro específico (si es null, se envía a todos)
    * @param {'info'|'success'|'warning'|'error'} [params.tipo] - Tipo de notificación
    */
-  enviarAlertaEmail: async ({ titulo, mensaje, miembroId = null, tipo = 'info' }) => {
+  enviarAlertaEmail: async ({ titulo, mensaje, miembroId = null }) => {
     let destinatarios = [];
 
     if (miembroId) {
@@ -291,22 +311,8 @@ export const administracionApi = {
       await supabase.from('notificacion').insert(notificaciones);
     }
 
-    // Enviar emails en segundo plano
-    const results = [];
-    for (const dest of destinatarios) {
-      if (dest.correoElectronico) {
-        const result = await brevoService.enviarNotificacionGeneral({
-          email: dest.correoElectronico,
-          nombre: dest.nombre,
-          titulo,
-          mensaje,
-          tipo
-        });
-        results.push(result);
-      }
-    }
-
-    return { enviados: results.filter(r => r.success).length, total: destinatarios.length };
+    // Las notificaciones ya fueron insertadas en la BD arriba
+    return { enviados: 0, total: destinatarios.length };
   },
 
   /**

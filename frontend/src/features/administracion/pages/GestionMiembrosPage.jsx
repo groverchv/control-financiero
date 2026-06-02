@@ -356,18 +356,18 @@ export const GestionMiembrosPage = () => {
         if (formData.rol !== editingMember.rol) changedFields.push('Rol');
         if (formData.estado !== editingMember.estado) changedFields.push('Estado');
 
-        let descNotif = 'Tus datos personales o configuraciones de cuenta han sido actualizados por la administración.';
+        let descNotif = 'Actualización de perfil por la administración.';
         if (changedFields.length > 0) {
-          descNotif = `Los siguientes campos han sido actualizados por la administración: ${changedFields.join(', ')}.`;
+          descNotif = `Campos actualizados: ${changedFields.join(', ')}.`;
         }
         if (password) {
-          descNotif += ' Además, tu contraseña de acceso ha sido modificada.';
+          descNotif += ' Contraseña modificada.';
         }
 
         // Crear notificación del sistema (no por correo)
         await supabase.from('notificacion').insert([{
           miembro_id: editingMember.id,
-          titulo: password ? 'Credenciales de Acceso Actualizadas' : 'Actualización de Perfil',
+          titulo: password ? 'Credenciales Actualizadas' : 'Actualización de Perfil',
           descripcion: descNotif,
           estado: 'pendiente'
         }]);

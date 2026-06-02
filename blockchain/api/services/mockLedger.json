@@ -3686,5 +3686,21 @@
     "hashCalculado": "hash-wug19h9evz",
     "idUsuario": "user-l7a1ux",
     "timestamp": "2026-06-01T17:59:54.903Z"
+  },
+  {
+    "txId": "9208dd69ec96e5f7b0573950b21e242f6bfefe60ed71b738cf2930199a60d558",
+    "tipoTabla": "ingreso",
+    "idRegistro": "1fdb6e27-449d-4163-a6fc-f35833c14cae",
+    "hashCalculado": "5baf051e4c85efecfe3a0f5eb320f5abea209d7965a13919e83b832114454c67",
+    "idUsuario": "1b0ca228-2618-40de-91e7-edf166751b82",
+    "timestamp": "2026-06-01T23:36:22.602Z"
+  },
+  {
+    "txId": "b8a4d52faaa440bd67b05bd94fc142efba1b39da323a39174e778e2df5ec508b",
+    "tipoTabla": "ingreso",
+    "idRegistro": "f15e12e5-d91f-4a82-b787-7a2503dd5892",
+    "hashCalculado": "a7d84603d02c3303f5fba0fbdeaa4ba502e5aeced5861484837ef04ee15c0740",
+    "idUsuario": "1b0ca228-2618-40de-91e7-edf166751b82",
+    "timestamp": "2026-06-02T00:01:13.181Z"
   }
 ]

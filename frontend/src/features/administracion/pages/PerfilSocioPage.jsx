@@ -400,13 +400,6 @@ export const PerfilSocioPage = () => {
                   disabled={!isEditing}
                 />
                 <Input 
-                  label="Teléfono de Contacto" 
-                  value={formData.telefono} 
-                  onChange={(e) => setFormData({...formData, telefono: e.target.value})}
-                  icon={<Phone className="h-4 w-4" />}
-                  disabled={!isEditing}
-                />
-                <Input 
                   label="Apellido Paterno" 
                   value={formData.apellidoPaterno} 
                   onChange={(e) => setFormData({...formData, apellidoPaterno: e.target.value})}
@@ -416,6 +409,13 @@ export const PerfilSocioPage = () => {
                   label="Apellido Materno" 
                   value={formData.apellidoMaterno} 
                   onChange={(e) => setFormData({...formData, apellidoMaterno: e.target.value})}
+                  disabled={!isEditing}
+                />
+                <Input 
+                  label="Teléfono de Contacto" 
+                  value={formData.telefono} 
+                  onChange={(e) => setFormData({...formData, telefono: e.target.value})}
+                  icon={<Phone className="h-4 w-4" />}
                   disabled={!isEditing}
                 />
                 <div className="md:col-span-2">

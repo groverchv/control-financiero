@@ -10,11 +10,18 @@ export const PublicLayout = () => {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogoutConfirm = async () => {
     await supabase.auth.signOut();
     logout();
     navigate('/inicio');
     setIsMenuOpen(false);
+    setShowLogoutConfirm(false);
   };
 
   const navLinks = [
@@ -162,7 +169,7 @@ export const PublicLayout = () => {
                     </span>
                   </div>
                   <button 
-                    onClick={handleLogout}
+                    onClick={handleLogoutClick}
                     className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                     title="Cerrar Sesión"
                   >
@@ -204,7 +211,7 @@ export const PublicLayout = () => {
                     </span>
                   </div>
                   <button 
-                    onClick={handleLogout}
+                    onClick={handleLogoutClick}
                     className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 shrink-0"
                   >
                     <LogOut className="h-4 w-4" />
@@ -225,21 +232,6 @@ export const PublicLayout = () => {
         {/* MOBILE NAVIGATION */}
         {isMenuOpen && (
           <div className="border-t bg-white px-4 sm:px-6 py-5 xl:hidden">
-            <div className="mb-6 flex items-center gap-4 border-b border-slate-100 pb-6 md:hidden">
-              <div className="h-12 w-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
-                {user?.foto ? (
-                  <img src={user.foto} alt="Perfil" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-slate-400">
-                    <UserIcon className="h-6 w-6" />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-900 truncate">{user?.nombre} {user?.apellidoPaterno}</p>
-                <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-              </div>
-            </div>
             <nav className="flex flex-col gap-1">
               {navLinks.map(link => (
                 <NavLink 
@@ -253,7 +245,6 @@ export const PublicLayout = () => {
               ))}
               {isAuthenticated && (
                 <>
-                  <div className="my-2 border-t border-slate-100" />
                   {authLinks.map(link => (
                     <NavLink 
                       key={link.to} 
@@ -275,24 +266,6 @@ export const PublicLayout = () => {
               <div className="mt-3 border-t pt-4">
                 {isAuthenticated ? (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3 px-3">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                        {user?.foto ? (
-                          <img src={user.foto} alt="Perfil" className="h-full w-full object-cover rounded-full" />
-                        ) : (
-                          <UserIcon className="h-5 w-5" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-slate-900 truncate">{user?.nombre}</p>
-                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-600 shrink-0">
-                            {user?.rol}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-                      </div>
-                    </div>
                     {user?.rol !== 'socio' && (
                       <Link 
                         to={user?.rol === 'secretario' ? '/admin/ingresos' : '/admin/kpis'} 
@@ -303,7 +276,7 @@ export const PublicLayout = () => {
                       </Link>
                     )}
                     <button 
-                      onClick={handleLogout}
+                      onClick={handleLogoutClick}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600"
                     >
                       <LogOut className="h-4 w-4" />
@@ -334,6 +307,46 @@ export const PublicLayout = () => {
           <p className="text-sm text-slate-500">© 2026 Control Financiero Institucional. Todos los derechos reservados.</p>
         </div>
       </footer>
+
+      {/* MODAL DE CONFIRMACIÓN DE CIERRE DE SESIÓN */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setShowLogoutConfirm(false)}
+          />
+          
+          {/* Modal Container */}
+          <div className="relative bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 scale-100 animate-in fade-in zoom-in-95 duration-200 z-10 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600 mb-4">
+              <LogOut className="h-6 w-6" />
+            </div>
+            
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
+              ¿Confirmar cierre de sesión?
+            </h3>
+            <p className="text-sm text-slate-500 mb-6">
+              ¿Estás seguro de que deseas cerrar sesión? Tendrás que ingresar tus credenciales nuevamente para acceder.
+            </p>
+            
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleLogoutConfirm}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-red-500/25 hover:bg-red-700 transition-colors"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -266,7 +266,7 @@ export const HistorialCuotasPage = () => {
   const [filtroDeuda, setFiltroDeuda] = useState('todos');
   const [confirmPausa, setConfirmPausa] = useState(false);
   const [configModal, setConfigModal] = useState(false);
-  const [configForm, setConfigForm] = useState({ frecuencia: 'mes', dias_recordatorio_activos: 5, monto_cuota: 150 });
+  const [configForm, setConfigForm] = useState({ frecuencia: 'mes', monto_cuota: 150 });
   const [infoModal, setInfoModal] = useState({ open: false, title: '', message: '', isWarning: false });
   const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -289,7 +289,6 @@ export const HistorialCuotasPage = () => {
       if (cfg) {
         setConfigForm({
           frecuencia: cfg.frecuencia || 'mes',
-          dias_recordatorio_activos: cfg.dias_recordatorio_activos || 5,
           monto_cuota: cfg.monto_cuota || 150
         });
       }
@@ -316,7 +315,6 @@ export const HistorialCuotasPage = () => {
       // Formatear numéricos antes de guardar
       const payload = {
         ...configForm,
-        dias_recordatorio_activos: parseInt(configForm.dias_recordatorio_activos) || 5,
         monto_cuota: parseFloat(configForm.monto_cuota) || 150
       };
       
@@ -403,15 +401,15 @@ export const HistorialCuotasPage = () => {
             Seguimiento mensual de pagos por miembro · Sistema automático desde la fecha de ingreso.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             type="button"
             onClick={cargarDatos}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualizar
+            <RefreshCw className={`h-4 w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
+            <span>Actualizar</span>
           </button>
           
           {/* BOTÓN CONFIGURACIÓN GENERAL DE CUOTAS */}
@@ -420,16 +418,15 @@ export const HistorialCuotasPage = () => {
             onClick={() => {
               setConfigForm({
                 frecuencia: config?.frecuencia || 'mes',
-                dias_recordatorio_activos: config?.dias_recordatorio_activos || 5,
                 monto_cuota: config?.monto_cuota || 150
               });
               setConfigModal(true);
             }}
             disabled={loading || loadingPausa}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
           >
-            <Clock className="h-4 w-4 text-slate-500" />
-            Configurar Frecuencia
+            <Clock className="h-4 w-4 text-slate-500 shrink-0" />
+            <span className="whitespace-nowrap">Frecuencia</span>
           </button>
 
           {/* BOTÓN PAUSA GLOBAL */}
@@ -437,20 +434,20 @@ export const HistorialCuotasPage = () => {
             type="button"
             onClick={() => setConfirmPausa(true)}
             disabled={loadingPausa || loading}
-            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all shadow-sm disabled:opacity-60 ${
+            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all shadow-sm disabled:opacity-60 ${
               config?.pausado
                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
                 : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
             }`}
           >
             {loadingPausa ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
             ) : config?.pausado ? (
-              <PlayCircle className="h-4 w-4" />
+              <PlayCircle className="h-4 w-4 shrink-0" />
             ) : (
-              <PauseCircle className="h-4 w-4" />
+              <PauseCircle className="h-4 w-4 shrink-0" />
             )}
-            {config?.pausado ? 'Reanudar generación de cuotas' : 'Pausar generación de cuotas'}
+            <span>{config?.pausado ? 'Reanudar generación' : 'Pausar generación'}</span>
           </button>
         </div>
       </header>
@@ -606,6 +603,7 @@ export const HistorialCuotasPage = () => {
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
                 <option value="3_minutos">Cada 3 min (Pruebas)</option>
+                <option value="1_dia">Cada Día (Pruebas)</option>
                 <option value="mes">Cada Mes (Estándar)</option>
               </select>
               <p className="text-[11px] text-slate-500">
@@ -613,23 +611,6 @@ export const HistorialCuotasPage = () => {
               </p>
             </div>
 
-            {/* Campo Recordatorio Activos */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
-                Días de Recordatorio (Actividades)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={configForm.dias_recordatorio_activos || ''}
-                onChange={e => setConfigForm(prev => ({ ...prev, dias_recordatorio_activos: e.target.value }))}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-              <p className="text-[11px] text-slate-500">
-                Anticipación en días para enviar alertas previas antes del inicio de una actividad.
-              </p>
-            </div>
 
             {/* Campo Monto Cuota */}
             <div className="space-y-1.5">

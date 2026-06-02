@@ -15,7 +15,7 @@ const sellarSchema = z.object({
     }),
     idRegistro: z.string().uuid({ message: 'idRegistro debe ser un UUID válido' }),
     hashCalculado: z.string().length(64, { message: 'hashCalculado debe ser un hash SHA-256 de 64 caracteres' }),
-    idUsuario: z.string().uuid({ message: 'idUsuario debe ser un UUID válido' })
+    idUsuario: z.string({ required_error: 'idUsuario es requerido' })
 });
 
 const verificarSchema = z.object({

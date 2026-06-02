@@ -197,8 +197,11 @@ export const academicoApi = {
           descripcion: `Actividad (${tipoNombre}) "${actividad.nombre || actividad.titulo}" el ${fechaFormateada} a las ${actividad.hora ? actividad.hora.substring(0, 5) : '—'} Hrs. Costo: ${actividad.costo > 0 ? 'Bs. ' + actividad.costo : 'Gratuito'}.`,
           estado: 'pendiente'
         }));
-        supabase.from('notificacion').insert(notificaciones)
-          .catch(err => console.error('[Notif] Error guardando notificaciones de nueva actividad:', err));
+        try {
+          await supabase.from('notificacion').insert(notificaciones);
+        } catch (err) {
+          console.error('[Notif] Error guardando notificaciones de nueva actividad:', err);
+        }
       }
     } catch (emailErr) {
       console.error('[Notif] Error obteniendo socios para notificación:', emailErr);
@@ -393,8 +396,11 @@ export const academicoApi = {
               descripcion: descCambio,
               estado: 'pendiente'
             }));
-            supabase.from('notificacion').insert(notificacionesCambio)
-              .catch(err => console.error('[Notif] Error guardando notificaciones de cambio:', err));
+            try {
+              await supabase.from('notificacion').insert(notificacionesCambio);
+            } catch (err) {
+              console.error('[Notif] Error guardando notificaciones de cambio:', err);
+            }
 
             if (shouldUnenroll) {
               // R23: Gestionar deudas y anulaciones
@@ -737,12 +743,12 @@ export const academicoApi = {
       const fechaInsc = itemInfo?.fecha
         ? new Date(itemInfo.fecha.split('T')[0] + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
         : '—';
-      supabase.from('notificacion').insert([{
+      await supabase.from('notificacion').insert([{
         miembro_id: miembroId,
         titulo: `Inscripción confirmada: ${itemInfo?.titulo || 'Actividad'}`,
         descripcion: `Inscripción a "${itemInfo?.titulo || 'Actividad'}" confirmada. Inicio: ${fechaInsc} a las ${itemInfo?.hora ? itemInfo.hora.substring(0, 5) : '—'} Hrs.${itemInfo?.costo > 0 ? ` Costo: Bs. ${itemInfo.costo}.` : ''}`,
         estado: 'pendiente'
-      }]).catch(err => console.error('[Notif] Error guardando notificación de inscripción:', err));
+      }]);
     } catch (emailErr) {
       console.error('[Notif] Error enviando confirmación de inscripción:', emailErr);
     }

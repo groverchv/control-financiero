@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { academicoApi } from '../api';
 import { useAuthStore } from '../../../store/authStore';
 import { getDynamicEstado } from '../../../utils/formatters';
+import { supabase } from '../../../services/supabase';
 
 export const PublicCursosPage = () => {
   const { user, isAuthenticated } = useAuthStore();
@@ -80,6 +81,77 @@ export const PublicCursosPage = () => {
       }
     };
     fetchData();
+  }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    const canalActividades = supabase
+      .channel('public-actividades-realtime')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'actividad' },
+        async (payload) => {
+          // Invalidar caché local al recibir cualquier actualización en la tabla
+          const { apiCache } = await import('../../../utils/apiCache');
+          apiCache.invalidate('academico');
+
+          if (payload.eventType === 'DELETE') {
+            setActividades(prev => prev.filter(a => a.id !== payload.old.id));
+          } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            try {
+              const updatedAct = await academicoApi.obtenerActividadPorId(payload.new.id);
+              
+              const isEnrolled = isAuthenticated && user?.id 
+                ? await academicoApi.verificarInscripcion(user.id, payload.new.id)
+                : false;
+              
+              const dynamicEstado = getDynamicEstado(updatedAct.fecha, updatedAct.hora);
+              const processedAct = {
+                ...updatedAct,
+                estado: dynamicEstado,
+                isEnrolled
+              };
+
+              setActividades(prev => {
+                const filtered = prev.filter(a => a.id !== processedAct.id);
+                if (processedAct.publicado === false) return filtered;
+
+                if (processedAct.fecha && processedAct.hora) {
+                  const startStr = `${processedAct.fecha}T${processedAct.hora}`;
+                  const courseStart = new Date(startStr);
+                  if (!isNaN(courseStart.getTime())) {
+                    const now = new Date();
+                    const hideTime = new Date(courseStart.getTime() + 2 * 60 * 60 * 1000);
+                    if (now > hideTime) return filtered;
+                  }
+                }
+                if (processedAct.fecha) {
+                  const actDate = new Date(processedAct.fecha + 'T00:00:00');
+                  const sevenDaysAgo = new Date();
+                  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                  sevenDaysAgo.setHours(0, 0, 0, 0);
+                  if (actDate < sevenDaysAgo) return filtered;
+                }
+
+                const updatedList = [processedAct, ...filtered];
+                updatedList.sort((a, b) => {
+                  if (a.isEnrolled && !b.isEnrolled) return -1;
+                  if (!a.isEnrolled && b.isEnrolled) return 1;
+                  if (a.estado === 'finalizado' && b.estado !== 'finalizado') return 1;
+                  if (a.estado !== 'finalizado' && b.estado === 'finalizado') return -1;
+                  return new Date(a.fecha + 'T00:00:00') - new Date(b.fecha + 'T00:00:00');
+                });
+                return updatedList;
+              });
+            } catch (err) {
+              console.error('Error procesando actualización en tiempo real:', err);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canalActividades);
+    };
   }, [isAuthenticated, user?.id]);
 
   useEffect(() => {

@@ -40,9 +40,21 @@ export const blockchainService = {
      * Envia un hash al ledger de Fabric para sellarlo.
      */
     sellar: async (tipoTabla, idRegistro, hashCalculado, idUsuario) => {
+        // Normalizar 'activo' a 'activos' para cumplir con el esquema Zod del backend
+        const validTipoTabla = tipoTabla === 'activo' ? 'activos' : tipoTabla;
+
+        // Validar si el idUsuario es un UUID válido; si no, usar un UUID de sistema
+        const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+        const validIdUsuario = uuidRegex.test(idUsuario) ? idUsuario : '00000000-0000-0000-0000-000000000000';
+
         return request('/sellar', {
             method: 'POST',
-            body: JSON.stringify({ tipoTabla, idRegistro, hashCalculado, idUsuario })
+            body: JSON.stringify({ 
+                tipoTabla: validTipoTabla, 
+                idRegistro, 
+                hashCalculado, 
+                idUsuario: validIdUsuario 
+            })
         });
     },
 

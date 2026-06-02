@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { academicoApi } from '../api';
+import { supabase } from '../../../services/supabase';
 
 export const useActividades = () => {
   const [actividades, setActividades] = useState([]);
@@ -17,9 +18,45 @@ export const useActividades = () => {
       setLoading(false);
     }
   };
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refetch();
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-use-actividades')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'actividad' },
+        async (payload) => {
+          // Invalidar caché de academico al haber cualquier cambio en BD
+          const { apiCache } = await import('../../../utils/apiCache');
+          apiCache.invalidate('academico');
+
+          if (payload.eventType === 'DELETE') {
+            setActividades(prev => prev.filter(a => a.id !== payload.old.id));
+          } else if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            try {
+              const updatedAct = await academicoApi.obtenerActividadPorId(payload.new.id);
+              setActividades(prev => {
+                const filtered = prev.filter(a => a.id !== updatedAct.id);
+                // Ordenar por fecha descendente, idéntico al default de obtenerActividades
+                const updatedList = [updatedAct, ...filtered];
+                updatedList.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+                return updatedList;
+              });
+            } catch (err) {
+              console.error('Error actualizando actividad en hook useActividades:', err);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { actividades, loading, error, setActividades, refetch };

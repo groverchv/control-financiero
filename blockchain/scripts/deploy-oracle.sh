@@ -76,6 +76,7 @@ else
 fi
 
 # 3. Instalar Node.js v18 y npm
+if ! command -v node &> /dev/null; then
   log "Instalando Node.js v18 LTS..."
   if [ "$PM" = "apt" ]; then
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -

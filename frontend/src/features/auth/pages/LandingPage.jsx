@@ -166,7 +166,12 @@ export const LandingPage = () => {
   const [progress, setProgress] = useState(0);
   const [progressMsg, setProgressMsg] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const [esInstalado, setEsInstalado] = useState(false);
+  const [esInstalado, setEsInstalado] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
+    }
+    return false;
+  });
 
   useEffect(() => {
     const handler = (e) => {
@@ -175,10 +180,6 @@ export const LandingPage = () => {
     };
 
     window.addEventListener('beforeinstallprompt', handler);
-
-    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
-      setEsInstalado(true);
-    }
 
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);

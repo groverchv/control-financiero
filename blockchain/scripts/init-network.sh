@@ -19,10 +19,16 @@ log() { echo -e "${GREEN}[FABRIC]${NC} $1"; }
 warn() { echo -e "${YELLOW}[AVISO]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+else
+    DOCKER_COMPOSE="docker compose"
+fi
+
 verificar_dependencias() {
     log "Verificando dependencias..."
     command -v docker >/dev/null 2>&1 || error "Docker no esta instalado."
-    command -v docker compose >/dev/null 2>&1 || error "Docker Compose no esta disponible."
+    command -v $DOCKER_COMPOSE >/dev/null 2>&1 || error "Docker Compose ($DOCKER_COMPOSE) no esta disponible."
     command -v peer >/dev/null 2>&1 || warn "CLI de Fabric (peer) no encontrada. Descarga los binarios de Fabric."
     log "Dependencias verificadas."
 }
@@ -30,19 +36,19 @@ verificar_dependencias() {
 levantar_red() {
     log "Levantando la red Fabric..."
     cd "$NETWORK_DIR"
-    docker compose up -d
+    $DOCKER_COMPOSE up -d
 
     log "Esperando a que los contenedores se inicialicen (15 segundos)..."
     sleep 15
 
     log "Contenedores activos:"
-    docker compose ps
+    $DOCKER_COMPOSE ps
 }
 
 detener_red() {
     log "Deteniendo la red Fabric..."
     cd "$NETWORK_DIR"
-    docker compose down -v
+    $DOCKER_COMPOSE down -v
     log "Red detenida y volumenes eliminados."
 }
 
@@ -63,7 +69,7 @@ instalar_chaincode() {
 mostrar_estado() {
     echo ""
     log "=== Estado de la Red ==="
-    docker compose -f "$NETWORK_DIR/docker-compose.yaml" ps 2>/dev/null || warn "No hay contenedores corriendo."
+    $DOCKER_COMPOSE -f "$NETWORK_DIR/docker-compose.yaml" ps 2>/dev/null || warn "No hay contenedores corriendo."
     echo ""
     log "=== Health Check de la API ==="
     curl -s http://localhost:3001/api/health 2>/dev/null | python3 -m json.tool 2>/dev/null || warn "API Gateway no responde."

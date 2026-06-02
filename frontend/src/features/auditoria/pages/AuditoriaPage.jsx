@@ -478,7 +478,9 @@ export const AuditoriaPage = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                                 <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">API Gateway Proxy</p>
-                                <p className="text-sm font-mono text-slate-800">http://localhost:3001</p>
+                                <p className="text-sm font-mono text-slate-800 truncate">
+                                    {import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://localhost:3001'}
+                                </p>
                                 <p className="text-[10px] text-slate-500 mt-1">Intermediario REST hacia Fabric</p>
                             </div>
                             <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">

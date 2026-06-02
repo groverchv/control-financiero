@@ -4,6 +4,12 @@
   publish = "dist"
 
 [[redirects]]
+  from = "/api-blockchain/*"
+  to = "http://163.176.208.80:3001/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   status = 200
   to = "/index.html"

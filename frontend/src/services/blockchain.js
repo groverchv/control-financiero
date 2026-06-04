@@ -1,6 +1,9 @@
 import { supabase } from './supabase';
 
-const BLOCKCHAIN_API = import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://localhost:3001';
+const BLOCKCHAIN_API = typeof window !== 'undefined' && 
+  (window.location.protocol === 'https:' || !window.location.hostname.match(/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)$/))
+    ? '/api-blockchain'
+    : (import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://localhost:3001');
 
 /**
  * Cliente HTTP para comunicarse con la API Gateway del blockchain.

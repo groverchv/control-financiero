@@ -6,22 +6,24 @@ export const useMiembros = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchMiembros = async () => {
-      try {
-        const data = await administracionApi.obtenerMiembros();
-        setMiembros(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchMiembros = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await administracionApi.obtenerMiembros();
+      setMiembros(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchMiembros();
   }, []);
 
-  return { miembros, loading, error, setMiembros };
+  return { miembros, loading, error, setMiembros, refetch: fetchMiembros };
 };
 
 export const useKpiData = () => {

@@ -50,6 +50,29 @@ export const finanzasApi = {
         .eq('id', pago.inscripcionId);
     }
 
+    // Si el pago es de tipo cuota mensual, marcar la cuota más antigua pendiente como pagada
+    if (miembroId && pago.tipo_ingreso_id === 'fb06aeef-2529-425b-b131-ff09466a0a83' && pagoRegistrado) {
+      try {
+        const { data: cuotasPendientes } = await supabase
+          .from('cuota_membresia')
+          .select('id')
+          .eq('miembro_id', miembroId)
+          .eq('estado', 'pendiente')
+          .order('creacion', { ascending: true })
+          .limit(1);
+
+        if (cuotasPendientes && cuotasPendientes.length > 0) {
+          await supabase
+            .from('cuota_membresia')
+            .update({ estado: 'pagado', ingreso_id: pagoRegistrado.id })
+            .eq('id', cuotasPendientes[0].id);
+        }
+      } catch (err) {
+        console.error('[registrarPago] Error vinculando cuota_membresia:', err);
+      }
+    }
+
+
     // Enviar recibo de pago al socio si existe miembroId (en segundo plano)
     try {
       if (miembroId) {
@@ -65,7 +88,7 @@ export const finanzasApi = {
           const historial = await finanzasApi.obtenerHistorialCuotasMiembro();
           const dataMiembro = historial.find(h => h.miembro.id === miembroId);
           cuotasPendientesRestantes = dataMiembro?.mesesDeuda || 0;
-        } catch (e) {
+        } catch {
           // No es crítico si falla
         }
 
@@ -238,181 +261,55 @@ export const finanzasApi = {
     const cached = apiCache.get(cacheKey);
     if (cached) return cached;
 
-    // Trae todos los miembros (activos e inactivos) con su fecha de creación y campos de pausa
+    // 1. Obtener todos los miembros con sus columnas de control
     const { data: miembros, error: mErr } = await supabase
       .from('miembro')
-      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, creacion, fecha_pausa, dias_pausados')
+      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, creacion, fecha_pausa, dias_pausados, fecha_proxima_cuota, tiempo_restante_cuota')
       .order('creacion', { ascending: true });
     if (mErr) throw mErr;
 
-    // Trae todos los ingresos de tipo cuota mensual (los que tienen miembro_id y no están vinculados a inscripciones)
-    const { data: ingresos } = await supabase
-      .from('ingreso')
-      .select('id, miembro_id, monto, fecha, estado, descripcion, creacion, inscripcion_id')
-      .not('miembro_id', 'is', null)
-      .order('fecha', { ascending: true });
-
-    // Obtener todo el historial de configuraciones ordenadas por creación ASC
-    const { data: configs } = await supabase
-      .from('configuracion_cuotas')
+    // 2. Obtener todas las cuotas persistidas
+    const { data: cuotasFisicas, error: cErr } = await supabase
+      .from('cuota_membresia')
       .select('*')
       .order('creacion', { ascending: true });
+    if (cErr) throw cErr;
 
-    // Usar una lista por defecto si está vacía
-    const configsList = configs && configs.length > 0 ? configs : [
-      {
-        creacion: new Date(0).toISOString(),
-        frecuencia: 'mes',
-        monto_cuota: 150,
-        pausado: false,
-        dias_pausados: 0,
-      }
-    ];
-
-    // La última configuración activa (para indicar pausa global en el retorno)
-    const configUltima = configsList[configsList.length - 1];
-
-    // Avanzar el cursor según la frecuencia
-    const avanzarCursor = (date, freq) => {
-      const d = new Date(date);
-      if (freq === '3_minutos') {
-        d.setMinutes(d.getMinutes() + 3);
-      } else if (freq === '1_dia') {
-        d.setDate(d.getDate() + 1);
-      } else if (freq === '2_dias') {
-        d.setDate(d.getDate() + 2);
-      } else if (freq === '3_dias') {
-        d.setDate(d.getDate() + 3);
-      } else if (freq === 'semana') {
-        d.setDate(d.getDate() + 7);
-      } else if (freq === 'trimestre') {
-        d.setMonth(d.getMonth() + 3);
-      } else {
-        // default: mes
-        d.setMonth(d.getMonth() + 1);
-      }
-      return d;
-    };
+    // 3. Obtener la última configuración
+    const { data: configUltima } = await supabase
+      .from('configuracion_cuotas')
+      .select('*')
+      .order('creacion', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     const result = (miembros || []).map(m => {
-      // 1. Determinar el límite superior temporal para la generación de cuotas
-      let limiteHoy = new Date();
-      if (m.estado === 'inactivo') {
-        limiteHoy = m.fecha_pausa ? new Date(m.fecha_pausa) : new Date(m.creacion);
-      }
-
-      // 2. Ajustar la fecha de inicio del cronograma sumando los días que estuvo inactivo en el pasado
-      const fechaInicio = new Date(m.creacion);
-      const totalDiasPausados = Number(m.dias_pausados || 0);
-      if (totalDiasPausados > 0) {
-        fechaInicio.setDate(fechaInicio.getDate() + totalDiasPausados);
-      }
-
-      const pagosRealizados = (ingresos || []).filter(i => i.miembro_id === m.id && !i.inscripcion_id);
-
-      const cronograma = [];
-      let cursor = new Date(fechaInicio);
-      let fechaProximaCuota;
-
-      // Encontrar el índice de la configuración activa al momento de registrarse el socio
-      let activeConfigIdx = 0;
-      for (let i = 0; i < configsList.length; i++) {
-        if (new Date(configsList[i].creacion) <= fechaInicio) {
-          activeConfigIdx = i;
-        }
-      }
-
-      // Algoritmo de recorrido de línea de tiempo con carry-over exacto
-      while (true) {
-        const currentConfig = configsList[activeConfigIdx];
-        const nextConfig = configsList[activeConfigIdx + 1];
-        
-        const T_change = nextConfig ? new Date(nextConfig.creacion) : new Date(8640000000000000); // fin de los tiempos
-        const T_quota = avanzarCursor(cursor, currentConfig.frecuencia);
-
-        if (T_quota <= T_change) {
-          // El vencimiento ocurre bajo la configuración activa actual
-          if (T_quota <= limiteHoy) {
-            const fechaCuota = new Date(T_quota);
-            const diasPausa = Number(currentConfig.dias_pausados || 0);
-            if (diasPausa > 0) {
-              fechaCuota.setTime(fechaCuota.getTime() + (diasPausa * 24 * 60 * 60 * 1000));
-            }
-
-            // Formatear llave descriptiva del periodo
-            let mesKey;
-            const freq = currentConfig.frecuencia;
-            if (freq === '3_minutos') {
-              mesKey = `Min ${T_quota.toLocaleDateString('es-ES')} ${T_quota.toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'})}`;
-            } else if (freq === '1_dia' || freq === '2_dias' || freq === '3_dias') {
-              mesKey = `Día ${T_quota.toLocaleDateString('es-ES')}`;
-            } else if (freq === 'semana') {
-              mesKey = `Sem ${T_quota.toLocaleDateString('es-ES')}`;
-            } else if (freq === 'trimestre') {
-              const t = Math.floor(T_quota.getMonth() / 3) + 1;
-              mesKey = `T${t}-${T_quota.getFullYear()}`;
-            } else {
-              mesKey = `${T_quota.getFullYear()}-${String(T_quota.getMonth() + 1).padStart(2, '0')}`;
-            }
-
-            cronograma.push({
-              mes: mesKey,
-              fechaGeneracion: cursor.toISOString(),
-              fechaVencimiento: T_quota.toISOString(),
-              fechaVencimientoAjustada: fechaCuota.toISOString(),
-              pagado: false,
-              ingreso_id: null,
-              monto_pagado: null,
-              fecha_pago: null,
-              monto_esperado: currentConfig.monto_cuota || 150,
-            });
-
-            cursor = T_quota;
-          } else {
-            // El vencimiento programado excede el presente o la fecha de pausa
-            const fechaCuotaFutura = new Date(T_quota);
-            const diasPausa = Number(currentConfig.dias_pausados || 0);
-            if (diasPausa > 0) {
-              fechaCuotaFutura.setTime(fechaCuotaFutura.getTime() + (diasPausa * 24 * 60 * 60 * 1000));
-            }
-            fechaProximaCuota = fechaCuotaFutura.toISOString();
-            break;
-          }
-        } else {
-          // La configuración cambió antes de cumplirse el vencimiento. Carry-over.
-          activeConfigIdx += 1;
-        }
-      }
-
-      // Ordenar pagos realizados cronológicamente
-      const pagosOrdenados = [...pagosRealizados].sort((a, b) => {
-        const da = new Date(a.fecha || a.creacion);
-        const db = new Date(b.fecha || b.creacion);
-        return da - db;
-      });
-
-      // Mapear pagos de forma estrictamente secuencial al cronograma
-      cronograma.forEach((c, idx) => {
-        const pagoEncontrado = pagosOrdenados[idx];
-        if (pagoEncontrado) {
-          c.pagado = true;
-          c.ingreso_id = pagoEncontrado.id;
-          c.monto_pagado = pagoEncontrado.monto;
-          c.fecha_pago = pagoEncontrado.fecha || pagoEncontrado.creacion;
-        }
-      });
+      const cronograma = (cuotasFisicas || [])
+        .filter(c => c.miembro_id === m.id)
+        .map(c => ({
+          id: c.id,
+          mes: c.periodo,
+          monto_esperado: Number(c.monto_esperado),
+          pagado: c.estado === 'pagado',
+          ingreso_id: c.ingreso_id,
+          creacion: c.creacion,
+          fechaVencimientoAjustada: c.creacion, // fallback para compatibilidad UI
+        }));
 
       const mesesDeuda = cronograma.filter(c => !c.pagado).length;
       const mesesPagados = cronograma.filter(c => c.pagado).length;
       const proximaPendiente = cronograma.find(c => !c.pagado);
 
       return {
-        miembro: m,
+        miembro: {
+          ...m,
+          correoElectronico: m.correoElectronico // compatibilidad
+        },
         cronograma,
         mesesDeuda,
         mesesPagados,
         proximaPendiente,
-        fechaProximaCuota,
+        fechaProximaCuota: m.fecha_proxima_cuota || null,
         pausado: configUltima?.pausado || false,
         fechaPausa: configUltima?.fecha_pausa || null,
       };
@@ -421,6 +318,7 @@ export const finanzasApi = {
     apiCache.set(cacheKey, result);
     return result;
   },
+
 
   _syncInProgressKeys: new Set(),
 

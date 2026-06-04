@@ -1,23 +1,73 @@
 {
-  "short_name": "ControlFin",
+  "id": "/",
   "name": "Control Financiero",
+  "short_name": "ControlFin",
+  "description": "Sistema institucional de control financiero, académico y patrimonial",
+  "lang": "es",
+  "dir": "ltr",
+  "scope": "/",
+  "start_url": "/inicio",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "categories": ["finance", "business", "productivity"],
   "icons": [
     {
       "src": "/icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
-  "start_url": "/inicio",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
-  "display": "standalone",
-  "orientation": "portrait"
+  "shortcuts": [
+    {
+      "name": "Ingresos",
+      "short_name": "Ingresos",
+      "description": "Registrar y ver ingresos financieros",
+      "url": "/admin/ingresos",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Egresos",
+      "short_name": "Egresos",
+      "description": "Registrar y ver egresos financieros",
+      "url": "/admin/egresos",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Miembros",
+      "short_name": "Miembros",
+      "description": "Gestión de socios y miembros",
+      "url": "/admin/miembros",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Actividades",
+      "short_name": "Actividades",
+      "description": "Gestión de actividades académicas",
+      "url": "/admin/actividades",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
 }

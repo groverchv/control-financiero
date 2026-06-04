@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle, Lock, Info } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, CheckCircle2, AlertCircle, Lock, Info, RefreshCw } from 'lucide-react';
 import { useTiposActividad } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
@@ -7,7 +7,7 @@ import { Table } from '../../../components/data-display';
 import { academicoApi } from '../api';
 
 export const GestionTiposActividadPage = () => {
-  const { tipos, loading, error, setTipos } = useTiposActividad();
+  const { tipos, loading, error, setTipos, refetch } = useTiposActividad();
   const [message, setMessage] = useState(null);
   const [tiposEnUso, setTiposEnUso] = useState({});
 
@@ -190,6 +190,10 @@ export const GestionTiposActividadPage = () => {
     )
   }));
 
+  const totalTipos = tipos.length;
+  const enUsoCount = Object.values(tiposEnUso).filter(Boolean).length;
+  const disponiblesCount = totalTipos - enUsoCount;
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -215,6 +219,45 @@ export const GestionTiposActividadPage = () => {
         </div>
       </header>
 
+      {/* Tarjetas de Métricas de Categorías */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <PlusCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-900 truncate">
+              {totalTipos}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Total Categorías</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+            <Lock className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-amber-600 truncate">
+              {enUsoCount}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Categorías en Uso</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">
+              {disponiblesCount}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Categorías Disponibles</p>
+          </div>
+        </div>
+      </div>
+
       {message && (
         <Toast
           title={message.type === 'error' ? 'Error' : 'Éxito'}
@@ -223,7 +266,29 @@ export const GestionTiposActividadPage = () => {
         />
       )}
 
-      <section className="rounded-md bg-white p-4 sm:p-6 shadow-sm overflow-hidden text-sm sm:text-base">
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden text-sm sm:text-base">
+        <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <PlusCircle className="h-4 w-4 text-blue-600" />
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              Categorías de actividad
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={refetch}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
+            title="Refrescar listado"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refrescar</span>
+          </button>
+        </div>
+
+        <div className="flex justify-end mb-4">
+          <span className="text-sm text-slate-500">{tipos.length} registros</span>
+        </div>
         <div className="-mx-4 sm:mx-0 overflow-x-auto">
           <div className="inline-block min-w-full align-middle px-4 sm:px-0">
             {loading ? (

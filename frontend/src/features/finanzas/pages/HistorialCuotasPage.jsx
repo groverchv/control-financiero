@@ -156,23 +156,32 @@ const MiembroRow = ({ registro }) => {
                 <Clock className="h-4 w-4 text-slate-400 mx-auto mb-1" />
                 <p className="text-[10px] text-slate-500 uppercase tracking-wider">Próxima cuota</p>
                 <p className="text-xs font-bold text-slate-800 leading-tight">
-                  {fechaProximaCuota 
-                    ? new Date(fechaProximaCuota).toLocaleDateString('es-ES', { 
-                        day: '2-digit', 
-                        month: 'short', 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })
-                    : 'Al día ✓'}
+                  {miembro.estado === 'inactivo' ? (
+                    <span className="text-amber-600 font-bold">Pausado ⏸</span>
+                  ) : fechaProximaCuota ? (
+                    new Date(fechaProximaCuota).toLocaleDateString('es-ES', { 
+                      day: '2-digit', 
+                      month: 'short', 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })
+                  ) : (
+                    'Al día ✓'
+                  )}
                 </p>
               </div>
-              {fechaProximaCuota && (
+              {miembro.estado === 'inactivo' ? (
+                <div className="mt-1 flex items-center justify-center gap-1 text-[11px] font-mono font-black rounded-md px-1.5 py-0.5 whitespace-nowrap shadow-sm text-amber-600 bg-amber-50 border border-amber-100">
+                  <span>Socio Inactivo</span>
+                </div>
+              ) : fechaProximaCuota && (
                 <CountdownTimer 
                   targetDate={fechaProximaCuota} 
                   pausado={pausado} 
                   fechaPausa={fechaPausa} 
                 />
               )}
+
             </div>
           </div>
 
@@ -402,16 +411,6 @@ export const HistorialCuotasPage = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={cargarDatos}
-            disabled={loading}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <RefreshCw className={`h-4 w-4 shrink-0 ${loading ? 'animate-spin' : ''}`} />
-            <span>Actualizar</span>
-          </button>
-          
           {/* BOTÓN CONFIGURACIÓN GENERAL DE CUOTAS */}
           <button
             type="button"
@@ -471,90 +470,110 @@ export const HistorialCuotasPage = () => {
       {/* Stats rápidas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total miembros', value: totalMiembros, icon: User, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Al día', value: alDia, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Con deuda', value: conDeuda, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
-          { label: 'Cuotas pendientes', value: totalCuotasPendientes, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
-            <div className={`h-10 w-10 ${bg} rounded-lg flex items-center justify-center shrink-0`}>
-              <Icon className={`h-5 w-5 ${color}`} />
+          { label: 'Total miembros', value: totalMiembros, icon: User, color: 'text-blue-600', bg: 'bg-blue-50', valueColor: 'text-slate-900' },
+          { label: 'Al día', value: alDia, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', valueColor: 'text-emerald-600' },
+          { label: 'Con deuda', value: conDeuda, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', valueColor: 'text-red-600' },
+          { label: 'Cuotas pendientes', value: totalCuotasPendientes, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', valueColor: 'text-amber-600' },
+        ].map(({ label, value, icon: Icon, color, bg, valueColor }) => (
+          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+            <div className={`h-12 w-12 ${bg} rounded-xl flex items-center justify-center shrink-0`}>
+              <Icon className={`h-6 w-6 ${color}`} />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">{value}</p>
-              <p className="text-xs text-slate-500">{label}</p>
+            <div className="min-w-0 flex-1">
+              <p className={`text-xl font-black ${valueColor} truncate`}>{value}</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">{label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Filtros y Exportación */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-        <div className="flex flex-wrap items-center gap-3 flex-1">
-          <ExportButtons 
-            data={filtrado.map(r => ({
-              Nombre: r.miembro.nombre,
-              Apellidos: `${r.miembro.apellidoPaterno || ''} ${r.miembro.apellidoMaterno || ''}`.trim(),
-              Correo: r.miembro.correoElectronico,
-              Telefono: r.miembro.telefono,
-              Rol: r.miembro.rol,
-              Estado: r.mesesDeuda > 0 ? 'Con deuda' : 'Al día',
-              MesesPagados: r.mesesPagados,
-              MesesDeuda: r.mesesDeuda,
-              CuotasGeneradas: r.cronograma.length
-            }))}
-            filename="historial_cuotas_miembros"
-            title="Historial de Cuotas de Membresía"
-          />
-          <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o correo..."
-              value={searchTerm}
-              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="w-full rounded-lg border border-slate-200 pl-9 pr-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5 text-blue-600" />
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              Estado mensual de cuotas
+            </h2>
           </div>
-          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
-            {[['todos','Todos'],['aldia','Al día'],['deuda','Con deuda']].map(([val, lbl]) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => { setFiltroDeuda(val); setCurrentPage(1); }}
-                className={`px-4 py-2 font-medium transition-colors ${filtroDeuda === val ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-              >
-                {lbl}
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            onClick={cargarDatos}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
+            title="Refrescar listado"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refrescar</span>
+          </button>
         </div>
-      </div>
 
-      {/* Lista */}
-      <section className="space-y-3">
-        {loading ? (
-          <div className="flex items-center justify-center gap-3 py-16 text-slate-500">
-            <Spinner size="md" />
-            <span className="text-sm">Calculando cronogramas de cuotas...</span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-wrap items-center gap-3 flex-1 w-full max-w-2xl">
+            <ExportButtons 
+              data={filtrado.map(r => ({
+                Nombre: r.miembro.nombre,
+                Apellidos: `${r.miembro.apellidoPaterno || ''} ${r.miembro.apellidoMaterno || ''}`.trim(),
+                Correo: r.miembro.correoElectronico,
+                Telefono: r.miembro.telefono,
+                Rol: r.miembro.rol,
+                Estado: r.mesesDeuda > 0 ? 'Con deuda' : 'Al día',
+                MesesPagados: r.mesesPagados,
+                MesesDeuda: r.mesesDeuda,
+                CuotasGeneradas: r.cronograma.length
+              }))}
+              filename="historial_cuotas_miembros"
+              title="Historial de Cuotas de Membresía"
+            />
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o correo..."
+                value={searchTerm}
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="w-full rounded-lg border border-slate-200 pl-9 pr-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm bg-white">
+              {[['todos','Todos'],['aldia','Al día'],['deuda','Con deuda']].map(([val, lbl]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => { setFiltroDeuda(val); setCurrentPage(1); }}
+                  className={`px-4 py-2 font-medium transition-colors ${filtroDeuda === val ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
           </div>
-        ) : error ? (
-          <Toast title="Error" message={error} variant="error" />
-        ) : paginado.length === 0 ? (
-          <div className="text-center py-16 text-slate-400">
-            <History className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No se encontraron miembros con los filtros seleccionados.</p>
-          </div>
-        ) : (
-          <>
-            <p className="text-xs text-slate-500 font-medium">
-              Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtrado.length)} de {filtrado.length} miembros
-            </p>
-            {paginado.map(registro => (
-              <MiembroRow key={registro.miembro.id} registro={registro} />
-            ))}
-          </>
-        )}
+          <span className="text-sm text-slate-500 whitespace-nowrap">{filtrado.length} registros</span>
+        </div>
+
+        <div className="space-y-3">
+          {loading ? (
+            <div className="flex items-center justify-center gap-3 py-16 text-slate-500">
+              <Spinner size="md" />
+              <span className="text-sm">Calculando cronogramas de cuotas...</span>
+            </div>
+          ) : error ? (
+            <Toast title="Error" message={error} variant="error" />
+          ) : paginado.length === 0 ? (
+            <div className="text-center py-16 text-slate-400">
+              <History className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No se encontraron miembros con los filtros seleccionados.</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500 font-medium mb-3">
+                Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtrado.length)} de {filtrado.length} miembros
+              </p>
+              {paginado.map(registro => (
+                <MiembroRow key={registro.miembro.id} registro={registro} />
+              ))}
+            </>
+          )}
+        </div>
       </section>
 
       {/* Paginación */}

@@ -11,7 +11,16 @@ import { cloudinaryService } from '../../../services/cloudinary';
 
 export const GestionActivosPage = () => {
   const navigate = useNavigate();
-  const { activos, loading, error, setActivos } = useActivos();
+  const { activos, loading, error, setActivos, refetch } = useActivos();
+  const handleRefresh = async () => {
+    await refetch();
+    try {
+      const data = await patrimonioApi.obtenerTiposActivo();
+      setTiposActivo(data);
+    } catch (err) {
+      console.error('Error al cargar tipos de activo:', err);
+    }
+  };
   const { user } = useAuthStore();
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -344,8 +353,27 @@ export const GestionActivosPage = () => {
         </div>
       </div>
 
-      <section className="rounded-md bg-white p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-blue-600" />
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              Listado de activos
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
+            title="Refrescar listado"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refrescar</span>
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex flex-wrap items-center gap-2 w-full max-w-lg">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
@@ -367,7 +395,7 @@ export const GestionActivosPage = () => {
               <option value="deuda">Con Deuda</option>
             </select>
           </div>
-          <span className="text-sm text-slate-500">{filteredActivos.length} activos</span>
+          <span className="text-sm text-slate-500">{filteredActivos.length} registros</span>
         </div>
 
         <div className="mt-6">

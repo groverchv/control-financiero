@@ -6,22 +6,24 @@ export const usePagos = (miembroId) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await finanzasApi.obtenerCuotas(miembroId);
-        setCuotas(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await finanzasApi.obtenerCuotas(miembroId);
+      setCuotas(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     load();
   }, [miembroId]);
 
-  return { cuotas, loading, error, setCuotas };
+  return { cuotas, loading, error, setCuotas, refetch: load };
 };
 
 export const useFlujoCaja = () => {
@@ -42,22 +44,24 @@ export const useEgresos = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await finanzasApi.obtenerEgresos();
-        setEgresos(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await finanzasApi.obtenerEgresos();
+      setEgresos(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     load();
   }, []);
 
-  return { egresos, loading, error, setEgresos };
+  return { egresos, loading, error, setEgresos, refetch: load };
 };
 
 export const useIngresosExtras = () => {

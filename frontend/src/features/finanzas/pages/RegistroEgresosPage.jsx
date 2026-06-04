@@ -10,7 +10,20 @@ import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { cloudinaryService } from '../../../services/cloudinary';
 
 export const RegistroEgresosPage = () => {
-  const { egresos, loading, error, setEgresos } = useEgresos();
+  const { egresos, loading, error, setEgresos, refetch } = useEgresos();
+  const handleRefresh = async () => {
+    await refetch();
+    try {
+      const [dataTipos, dataActivos] = await Promise.all([
+        finanzasApi.obtenerTiposEgreso(),
+        finanzasApi.obtenerActivos()
+      ]);
+      setTiposEgreso(dataTipos);
+      setActivos(dataActivos);
+    } catch (err) {
+      console.error('Error refrescando datos previos:', err);
+    }
+  };
   const { user } = useAuthStore();
   const location = useLocation();
   const [form, setForm] = useState({
@@ -315,13 +328,28 @@ export const RegistroEgresosPage = () => {
 
       <section>
         <div className="rounded-md bg-white p-6 shadow-sm border border-slate-100">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-blue-600" />
-              Egresos registrados
-            </h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                Egresos registrados
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
+              title="Refrescar listado"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refrescar</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div className="flex flex-wrap items-center gap-2 w-full max-w-xl">
+              <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
@@ -334,14 +362,15 @@ export const RegistroEgresosPage = () => {
               <select
                 value={categoriaFilter}
                 onChange={(e) => { setCategoriaFilter(e.target.value); setCurrentPage(1); }}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white max-w-[150px] truncate"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white max-w-[180px] truncate"
               >
-                <option value="">Todas las categorias</option>
+                <option value="">Todas las categorías</option>
                 {tiposEgreso.map(t => (
                   <option key={t.id} value={t.nombre}>{t.nombre}</option>
                 ))}
               </select>
             </div>
+            <span className="text-sm text-slate-500">{filteredEgresos.length} registros</span>
           </div>
           <div className="space-y-3">
             {loading ? (

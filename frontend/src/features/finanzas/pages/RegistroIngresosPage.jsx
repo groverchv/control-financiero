@@ -54,7 +54,24 @@ const formatPeriodoLabel = (pendiente, desc) => {
 export const RegistroCuotasPage = () => {
   const { user } = useAuthStore();
   const location = useLocation();
-  const { cuotas, loading, error, setCuotas } = usePagos();
+  const { cuotas, loading, error, setCuotas, refetch } = usePagos();
+  const handleRefresh = async () => {
+    await refetch();
+    try {
+      const [dataMiembros, dataTipos, dataHistorial, dataConfig] = await Promise.all([
+        administracionApi.obtenerMiembros(),
+        finanzasApi.obtenerTiposIngreso(),
+        finanzasApi.obtenerHistorialCuotasMiembro(),
+        finanzasApi.obtenerConfiguracionCuotas()
+      ]);
+      setMiembros(dataMiembros);
+      setTiposIngreso(dataTipos);
+      setHistorialSocios(dataHistorial);
+      setConfiguracionCuotas(dataConfig);
+    } catch (err) {
+      console.error('Error refrescando datos secundarios:', err);
+    }
+  };
   const [form, setForm] = useState({
     miembroBuscador: '',
     tipo_ingreso_id: '',
@@ -553,23 +570,37 @@ export const RegistroCuotasPage = () => {
 
       <section>
         <div className="rounded-md bg-white p-6 shadow-sm border border-slate-100">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-emerald-600" />
-              Historial de ingresos
-            </h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar socio o tipo..."
-                  value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                  className="w-full rounded-md border border-slate-300 pl-9 pr-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                Historial de ingresos
+              </h2>
             </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
+              title="Refrescar listado"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refrescar</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar socio o tipo..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="w-full rounded-md border border-slate-300 pl-9 pr-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+            <span className="text-sm text-slate-500">{filteredCuotas.length} registros</span>
           </div>
           <div className="space-y-3">
             {loading ? (

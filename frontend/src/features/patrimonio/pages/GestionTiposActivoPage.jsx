@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2 } from 'lucide-react';
+import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw, BarChart2 } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -226,10 +226,55 @@ export const GestionTiposActivoPage = () => {
         </Button>
       </header>
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <Tags className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-900 truncate">{tipos.length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Total Categorías</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+            <Lock className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-amber-600 truncate">{Object.values(tiposEnUso).filter(Boolean).length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">En Uso</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">{tipos.length - Object.values(tiposEnUso).filter(Boolean).length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Disponibles</p>
+          </div>
+        </div>
+      </div>
+
       <section className="rounded-md bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <Tags className="h-4 w-4 text-blue-600" />
-          <h2 className="text-base font-semibold text-slate-900">Listado de Tipos</h2>
+        <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Tags className="h-4 w-4 text-blue-600" />
+            <h2 className="text-base font-semibold text-slate-900">Listado de Tipos</h2>
+          </div>
+          <button
+            type="button"
+            onClick={fetchTipos}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
+            title="Refrescar listado"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refrescar</span>
+          </button>
         </div>
 
         {loading ? (

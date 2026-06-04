@@ -41,10 +41,17 @@ CREATE TABLE IF NOT EXISTS public.miembro (
     rol text DEFAULT 'socio',
     estado text DEFAULT 'activo',
     fecha_pausa timestamptz DEFAULT NULL,
-    dias_pausados integer DEFAULT 0,
+    dias_pausados numeric DEFAULT 0,
+    fecha_proxima_cuota timestamptz DEFAULT NULL,
+    tiempo_restante_cuota interval DEFAULT NULL,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
+
+-- Upgrade guard: asegurar columnas de control de cuotas para miembro
+ALTER TABLE public.miembro ADD COLUMN IF NOT EXISTS fecha_proxima_cuota timestamptz DEFAULT NULL;
+ALTER TABLE public.miembro ADD COLUMN IF NOT EXISTS tiempo_restante_cuota interval DEFAULT NULL;
+
 
 CREATE TABLE IF NOT EXISTS public.notificacion (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -311,6 +318,9 @@ RETURNS trigger AS $$
 DECLARE
   v_count integer;
   v_rol text;
+  v_frecuencia text;
+  v_monto numeric;
+  v_interval interval;
 BEGIN
   -- Validamos si ya existen usuarios en la tabla miembro
   SELECT count(*) INTO v_count FROM public.miembro;
@@ -323,14 +333,52 @@ BEGIN
     v_rol := COALESCE(new.raw_user_meta_data->>'rol', 'socio');
   END IF;
 
-  INSERT INTO public.miembro (id, nombre, "correoElectronico", rol)
+  -- Obtener la configuración actual de cuotas para el valor de bienvenida y frecuencia
+  SELECT frecuencia, monto_cuota INTO v_frecuencia, v_monto 
+  FROM public.configuracion_cuotas 
+  ORDER BY creacion DESC LIMIT 1;
+
+  v_frecuencia := COALESCE(v_frecuencia, 'mes');
+  v_monto := COALESCE(v_monto, 150);
+
+  IF v_frecuencia = '3_minutos' THEN
+    v_interval := INTERVAL '3 minutes';
+  ELSIF v_frecuencia = '1_dia' THEN
+    v_interval := INTERVAL '1 day';
+  ELSIF v_frecuencia = '2_dias' THEN
+    v_interval := INTERVAL '2 days';
+  ELSIF v_frecuencia = '3_dias' THEN
+    v_interval := INTERVAL '3 days';
+  ELSIF v_frecuencia = 'semana' THEN
+    v_interval := INTERVAL '1 week';
+  ELSIF v_frecuencia = 'trimestre' THEN
+    v_interval := INTERVAL '3 months';
+  ELSE
+    v_interval := INTERVAL '1 month';
+  END IF;
+
+  INSERT INTO public.miembro (id, nombre, "correoElectronico", rol, fecha_proxima_cuota)
   VALUES (
     new.id, 
     COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
     new.email, 
-    v_rol
+    v_rol,
+    now() + v_interval
   )
   ON CONFLICT (id) DO NOTHING;
+
+  -- Insertar primera cuota de bienvenida
+  INSERT INTO public.cuota_membresia (miembro_id, periodo, monto_esperado, estado)
+  VALUES (
+    new.id,
+    CASE 
+      WHEN v_frecuencia = '3_minutos' THEN 'Registro (3 min)'
+      WHEN v_frecuencia = '1_dia' THEN 'Registro (Día)'
+      ELSE TO_CHAR(now(), 'YYYY-MM')
+    END,
+    v_monto,
+    'pendiente'
+  );
   
   -- Insert welcome notification
   INSERT INTO public.notificacion (miembro_id, titulo, descripcion)
@@ -344,28 +392,62 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Gestión de pausa de cuotas por estado inactivo de socio
+-- Asegurar que la columna sea de tipo numeric para guardar precisión decimal de días de pausa
+ALTER TABLE public.miembro ALTER COLUMN dias_pausados TYPE numeric;
+
 CREATE OR REPLACE FUNCTION public.gestionar_pausa_miembro()
 RETURNS trigger AS $$
+DECLARE
+    v_frecuencia text;
+    v_interval interval;
 BEGIN
-    -- Si el estado cambia de activo a inactivo, guardar fecha de pausa
+    -- Si el estado cambia de activo a inactivo, guardar fecha de pausa y congelar el tiempo restante para la cuota
     IF OLD.estado = 'activo' AND NEW.estado = 'inactivo' THEN
         NEW.fecha_pausa := now();
-    -- Si el estado cambia de inactivo a activo, calcular días pausados transcurridos
+        IF OLD.fecha_proxima_cuota IS NOT NULL THEN
+            NEW.tiempo_restante_cuota := OLD.fecha_proxima_cuota - now();
+            NEW.fecha_proxima_cuota := NULL;
+        END IF;
+    -- Si el estado cambia de inactivo a activo, calcular días pausados y restablecer la fecha de la próxima cuota
     ELSIF OLD.estado = 'inactivo' AND NEW.estado = 'activo' THEN
         IF OLD.fecha_pausa IS NOT NULL THEN
-            NEW.dias_pausados := COALESCE(OLD.dias_pausados, 0) + EXTRACT(DAY FROM (now() - OLD.fecha_pausa))::integer;
+            NEW.dias_pausados := COALESCE(OLD.dias_pausados, 0) + (EXTRACT(EPOCH FROM (now() - OLD.fecha_pausa)) / 86400.0);
             NEW.fecha_pausa := NULL;
+        END IF;
+
+        -- Si el frontend pide expresamente reiniciar (tiempo_restante_cuota es NULL en NEW)
+        IF NEW.tiempo_restante_cuota IS NULL THEN
+            -- Obtener frecuencia actual
+            SELECT frecuencia INTO v_frecuencia FROM public.configuracion_cuotas ORDER BY creacion DESC LIMIT 1;
+            v_frecuencia := COALESCE(v_frecuencia, 'mes');
+
+            IF v_frecuencia = '3_minutos' THEN v_interval := INTERVAL '3 minutes';
+            ELSIF v_frecuencia = '1_dia' THEN v_interval := INTERVAL '1 day';
+            ELSIF v_frecuencia = '2_dias' THEN v_interval := INTERVAL '2 days';
+            ELSIF v_frecuencia = '3_dias' THEN v_interval := INTERVAL '3 days';
+            ELSIF v_frecuencia = 'semana' THEN v_interval := INTERVAL '1 week';
+            ELSIF v_frecuencia = 'trimestre' THEN v_interval := INTERVAL '3 months';
+            ELSE v_interval := INTERVAL '1 month';
+            END IF;
+
+            NEW.fecha_proxima_cuota := now() + v_interval;
+        ELSE
+            -- Reanudar desde donde se pausó
+            NEW.fecha_proxima_cuota := now() + NEW.tiempo_restante_cuota;
+            NEW.tiempo_restante_cuota := NULL;
         END IF;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
 
 DROP TRIGGER IF EXISTS trg_gestionar_pausa_miembro ON public.miembro;
 CREATE TRIGGER trg_gestionar_pausa_miembro
@@ -625,7 +707,21 @@ CREATE TABLE IF NOT EXISTS public.plan_amortizacion (
 
 CREATE INDEX IF NOT EXISTS idx_plan_amortizacion_activo ON public.plan_amortizacion("activoId");
 
+-- ── Tabla: cuota_membresia ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.cuota_membresia (
+    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
+    periodo text NOT NULL,
+    monto_esperado numeric(12,2) NOT NULL DEFAULT 150,
+    estado text DEFAULT 'pendiente', -- 'pendiente', 'pagado'
+    ingreso_id uuid REFERENCES public.ingreso(id) ON DELETE SET NULL,
+    creacion timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cuota_membresia_miembro ON public.cuota_membresia(miembro_id);
+
 ALTER TABLE public.miembro ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public.notificacion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tipo_actividad ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.actividad ENABLE ROW LEVEL SECURITY;
@@ -641,6 +737,8 @@ ALTER TABLE public.inscripcion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.configuracion_cuotas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_amortizacion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.jurado ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cuota_membresia ENABLE ROW LEVEL SECURITY;
+
 
 -- Eliminar políticas existentes antes de crearlas para evitar errores de duplicación
 DROP POLICY IF EXISTS "Acceso total" ON public.miembro;
@@ -659,6 +757,8 @@ DROP POLICY IF EXISTS "Acceso total" ON public.tipo_activo;
 DROP POLICY IF EXISTS "Acceso total" ON public.configuracion_cuotas;
 DROP POLICY IF EXISTS "Acceso total" ON public.plan_amortizacion;
 DROP POLICY IF EXISTS "Acceso total" ON public.jurado;
+DROP POLICY IF EXISTS "Acceso total" ON public.cuota_membresia;
+
 
 CREATE POLICY "Acceso total" ON public.miembro FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.notificacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -676,6 +776,8 @@ CREATE POLICY "Acceso total" ON public.tipo_activo FOR ALL TO authenticated USIN
 CREATE POLICY "Acceso total" ON public.configuracion_cuotas FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.plan_amortizacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Acceso total" ON public.jurado FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Acceso total" ON public.cuota_membresia FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
 
 -- Políticas para permitir la lectura pública (visitantes sin sesión iniciada)
 DROP POLICY IF EXISTS "Lectura publica de miembros" ON public.miembro;
@@ -721,6 +823,16 @@ BEGIN
     ) THEN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.plan_amortizacion;
     END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'cuota_membresia'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.cuota_membresia;
+    END IF;
+
 END $$;
 
 NOTIFY pgrst, 'reload schema';

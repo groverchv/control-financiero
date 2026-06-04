@@ -67,22 +67,23 @@ export const useTiposActividad = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await academicoApi.obtenerTiposActividad();
-        setTipos(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const refetch = async () => {
+    setLoading(true);
+    try {
+      const data = await academicoApi.obtenerTiposActividad();
+      setTipos(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    load();
+  useEffect(() => {
+    refetch();
   }, []);
 
-  return { tipos, loading, error, setTipos };
+  return { tipos, loading, error, setTipos, refetch };
 };
 
 export const useTalentos = (criterio) => {

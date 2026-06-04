@@ -25,6 +25,8 @@ import {
   Loader2,
   XCircle,
   RefreshCw,
+  Calendar,
+  TrendingUp,
 } from "lucide-react";
 import { useActividades, useTiposActividad } from "../hooks";
 import {
@@ -1068,6 +1070,12 @@ export const GestionActividadesPage = () => {
     })(),
   }));
 
+  // KPI metrics
+  const totalActividades = actividades.length;
+  const programadas = actividades.filter(a => getDynamicEstado(a.fecha, a.hora) === 'programado').length;
+  const enCurso = actividades.filter(a => getDynamicEstado(a.fecha, a.hora) === 'en_curso').length;
+  const finalizadas = actividades.filter(a => getDynamicEstado(a.fecha, a.hora) === 'finalizado').length;
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1125,6 +1133,49 @@ export const GestionActividadesPage = () => {
         </div>
       </header>
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <CalendarPlus className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-900 truncate">{totalActividades}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Total Actividades</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+            <Calendar className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-amber-600 truncate">{programadas}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Programadas</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <TrendingUp className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">{enCurso}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">En Curso</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-700 truncate">{finalizadas}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Finalizadas</p>
+          </div>
+        </div>
+      </div>
+
       <section className="rounded-md bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -1145,6 +1196,10 @@ export const GestionActividadesPage = () => {
             />
             <span>Refrescar</span>
           </button>
+        </div>
+
+        <div className="flex justify-end mb-4">
+          <span className="text-sm text-slate-500">{actividades.length} registros</span>
         </div>
 
         <div className="-mx-4 sm:mx-0 overflow-x-auto">

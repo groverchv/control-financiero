@@ -21,6 +21,9 @@ export const administracionApi = {
         contrasena,
         profesion,
         biografia,
+        fecha_pausa,
+        tiempo_restante_cuota,
+        fecha_proxima_cuota,
         archivos:archivo(url, tipo, estado)
       `);
 
@@ -147,7 +150,7 @@ export const administracionApi = {
       .from('miembro')
       .update(finalUpdates)
       .eq('id', id)
-      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, contrasena');
+      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, contrasena, fecha_pausa, tiempo_restante_cuota, fecha_proxima_cuota');
 
     if (error) throw error;
     const res = data?.[0];

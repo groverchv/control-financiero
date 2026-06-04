@@ -1,17 +1,32 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, LockKeyhole, Mail } from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/ui';
+import { toast } from 'react-toastify';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setUser } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const msg = searchParams.get('msg');
+    if (msg === 'sesion_expirada') {
+      toast.warning('Tu sesión ha expirado por inactividad. Por favor, inicia sesión de nuevo.', {
+        toastId: 'session_expired_toast'
+      });
+    } else if (msg === 'cuenta_deshabilitada') {
+      toast.error('Tu cuenta ha sido deshabilitada. Contacta al administrador.', {
+        toastId: 'account_disabled_toast'
+      });
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

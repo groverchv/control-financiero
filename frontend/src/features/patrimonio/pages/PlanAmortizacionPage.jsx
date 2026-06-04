@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calculator, Calendar, Landmark, Save, Info, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Calculator, Calendar, Landmark, Save, Info, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { useActivos } from '../hooks';
 import { Button, Input, Select, Spinner, Modal } from '../../../components/ui';
@@ -7,7 +7,25 @@ import { Table } from '../../../components/data-display';
 import { LoadingOverlay } from '../../../components/feedback';
 
 export const PlanAmortizacionPage = () => {
-  const { activos } = useActivos();
+  const { activos, refetch: refetchActivos } = useActivos();
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      if (refetchActivos) await refetchActivos();
+      const data = await patrimonioApi.obtenerTodosPlanesAmortizacion();
+      setPlanesExistentes(data.map(p => p.activoId));
+      
+      const configData = await patrimonioApi.obtenerConfiguracion();
+      if (configData) {
+        setConfiguracion(configData);
+        setDiasRecordatorio(configData.dias_recordatorio_activos || 5);
+      }
+    } catch (err) {
+      console.error("Error al refrescar datos:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
   const [selectedActivoId, setSelectedActivoId] = useState('');
   const [numCuotas, setNumCuotas] = useState(12);
   const [frecuencia, setFrecuencia] = useState('mensual');
@@ -138,10 +156,55 @@ export const PlanAmortizacionPage = () => {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Plan de Amortización</h1>
-        <p className="text-sm text-slate-500">Generación y seguimiento de cronogramas de pago para activos.</p>
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Plan de Amortización</h1>
+          <p className="text-sm text-slate-500">Generación y seguimiento de cronogramas de pago para activos.</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={loading}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50 h-[38px] shrink-0 self-start sm:self-center"
+          title="Refrescar listado"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <span>Refrescar</span>
+        </button>
       </header>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <Landmark className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-900 truncate">{activos.length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Total Activos</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">{planesExistentes.length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Con Plan</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+            <Calculator className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-amber-600 truncate">{activos.filter(a => a.estado !== 'pagado' && !planesExistentes.includes(a.id)).length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Sin Plan</p>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Panel de Configuración */}

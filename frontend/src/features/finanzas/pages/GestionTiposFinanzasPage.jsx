@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2 } from 'lucide-react';
+import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
@@ -280,9 +280,21 @@ export const GestionTiposFinanzasPage = () => {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Tipos de Ingreso y Egreso</h1>
-        <p className="text-sm text-slate-500">Gestiona las categorías utilizadas para las finanzas. Los tipos en uso no pueden ser eliminados.</p>
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Tipos de Ingreso y Egreso</h1>
+          <p className="text-sm text-slate-500">Gestiona las categorías utilizadas para las finanzas. Los tipos en uso no pueden ser eliminados.</p>
+        </div>
+        <button
+          type="button"
+          onClick={fetchDatos}
+          disabled={loading}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50 h-[38px] shrink-0 self-start sm:self-center"
+          title="Refrescar listados"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <span>Refrescar</span>
+        </button>
       </header>
 
       {message && (
@@ -292,6 +304,39 @@ export const GestionTiposFinanzasPage = () => {
           variant={message.type === 'error' ? 'error' : 'success'}
         />
       )}
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <Tags className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-900 truncate">{tiposIngreso.length + tiposEgreso.length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Total Categorías</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">{tiposIngreso.length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Tipos de Ingreso</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 shrink-0">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-rose-600 truncate">{tiposEgreso.length}</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Tipos de Egreso</p>
+          </div>
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -303,17 +348,20 @@ export const GestionTiposFinanzasPage = () => {
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Tipos de Ingreso */}
-          <section className="rounded-md bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between mb-4 gap-2">
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Tags className="h-5 w-5 text-emerald-600 shrink-0" />
-                <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">Tipos de Ingreso</h2>
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate">Tipos de Ingreso</h2>
               </div>
               <Button type="button" size="sm" onClick={() => openModal('ingreso')} className="shrink-0 flex items-center gap-1">
                 <PlusCircle className="h-4 w-4" />
                 <span className="hidden xs:inline">Agregar</span>
                 <span className="xs:hidden">Nuevo</span>
               </Button>
+            </div>
+            <div className="flex justify-end mb-4">
+              <span className="text-xs text-slate-500">{tiposIngreso.length} registros</span>
             </div>
             <div className="-mx-4 sm:mx-0">
               <Table
@@ -325,17 +373,20 @@ export const GestionTiposFinanzasPage = () => {
           </section>
 
           {/* Tipos de Egreso */}
-          <section className="rounded-md bg-white p-4 sm:p-6 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between mb-4 gap-2">
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Tags className="h-5 w-5 text-rose-600 shrink-0" />
-                <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">Tipos de Egreso</h2>
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate">Tipos de Egreso</h2>
               </div>
               <Button type="button" size="sm" onClick={() => openModal('egreso')} className="shrink-0 flex items-center gap-1">
                 <PlusCircle className="h-4 w-4" />
                 <span className="hidden xs:inline">Agregar</span>
                 <span className="xs:hidden">Nuevo</span>
               </Button>
+            </div>
+            <div className="flex justify-end mb-4">
+              <span className="text-xs text-slate-500">{tiposEgreso.length} registros</span>
             </div>
             <div className="-mx-4 sm:mx-0">
               <Table

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, Save, CheckCircle2, AlertCircle, Edit, Trash2, Eye, Shield, ShieldCheck, Info } from 'lucide-react';
+import { Search, Plus, Save, CheckCircle2, AlertCircle, Edit, Trash2, Eye, Shield, ShieldCheck, Info, RefreshCw, Users, BookOpen } from 'lucide-react';
 import { Button, Input, Modal, Select, Spinner } from '../../../components/ui';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { administracionApi } from '../../administracion/api';
@@ -422,6 +422,10 @@ export const AsignarJuradoPage = () => {
     );
   }, [miembros, searchMiembroQuery]);
 
+  const totalAsignaciones = asignacionesAgrupadas.length;
+  const totalActividades = actividades.length;
+  const totalJurados = jurados.length;
+
   return (
     <div className="space-y-6">
       {message && <Toast type={message.type} message={message.text} onClose={() => setMessage(null)} />}
@@ -436,8 +440,66 @@ export const AsignarJuradoPage = () => {
         </Button>
       </header>
 
-      <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between bg-slate-50">
+      {/* Tarjetas de Métricas de Jurados */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <ShieldCheck className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-900 truncate">
+              {totalAsignaciones}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Total Actividades con Jurado</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <BookOpen className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">
+              {totalActividades}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Actividades Disponibles</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+            <Users className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-indigo-600 truncate">
+              {totalJurados}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Designaciones de Jurado</p>
+          </div>
+        </div>
+      </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden p-6">
+        <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-blue-600" />
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              Jurados asignados
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={cargarDatos}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
+            title="Refrescar listado"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refrescar</span>
+          </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="relative flex-1 min-w-[250px] max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
@@ -448,6 +510,7 @@ export const AsignarJuradoPage = () => {
               className="w-full rounded-md border border-slate-300 pl-9 pr-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
+          <span className="text-sm text-slate-500">{filtrados.length} registros</span>
         </div>
         
         {loading ? (

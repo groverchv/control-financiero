@@ -92,12 +92,14 @@ export const NotificacionesPage = () => {
           </p>
         </div>
         <button
+          type="button"
           onClick={handleRefresh}
           disabled={refreshing}
-          className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
-          title="Actualizar"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50 h-[38px] shrink-0 self-start sm:self-center"
+          title="Refrescar listado"
         >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          <span>Refrescar</span>
         </button>
       </div>
 

@@ -6,22 +6,24 @@ export const useActivos = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await patrimonioApi.obtenerActivos();
-        setActivos(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await patrimonioApi.obtenerActivos();
+      setActivos(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     load();
   }, []);
 
-  return { activos, loading, error, setActivos };
+  return { activos, loading, error, setActivos, refetch: load };
 };
 
 export const useAdquisiciones = () => {

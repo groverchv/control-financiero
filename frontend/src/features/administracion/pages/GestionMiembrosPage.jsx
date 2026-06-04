@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2, UserCircle, FileText, Upload } from 'lucide-react';
+import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2, UserCircle, FileText, Upload, RefreshCw } from 'lucide-react';
 import { useMiembros } from '../hooks';
 import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -45,7 +45,7 @@ const ModalPagination = ({ current, total, onPageChange, filteredCount, label = 
 };
 
 export const GestionMiembrosPage = () => {
-  const { miembros, loading, error, setMiembros } = useMiembros();
+  const { miembros, loading, error, setMiembros, refetch } = useMiembros();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,7 +79,7 @@ export const GestionMiembrosPage = () => {
   const [pageDetailActs, setPageDetailActs] = useState(1);
   const [talentSearchModal, setTalentSearchModal] = useState({ open: false, queryProf: '', queryDesc: '', results: [] });
   const [imageModal, setImageModal] = useState({ open: false, url: null });
-  const [statusConfirmModal, setStatusConfirmModal] = useState({ open: false, miembro: null, nuevoEstado: 'activo' });
+  const [statusConfirmModal, setStatusConfirmModal] = useState({ open: false, miembro: null, nuevoEstado: 'activo', reactivationMode: 'resume' });
   const [confirmActionModal, setConfirmActionModal] = useState({ open: false });
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
   const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
@@ -143,22 +143,27 @@ export const GestionMiembrosPage = () => {
     setStatusConfirmModal({
       open: true,
       miembro,
-      nuevoEstado
+      nuevoEstado,
+      reactivationMode: 'resume'
     });
   };
 
   const executeToggleEstado = async () => {
-    const { miembro, nuevoEstado } = statusConfirmModal;
+    const { miembro, nuevoEstado, reactivationMode } = statusConfirmModal;
     if (!miembro) return;
 
-    setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' });
+    setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo', reactivationMode: 'resume' });
     setIsSubmitting(true);
     setLoadingModal({
       open: true,
       text: nuevoEstado === 'activo' ? 'Reactivando miembro...' : 'Desactivando miembro...'
     });
     try {
-      const actualizado = await administracionApi.actualizarMiembro(miembro.id, { estado: nuevoEstado });
+      const updates = { estado: nuevoEstado };
+      if (nuevoEstado === 'activo' && reactivationMode === 'reset') {
+        updates.tiempo_restante_cuota = null;
+      }
+      const actualizado = await administracionApi.actualizarMiembro(miembro.id, updates);
       setMiembros(miembros.map(m => m.id === miembro.id ? actualizado : m));
       setLoadingModal({ open: false, text: '' });
       setResultModal({
@@ -238,16 +243,18 @@ export const GestionMiembrosPage = () => {
 
 
 
-  const handleSearchTalent = (queryProf, queryDesc) => {
-    if (!queryProf.trim() && !queryDesc.trim()) {
-      setTalentSearchModal(prev => ({ ...prev, queryProf, queryDesc, results: [] }));
+  const handleSearchTalent = (queryProf = '', queryDesc = '') => {
+    const qProf = queryProf || '';
+    const qDesc = queryDesc || '';
+    if (!qProf.trim() && !qDesc.trim()) {
+      setTalentSearchModal(prev => ({ ...prev, queryProf: qProf, queryDesc: qDesc, results: [] }));
       return;
     }
     
     const normalize = (str) => (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
     
-    const termsProf = normalize(queryProf).split(/\s+/).filter(t => t.length > 0);
-    const termsDesc = normalize(queryDesc).split(/\s+/).filter(t => t.length > 0);
+    const termsProf = normalize(qProf).split(/\s+/).filter(t => t.length > 0);
+    const termsDesc = normalize(qDesc).split(/\s+/).filter(t => t.length > 0);
     
     const scored = miembros.map(m => {
       let score = 0;
@@ -267,7 +274,7 @@ export const GestionMiembrosPage = () => {
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
       
-    setTalentSearchModal(prev => ({ ...prev, queryProf, queryDesc, results: scored }));
+    setTalentSearchModal(prev => ({ ...prev, queryProf: qProf, queryDesc: qDesc, results: scored }));
   };
 
 
@@ -595,8 +602,10 @@ export const GestionMiembrosPage = () => {
       </span>
     ),
   }));
-
-
+  const totalMiembros = miembros.length;
+  const sociosCount = miembros.filter(m => m.rol === 'socio' || m.rol === 'SOCIO').length;
+  const secretariosCount = miembros.filter(m => m.rol === 'secretario' || m.rol === 'SECRETARIO').length;
+  const adminCount = miembros.filter(m => m.rol === 'admin' || m.rol === 'ADMIN').length;
 
   return (
     <div className="space-y-6">
@@ -620,7 +629,7 @@ export const GestionMiembrosPage = () => {
           <Button 
             variant="outline" 
             type="button" 
-            onClick={() => setTalentSearchModal({ open: true, query: '', results: [] })}
+            onClick={() => setTalentSearchModal({ open: true, queryProf: '', queryDesc: '', results: [] })}
             className="flex-1 sm:flex-none whitespace-nowrap h-9 flex items-center justify-center gap-2 px-3"
           >
             <Lightbulb className="h-4 w-4 shrink-0 text-yellow-500" />
@@ -639,7 +648,77 @@ export const GestionMiembrosPage = () => {
         </div>
       </header>
 
+      {/* Tarjetas de Métricas de Miembros */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+            <UserCircle className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-slate-900 truncate">
+              {totalMiembros}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Total Miembros</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+            <UserCheck className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-emerald-600 truncate">
+              {sociosCount}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Miembros (Socios)</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 shrink-0">
+            <UserCheck className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-rose-600 truncate">
+              {secretariosCount}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Secretarios</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+            <UserCheck className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xl font-black text-indigo-600 truncate">
+              {adminCount}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Administradores</p>
+          </div>
+        </div>
+      </div>
+
       <section className="rounded-md bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <UserCircle className="h-5 w-5 text-blue-600" />
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              Listado de miembros
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={refetch}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
+            title="Refrescar listado"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refrescar</span>
+          </button>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex w-full max-w-sm items-center gap-2">
             <Search className="h-4 w-4 text-slate-400" />
@@ -1256,7 +1335,7 @@ export const GestionMiembrosPage = () => {
       {/* Modal premium de confirmación de cambio de estado */}
       <Modal
         isOpen={statusConfirmModal.open}
-        onClose={() => setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' })}
+        onClose={() => setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo', reactivationMode: 'resume' })}
         title={
           statusConfirmModal.nuevoEstado === 'inactivo' ? (
             <div className="flex items-center gap-2.5 text-red-600">
@@ -1272,27 +1351,89 @@ export const GestionMiembrosPage = () => {
         }
       >
         <div className="space-y-4 py-2">
-          <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 text-sm">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
-            <div>
-              {statusConfirmModal.nuevoEstado === 'inactivo' ? (
-                <span>
-                  ¿Estás seguro de desactivar al miembro <strong>{statusConfirmModal.miembro?.nombre}</strong>? 
-                  Esto deshabilitará su acceso de sesión, detendrá las notificaciones y pausará la generación de cobros de cuotas.
-                </span>
-              ) : (
-                <span>
-                  ¿Estás seguro de reactivar al miembro <strong>{statusConfirmModal.miembro?.nombre}</strong>? 
-                  Esto restaurará su acceso de inicio de sesión y la recepción de notificaciones institucionales.
-                </span>
-              )}
+          {statusConfirmModal.nuevoEstado === 'inactivo' ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3.5 bg-red-50/50 border border-red-100 rounded-xl text-red-800 text-sm">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+                <div>
+                  <p className="font-bold mb-1">¡Advertencia Importante!</p>
+                  <p className="leading-relaxed">
+                    ¿Estás seguro de cambiar el estado del miembro <strong>{statusConfirmModal.miembro?.nombre}</strong> a <strong>Inactivo</strong>?
+                  </p>
+                </div>
+              </div>
+              <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-3.5 space-y-2 text-xs text-slate-600">
+                <p className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Efectos en el sistema:</p>
+                <ul className="list-disc pl-4 space-y-1.5 leading-relaxed">
+                  <li><strong>Acceso bloqueado:</strong> El miembro no podrá iniciar sesión en la plataforma.</li>
+                  <li><strong>Notificaciones pausadas:</strong> Se detendrá el envío de notificaciones y alertas automáticas.</li>
+                  <li><strong>Generación de cuotas congelada:</strong> El contador de tiempo para su próxima cuota se detendrá inmediatamente. No se generarán nuevas cuotas mientras esté inactivo.</li>
+                  <li><strong>Deudas pendientes:</strong> Las cuotas que ya están pendientes de pago <strong className="text-slate-800">NO se eliminarán ni se marcarán como pagadas</strong>, y seguirán registradas en su cuenta.</li>
+                </ul>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-sm">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />
+                <div>
+                  <p className="leading-relaxed">
+                    Confirmar reactivación para el miembro <strong>{statusConfirmModal.miembro?.nombre}</strong>. Se habilitará nuevamente su acceso a la plataforma.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border border-slate-200/80 rounded-xl p-4 bg-white space-y-3">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Configuración del Ciclo de Cuotas
+                </label>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Selecciona cómo deseas que el sistema gestione la generación de la próxima cuota de membresía:
+                </p>
+                
+                <div className="space-y-2 pt-1">
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${statusConfirmModal.reactivationMode === 'resume' ? 'border-blue-500 bg-blue-50/20' : 'border-slate-200 hover:bg-slate-50'}`}>
+                    <input 
+                      type="radio" 
+                      name="reactivationMode" 
+                      value="resume"
+                      checked={statusConfirmModal.reactivationMode === 'resume'}
+                      onChange={() => setStatusConfirmModal(prev => ({ ...prev, reactivationMode: 'resume' }))}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">Reanudar desde donde se pausó</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+                        Continúa el conteo del ciclo actual. Se sumará el tiempo restante que el usuario tenía acumulado antes de ser inactivado.
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${statusConfirmModal.reactivationMode === 'reset' ? 'border-blue-500 bg-blue-50/20' : 'border-slate-200 hover:bg-slate-50'}`}>
+                    <input 
+                      type="radio" 
+                      name="reactivationMode" 
+                      value="reset"
+                      checked={statusConfirmModal.reactivationMode === 'reset'}
+                      onChange={() => setStatusConfirmModal(prev => ({ ...prev, reactivationMode: 'reset' }))}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">Iniciar un nuevo ciclo completo desde cero</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+                        Reinicia el contador de cuotas. El conteo comenzará desde cero a partir de hoy, otorgando un ciclo completo nuevo.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
           
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button 
               variant="outline" 
-              onClick={() => setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo' })}
+              onClick={() => setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo', reactivationMode: 'resume' })}
               disabled={isSubmitting}
             >
               Cancelar

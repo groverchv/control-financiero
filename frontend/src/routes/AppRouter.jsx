@@ -37,6 +37,7 @@ const SocioNotificacionesPage = lazy(() => import("@/features/administracion/pag
 const AdminNotificacionesPage = lazy(() => import("@/features/administracion/pages/NotificacionesPage").then(m => ({ default: m.NotificacionesPage })));
 const AuditoriaPage = lazy(() => import("@/features/auditoria/pages/AuditoriaPage").then(m => ({ default: m.AuditoriaPage })));
 const TransparenciaPage = lazy(() => import("@/features/auditoria/pages/TransparenciaPage").then(m => ({ default: m.TransparenciaPage })));
+const BackupPage = lazy(() => import("@/features/auditoria/pages/BackupPage").then(m => ({ default: m.BackupPage })));
 const PublicActividadesPage = lazy(() => import("@/features/academico/pages/PublicCursosPage").then(m => ({ default: m.PublicCursosPage })));
 const DetalleActividadPage = lazy(() => import("@/features/academico/pages/DetalleActividadPage").then(m => ({ default: m.DetalleActividadPage })));
 
@@ -283,6 +284,14 @@ export const AppRouter = () => {
               element={
                 <ProtectedRoute requiredRoles={["admin"]}>
                   <AuditoriaPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/backup"
+              element={
+                <ProtectedRoute requiredRoles={["admin"]}>
+                  <BackupPage />
                 </ProtectedRoute>
               }
             />

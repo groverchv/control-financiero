@@ -78,6 +78,22 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
 
 const enviarEmail = async ({ to, subject, htmlContent }) => {
   try {
+    if (!navigator.onLine) {
+      console.warn('[Brevo Service] Sin conexión. Encolando correo para envío posterior.');
+      // Encolar correo en localStorage
+      const queueKey = 'control-financiero-offline-emails-queue';
+      const queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+      queue.push({
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        to,
+        subject,
+        htmlContent,
+        timestamp: Date.now()
+      });
+      localStorage.setItem(queueKey, JSON.stringify(queue));
+      return { success: true, queued: true };
+    }
+
     const response = await fetch(BREVO_API_URL, {
       method: 'POST',
       headers: {
@@ -106,6 +122,49 @@ const enviarEmail = async ({ to, subject, htmlContent }) => {
     return { success: false, error: error.message };
   }
 };
+
+// Intentar sincronizar correos encolados al recuperar la red
+if (typeof window !== 'undefined') {
+  const syncOfflineEmails = async () => {
+    const queueKey = 'control-financiero-offline-emails-queue';
+    const queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+    if (queue.length === 0) return;
+
+    console.log(`[Brevo Sync] Sincronizando ${queue.length} correos encolados...`);
+    const remaining = [];
+
+    for (const email of queue) {
+      try {
+        const res = await fetch(BREVO_API_URL, {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'api-key': BREVO_API_KEY,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: SENDER,
+            to: Array.isArray(email.to) ? email.to : [email.to],
+            subject: email.subject,
+            htmlContent: email.htmlContent,
+          }),
+        });
+        if (!res.ok) {
+          remaining.push(email);
+        }
+      } catch (e) {
+        remaining.push(email);
+      }
+    }
+    localStorage.setItem(queueKey, JSON.stringify(remaining));
+  };
+
+  window.addEventListener('online', syncOfflineEmails);
+  if (navigator.onLine) {
+    // Retrasar ejecución inicial brevemente para no saturar
+    setTimeout(syncOfflineEmails, 3000);
+  }
+}
 
 /**
  * Verifica que el miembro este activo antes de enviar email.

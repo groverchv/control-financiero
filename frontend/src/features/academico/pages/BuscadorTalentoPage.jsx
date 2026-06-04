@@ -1,5 +1,5 @@
-import { Search, FileText, Mail, User, ExternalLink, Briefcase } from 'lucide-react';
-import { useState } from 'react';
+import { Search, FileText, Mail, User, ExternalLink, Briefcase, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useTalentos } from '../hooks';
 import { Button, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
@@ -11,6 +11,18 @@ export const BuscadorTalentoPage = () => {
   const [selectedTalento, setSelectedTalento] = useState(null);
   const [cvUrl, setCvUrl] = useState(null);
   const [loadingCv, setLoadingCv] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleVerDetalles = async (talento) => {
     setSelectedTalento(talento);
@@ -165,15 +177,27 @@ export const BuscadorTalentoPage = () => {
                 </div>
               ) : cvUrl ? (
                 <div className="flex flex-col gap-4">
-                  <div className="rounded-2xl border-2 border-slate-100 overflow-hidden h-96 bg-slate-50">
-                    <iframe 
-                      src={cvUrl.toLowerCase().endsWith('.pdf') 
-                        ? cvUrl 
-                        : `https://docs.google.com/gview?url=${encodeURIComponent(cvUrl)}&embedded=true`
-                      } 
-                      className="w-full h-full border-none"
-                      title="Visor CV"
-                    ></iframe>
+                  <div className="rounded-2xl border-2 border-slate-100 overflow-hidden h-96 bg-slate-50 flex flex-col justify-center">
+                    {!isOnline ? (
+                      <div className="flex flex-col items-center justify-center p-8 bg-slate-50 text-center space-y-3">
+                        <div className="p-3 bg-amber-50 rounded-full text-amber-600">
+                          <AlertCircle className="h-6 w-6" />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800">Previsualización No Disponible Sin Conexión</h4>
+                        <p className="text-[10px] text-slate-500 max-w-sm">
+                          La previsualización interactiva de documentos requiere conexión a internet. Puede descargar el archivo si lo necesita sin conexión.
+                        </p>
+                      </div>
+                    ) : (
+                      <iframe 
+                        src={cvUrl.toLowerCase().endsWith('.pdf') 
+                          ? cvUrl 
+                          : `https://docs.google.com/gview?url=${encodeURIComponent(cvUrl)}&embedded=true`
+                        } 
+                        className="w-full h-full border-none"
+                        title="Visor CV"
+                      ></iframe>
+                    )}
                   </div>
                   <div className="flex gap-3">
                     <Button 

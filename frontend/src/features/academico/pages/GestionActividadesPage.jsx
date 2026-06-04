@@ -29,12 +29,14 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useActividades, useTiposActividad } from "../hooks";
+import { useFormDraft } from "../../../hooks/useFormDraft";
 import {
   Button,
   Spinner,
   Modal,
   Input,
   ExportButtons,
+  Confetti,
 } from "../../../components/ui";
 import { MapPicker } from "../../../components/ui/MapPicker";
 import { Table } from "../../../components/data-display";
@@ -75,6 +77,22 @@ export const GestionActividadesPage = () => {
     publicado: true,
     tipo_actividad_id: "",
   });
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // Hook para persistir borradores de actividades nuevas
+  const { clearDraft } = useFormDraft('actividades_form_draft', formData, setFormData, !editingAct);
   const [adicionalCupos, setAdicionalCupos] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -106,6 +124,8 @@ export const GestionActividadesPage = () => {
     onConfirm: null,
   });
 
+  const [formErrors, setFormErrors] = useState({});
+
   const isFormInvalid =
     !formData.nombre.trim() ||
     !formData.tipo_actividad_id ||
@@ -136,7 +156,7 @@ export const GestionActividadesPage = () => {
     !selectedFile &&
     !adicionalCupos;
 
-  const isSubmitDisabled = isFormInvalid || isFormUnchanged;
+  const isSubmitDisabled = isFormUnchanged;
 
   // Asistencia & Manual Enrollment States
   const [todosMiembros, setTodosMiembros] = useState([]);
@@ -306,6 +326,7 @@ export const GestionActividadesPage = () => {
     setAdicionalCupos("");
     setSelectedFile(null);
     setPreviewUrl(null);
+    setFormErrors({});
     setIsModalOpen(true);
   };
 
@@ -331,6 +352,7 @@ export const GestionActividadesPage = () => {
     setAdicionalCupos("");
     setSelectedFile(null);
     setPreviewUrl(act.imagen || null);
+    setFormErrors({});
     setIsModalOpen(true);
   };
 
@@ -426,23 +448,21 @@ export const GestionActividadesPage = () => {
       actionType: "primary",
       onConfirm: async () => {
         setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
+        const estadoAnterior = act.publicado;
+
+        // Actualización optimista local inmediata
+        setActividades(prev =>
+          prev.map((a) => (a.id === act.id ? { ...a, publicado: nuevoEstado } : a))
+        );
+
         try {
           await academicoApi.togglePublicado(act.id, nuevoEstado);
-          setActividades(
-            actividades.map((a) =>
-              a.id === act.id ? { ...a, publicado: nuevoEstado } : a,
-            ),
-          );
-          setResultModal({
-            open: true,
-            type: "success",
-            text: nuevoEstado ? "¡Actividad publicada!" : "¡Actividad oculta!",
-            details: nuevoEstado
-              ? "La actividad ahora es visible para todos los socios."
-              : "La actividad ha sido ocultada del portal de socios.",
-          });
         } catch (err) {
           console.error(err);
+          // Revertir (Rollback) si falla la API
+          setActividades(prev =>
+            prev.map((a) => (a.id === act.id ? { ...a, publicado: estadoAnterior } : a))
+          );
           setResultModal({
             open: true,
             type: "error",
@@ -789,6 +809,19 @@ export const GestionActividadesPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const errors = {};
+    if (!formData.nombre.trim()) errors.nombre = "El nombre de la actividad es requerido (Ej: Taller de React).";
+    if (!formData.tipo_actividad_id) errors.tipo_actividad_id = "Debe seleccionar un tipo de actividad.";
+    if (!formData.fecha) errors.fecha = "La fecha de la actividad es requerida (Ej: 2026-06-15).";
+    if (!formData.hora) errors.hora = "La hora de la actividad es requerida (Ej: 19:30).";
+    if (formData.costo === "") errors.costo = "El costo de la actividad es requerido (coloque 0 si es gratuita, Ej: 50).";
+    if (formData.cupos === "") errors.cupos = "El número de cupos disponibles es requerido (Ej: 30).";
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
     setConfirmActionModal({ open: true });
   };
 
@@ -820,6 +853,8 @@ export const GestionActividadesPage = () => {
           actividades.map((a) => (a.id === editingAct.id ? actualizado : a)),
         );
         setLoadingModal({ open: false, text: "" });
+        clearDraft();
+        setShowConfetti(true);
         setResultModal({
           open: true,
           type: "success",
@@ -834,6 +869,8 @@ export const GestionActividadesPage = () => {
         );
         setActividades([nuevaAct, ...actividades]);
         setLoadingModal({ open: false, text: "" });
+        clearDraft();
+        setShowConfetti(true);
         setResultModal({
           open: true,
           type: "success",
@@ -1351,10 +1388,12 @@ export const GestionActividadesPage = () => {
 
               <Input
                 label="Nombre de la Actividad"
+                placeholder="Ej: Taller de Oratoria"
                 value={formData.nombre}
                 onChange={(e) =>
                   setFormData({ ...formData, nombre: e.target.value })
                 }
+                error={formErrors.nombre}
                 required
               />
 
@@ -1370,7 +1409,9 @@ export const GestionActividadesPage = () => {
                       tipo_actividad_id: e.target.value,
                     })
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className={`w-full rounded-xl border px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 ${
+                    formErrors.tipo_actividad_id ? 'border-red-500 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'
+                  } bg-white`}
                   required
                 >
                   <option value="" disabled>
@@ -1382,6 +1423,9 @@ export const GestionActividadesPage = () => {
                     </option>
                   ))}
                 </select>
+                {formErrors.tipo_actividad_id && (
+                  <p className="text-xs font-medium text-red-500 mt-1">{formErrors.tipo_actividad_id}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1392,6 +1436,7 @@ export const GestionActividadesPage = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, fecha: e.target.value })
                   }
+                  error={formErrors.fecha}
                   required
                 />
                 <Input
@@ -1401,6 +1446,7 @@ export const GestionActividadesPage = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, hora: e.target.value })
                   }
+                  error={formErrors.hora}
                   required
                 />
               </div>
@@ -1459,6 +1505,7 @@ export const GestionActividadesPage = () => {
               <Input
                 label="Costo (Bs)"
                 type="number"
+                placeholder="Ej: 50"
                 value={formData.costo}
                 onChange={(e) =>
                   setFormData({
@@ -1466,6 +1513,8 @@ export const GestionActividadesPage = () => {
                     costo: e.target.value === "" ? "" : Number(e.target.value),
                   })
                 }
+                error={formErrors.costo}
+                required
               />
 
               {editingAct ? (
@@ -1498,6 +1547,7 @@ export const GestionActividadesPage = () => {
                 <Input
                   label="Cupos disponibles"
                   type="number"
+                  placeholder="Ej: 30"
                   value={formData.cupos}
                   onChange={(e) =>
                     setFormData({
@@ -1506,6 +1556,7 @@ export const GestionActividadesPage = () => {
                         e.target.value === "" ? "" : parseInt(e.target.value),
                     })
                   }
+                  error={formErrors.cupos}
                   required
                 />
               )}
@@ -1600,15 +1651,15 @@ export const GestionActividadesPage = () => {
             <Button
               type="submit"
               disabled={isSubmitting || isSubmitDisabled}
-              className={
-                isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""
-              }
+              className={`${isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""} ${!isOnline ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white" : ""}`}
             >
               {isSubmitting
                 ? "Guardando..."
-                : editingAct
-                  ? "Actualizar Actividad"
-                  : "Guardar Actividad"}
+                : !isOnline
+                  ? "💾 Guardar localmente (Offline)"
+                  : editingAct
+                    ? "Actualizar Actividad"
+                    : "Guardar Actividad"}
             </Button>
           </div>
         </form>
@@ -2416,6 +2467,7 @@ export const GestionActividadesPage = () => {
         </div>
       </Modal>
       <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
+      <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
     </div>
   );
 };

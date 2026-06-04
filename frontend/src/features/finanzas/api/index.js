@@ -1,11 +1,12 @@
 import { supabase } from '../../../services/supabase';
 import { brevoService } from '../../../services/brevo';
 import { blockchainService } from '../../../services/blockchain';
-import { apiCache } from '../../../utils/apiCache';
+import { apiCache, withCache } from '../../../utils/apiCache';
+import { withWriteQueue } from '../../../utils/offlineQueue';
 
 export const finanzasApi = {
   // Nota: 'cuotas' ya no existe en el esquema nuevo. Se mapea a 'ingreso' temporalmente o se marca como pendiente.
-  registrarPago: async (pago) => {
+  registrarPago: withWriteQueue('ingreso', 'registrarPago', async (pago) => {
     apiCache.invalidate('finanzas');
     const miembroId = pago.miembroId || pago.miembro_id || null;
     const { data, error } = await supabase
@@ -135,7 +136,7 @@ export const finanzasApi = {
       registrado_por_rol: fullPago.registrador?.rol || null,
       comprobanteUrl: fullPago.archivos && fullPago.archivos.length > 0 ? fullPago.archivos[0].url : null
     };
-  },
+  }),
 
   devolverIngreso: async (id, usuarioId) => {
     apiCache.invalidate('finanzas');
@@ -454,7 +455,7 @@ export const finanzasApi = {
     }
   },
 
-  registrarEgreso: async (egreso) => {
+  registrarEgreso: withWriteQueue('egreso', 'registrarEgreso', async (egreso) => {
     apiCache.invalidate('finanzas');
     // Convertir strings vacíos a null para campos UUID (Supabase no acepta '' en UUID)
     const miembroId = egreso.miembro_id || egreso.registradoPor || null;
@@ -568,9 +569,9 @@ export const finanzasApi = {
       activo_nombre: fullEgreso.activo?.nombre || null,
       comprobanteUrl: fullEgreso.archivos && fullEgreso.archivos.length > 0 ? fullEgreso.archivos[0].url : null
     };
-  },
+  }),
 
-  obtenerEgresos: async () => {
+  obtenerEgresos: withCache('finanzas:egresos', async () => {
     const { data, error } = await supabase
       .from('egreso')
       .select(`
@@ -593,7 +594,7 @@ export const finanzasApi = {
       activo_nombre: d.activo?.nombre || null,
       comprobanteUrl: d.archivos && d.archivos.length > 0 ? d.archivos[0].url : null
     })) || [];
-  },
+  }),
 
   registrarIngresoExtra: async (ingreso) => {
     const { data, error } = await supabase

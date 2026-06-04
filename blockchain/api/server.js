@@ -1,6 +1,7 @@
 'use strict';
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../frontend/.env') });
 
 const express = require('express');
 const cors = require('cors');
@@ -9,6 +10,7 @@ const morgan = require('morgan');
 const { rateLimit } = require('express-rate-limit');
 const fabricGateway = require('./services/fabricGateway');
 const auditRoutes = require('./routes/audit');
+const adminRoutes = require('./routes/admin');
 const keepAlive = require('./services/keepAlive');
 const logger = require('./services/logger');
 
@@ -91,6 +93,7 @@ app.use('/api/audit/sello', readRateLimiter);
 app.use('/api/audit/historial', readRateLimiter);
 app.use('/api/audit/tipo', readRateLimiter);
 app.use('/api/audit', auditRoutes);
+app.use('/api/admin', writeRateLimiter, adminRoutes);
 
 app.use((_req, res) => {
     res.status(404).json({ error: 'Endpoint no encontrado' });

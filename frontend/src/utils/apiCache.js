@@ -1,57 +1,89 @@
 /**
- * Utilidad de Caché en Memoria para optimizar y acelerar las consultas a Supabase/API.
- * Previene llamadas de red repetitivas y redundantes dentro de una misma sesión de usuario.
+ * Envoltorio (HOC / Decorador de funciones) para agregar almacenamiento en caché local.
+ * Si hay conexión, realiza la petición real y la guarda.
+ * Si no hay conexión o la red falla, intenta recuperar el último resultado guardado en localStorage.
+ * 
+ * @param {string} cacheKey Identificador único para el recurso en caché
+ * @param {Function} asyncFn Función asíncrona original que realiza la petición
+ * @returns {Function} Función envuelta con soporte de caché offline
  */
-class ApiCache {
-    constructor() {
-        this.cache = new Map();
-        this.defaultTtl = 15000; // 15 segundos por defecto para lecturas concurrentes rápidas
-    }
-
-    /**
-     * Obtiene un valor de la caché. Retorna null si no existe o ha expirado.
-     */
-    get(key) {
-        const entry = this.cache.get(key);
-        if (!entry) return null;
-
-        if (Date.now() > entry.expiresAt) {
-            this.cache.delete(key); // Evicción proactiva
-            return null;
+export const withCache = (cacheKey, asyncFn) => {
+  return async (...args) => {
+    const key = `${cacheKey}_${JSON.stringify(args)}`;
+    
+    if (navigator.onLine) {
+      try {
+        const result = await asyncFn(...args);
+        try {
+          localStorage.setItem(key, JSON.stringify({ data: result, timestamp: Date.now() }));
+        } catch (e) {
+          console.warn('Error al guardar en localStorage (ej. cuota excedida):', e);
         }
-
-        return entry.value;
-    }
-
-    /**
-     * Guarda un valor en la caché con un TTL (Time To Live) específico.
-     */
-    set(key, value, ttl = this.defaultTtl) {
-        this.cache.set(key, {
-            value,
-            expiresAt: Date.now() + ttl
-        });
-    }
-
-    /**
-     * Invalida entradas de caché que comiencen o contengan un patrón de texto.
-     * Útil para limpiar el caché de un módulo entero al realizar escrituras.
-     */
-    invalidate(pattern) {
-        for (const key of this.cache.keys()) {
-            if (key.includes(pattern)) {
-                this.cache.delete(key);
-            }
+        return result;
+      } catch (error) {
+        console.warn(`Error de red para ${cacheKey}, intentando recuperar de la caché local:`, error);
+        try {
+          const cached = localStorage.getItem(key);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            return parsed.data;
+          }
+        } catch (e) {
+          console.error('Error al leer de localStorage:', e);
         }
+        throw error;
+      }
+    } else {
+      try {
+        const cached = localStorage.getItem(key);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          console.log(`[Offline Cache] Sirviendo datos de caché para: ${cacheKey}`);
+          return parsed.data;
+        }
+      } catch (e) {
+        console.error('Error al leer de localStorage en modo offline:', e);
+      }
+      throw new Error("Sin conexión a internet y sin datos en la caché local.");
     }
+  };
+};
 
-    /**
-     * Limpia por completo la caché.
-     */
-    clear() {
-        this.cache.clear();
+// Objeto apiCache para compatibilidad y uso directo en finanzasApi
+export const apiCache = {
+  get: (key) => {
+    try {
+      const cached = localStorage.getItem(key);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed.data;
+      }
+    } catch (e) {
+      console.error('Error al leer de apiCache:', e);
     }
-}
+    return null;
+  },
 
-export const apiCache = new ApiCache();
-export default apiCache;
+  set: (key, value) => {
+    try {
+      localStorage.setItem(key, JSON.stringify({ data: value, timestamp: Date.now() }));
+    } catch (e) {
+      console.warn('Error al guardar en apiCache:', e);
+    }
+  },
+
+  invalidate: (pattern) => {
+    try {
+      // Si el patrón es un string simple, invalidamos todo lo que comience con él
+      const keys = Object.keys(localStorage);
+      for (const key of keys) {
+        if (key.startsWith(pattern) || key.includes(pattern)) {
+          localStorage.removeItem(key);
+        }
+      }
+      console.log(`[Cache Invalidated] Caché invalidada para el patrón: ${pattern}`);
+    } catch (e) {
+      console.error('Error al invalidar caché:', e);
+    }
+  }
+};

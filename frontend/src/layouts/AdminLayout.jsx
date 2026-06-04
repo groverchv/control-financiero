@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { ArrowDownCircle, Bell, CalendarDays, CreditCard, History, LayoutGrid, LineChart, LogOut, Users, User as UserIcon, Menu, ChevronDown, X, Tags, Calculator, ShieldCheck, Eye, Database } from 'lucide-react';
+import { ArrowDownCircle, Bell, CalendarDays, CreditCard, History, LayoutGrid, LineChart, LogOut, Users, User as UserIcon, Menu, ChevronDown, X, Tags, Calculator, ShieldCheck, Eye, Database, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
 import { useState, useEffect } from 'react';
@@ -11,6 +11,21 @@ export const AdminLayout = () => {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);
@@ -315,7 +330,6 @@ export const AdminLayout = () => {
                 )}
               </div>
             </div>
-            
             {/* Desktop Profile Block */}
             <div className="hidden items-center gap-3 sm:gap-4 min-w-0 shrink-0 md:flex">
               <div className="flex flex-col items-end text-right flex min-w-0 mr-2">
@@ -338,6 +352,14 @@ export const AdminLayout = () => {
                   {user?.rol}
                 </span>
               </div>
+              {/* Botón de Modo Oscuro Desktop */}
+              <button 
+                onClick={toggleTheme}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 transition-colors shrink-0"
+                title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
+              >
+                {theme === 'light' ? <Moon className="h-5 w-5 text-slate-600" /> : <Sun className="h-5 w-5 text-yellow-500 animate-pulse" />}
+              </button>
               <button 
                 onClick={handleLogoutClick}
                 className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
@@ -369,6 +391,14 @@ export const AdminLayout = () => {
                   {user?.rol?.substring(0, 5) || 'Admin'}
                 </span>
               </div>
+              {/* Botón de Modo Oscuro Mobile */}
+              <button 
+                onClick={toggleTheme}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 shrink-0 transition-colors"
+                title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
+              >
+                {theme === 'light' ? <Moon className="h-4 w-4 text-slate-600" /> : <Sun className="h-4 w-4 text-yellow-500 animate-pulse" />}
+              </button>
               <button 
                 onClick={handleLogoutClick}
                 className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 shrink-0 transition-colors"

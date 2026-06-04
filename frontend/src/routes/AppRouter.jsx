@@ -43,10 +43,10 @@ const DetalleActividadPage = lazy(() => import("@/features/academico/pages/Detal
 
 
 const SuspenseLoader = () => (
-  <div className="flex h-screen w-screen items-center justify-center bg-slate-50/50 backdrop-blur-sm">
+  <div className="flex h-screen w-screen items-center justify-center bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
     <div className="flex flex-col items-center space-y-4">
       <Spinner size="lg" />
-      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest animate-pulse">Cargando Módulo Institucional...</p>
+      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest animate-pulse">Cargando Módulo Institucional...</p>
     </div>
   </div>
 );

@@ -1,11 +1,17 @@
-import { supabase, supabaseAdmin } from '../../../services/supabase';
+import { supabase } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { brevoService } from '../../../services/brevo';
 
 import { encryptPassword, decryptPassword } from '../../../utils/encryption';
+import { withCache } from '../../../utils/apiCache';
+
+const BLOCKCHAIN_API = typeof window !== 'undefined' && 
+  (window.location.protocol === 'https:' || !window.location.hostname.match(/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)$/))
+    ? '/api-blockchain'
+    : (import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://localhost:3001');
 
 export const administracionApi = {
-  obtenerMiembros: async () => {
+  obtenerMiembros: withCache('obtenerMiembros', async () => {
     const { data, error } = await supabase
       .from('miembro')
       .select(`
@@ -35,28 +41,32 @@ export const administracionApi = {
       contrasena: m.contrasena ? decryptPassword(m.contrasena) : '',
       foto: m.archivos?.find(a => a.tipo === 'foto' && a.estado === 'activo')?.url || null,
     }));
-  },
+  }),
 
   crearMiembro: async (miembro) => {
-    if (!supabaseAdmin) {
-      throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
-    }
-
     const emailToUse = miembro.email || miembro.correoElectronico;
 
-    // 1. Crear usuario en Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: emailToUse,
-      password: miembro.password || 'password123',
-      email_confirm: true,
-      user_metadata: {
-        full_name: miembro.nombre,
-        rol: miembro.rol
-      }
+    // 1. Crear usuario en Auth llamando a la API del backend
+    const response = await fetch(`${BLOCKCHAIN_API}/api/admin/miembros/crear`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: emailToUse,
+        password: miembro.password || 'password123',
+        nombre: miembro.nombre,
+        rol: miembro.rol,
+        telefono: miembro.telefono,
+        apellidoPaterno: miembro.apellidoPaterno,
+        apellidoMaterno: miembro.apellidoMaterno,
+        contrasenaEncriptada: miembro.password ? encryptPassword(miembro.password) : undefined
+      })
     });
 
-    if (authError) {
-      let mensaje = authError.message;
+    const resData = await response.json();
+    if (!response.ok) {
+      let mensaje = resData.error || 'Error al crear usuario en la API del backend';
       if (mensaje.includes('already been registered')) {
         mensaje = 'Ya existe un usuario registrado con esta dirección de correo electrónico.';
       } else if (mensaje.includes('should be at least')) {
@@ -67,25 +77,13 @@ export const administracionApi = {
       throw new Error(mensaje);
     }
 
-    // 2. Si se pasaron campos adicionales, actualizamos la tabla miembro
-    const updates = {};
-    if (miembro.telefono) updates.telefono = miembro.telefono;
-    if (miembro.apellidoPaterno) updates["apellidoPaterno"] = miembro.apellidoPaterno;
-    if (miembro.apellidoMaterno) updates["apellidoMaterno"] = miembro.apellidoMaterno;
-    if (miembro.password) updates.contrasena = encryptPassword(miembro.password);
-
-    if (Object.keys(updates).length > 0) {
-      await supabaseAdmin
-        .from('miembro')
-        .update(updates)
-        .eq('id', authData.user.id);
-    }
+    const authUser = resData.user;
 
     // 3. Obtener el registro final
     const { data, error } = await supabase
       .from('miembro')
       .select('*')
-      .eq('id', authData.user.id)
+      .eq('id', authUser.id)
       .single();
 
     if (error) throw error;
@@ -119,24 +117,32 @@ export const administracionApi = {
   },
 
   actualizarMiembro: async (id, updates) => {
-    if (!supabaseAdmin) {
-      throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
-    }
-
-    // 1. Si hay email o rol o nombre en los updates, también actualizamos en Auth
+    // 1. Si hay email o rol o nombre en los updates, también actualizamos en Auth a través de la API del backend
     const authUpdates = {};
     if (updates.email) {
       authUpdates.email = updates.email;
     }
     if (updates.rol || updates.nombre) {
-      authUpdates.user_metadata = {};
-      if (updates.nombre) authUpdates.user_metadata.full_name = updates.nombre;
-      if (updates.rol) authUpdates.user_metadata.rol = updates.rol;
+      authUpdates.rol = updates.rol;
+      authUpdates.nombre = updates.nombre;
     }
 
     if (Object.keys(authUpdates).length > 0) {
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, authUpdates);
-      if (authError) throw authError;
+      const response = await fetch(`${BLOCKCHAIN_API}/api/admin/miembros/actualizar-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: id,
+          updates: authUpdates
+        })
+      });
+
+      if (!response.ok) {
+        const resData = await response.json();
+        throw new Error(resData.error || 'Error al actualizar Auth en la API del backend');
+      }
     }
 
     // 2. Mapear 'email' a 'correoElectronico' para la tabla miembro
@@ -259,7 +265,7 @@ export const administracionApi = {
     return result;
   },
 
-  obtenerArchivosMiembro: async (miembroId) => {
+  obtenerArchivosMiembro: withCache('obtenerArchivosMiembro', async (miembroId) => {
     const { data, error } = await supabase
       .from('archivo')
       .select('*')
@@ -269,7 +275,7 @@ export const administracionApi = {
 
     if (error) throw error;
     return data || [];
-  },
+  }),
 
   /**
    * Enviar una notificación/alerta por email a uno o todos los socios activos.
@@ -402,24 +408,25 @@ export const administracionApi = {
   },
 
   actualizarContrasena: async (userId, newPassword) => {
-    if (!supabaseAdmin) {
-      throw new Error('No se ha configurado la clave de administrador (Service Role Key)');
+    const encrypted = encryptPassword(newPassword);
+
+    const response = await fetch(`${BLOCKCHAIN_API}/api/admin/miembros/actualizar-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userId,
+        newPassword,
+        contrasenaEncriptada: encrypted
+      })
+    });
+
+    if (!response.ok) {
+      const resData = await response.json();
+      throw new Error(resData.error || 'Error al actualizar contraseña en la API del backend');
     }
 
-    // 1. Actualizar en Supabase Auth
-    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      password: newPassword
-    });
-    if (authError) throw authError;
-
-    // 2. Actualizar en la tabla miembro
-    const encrypted = encryptPassword(newPassword);
-    const { error: dbError } = await supabaseAdmin
-      .from('miembro')
-      .update({ contrasena: encrypted })
-      .eq('id', userId);
-
-    if (dbError) throw dbError;
     return true;
   }
 };

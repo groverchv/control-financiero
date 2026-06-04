@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Edit, Eye, EyeOff, Info, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2, UserCircle, FileText, Upload, RefreshCw } from 'lucide-react';
 import { useMiembros } from '../hooks';
-import { Button, Input, Spinner, Modal, ExportButtons } from '../../../components/ui';
+import { useFormDraft } from '../../../hooks/useFormDraft';
+import { HighlightMatch } from '../../../utils/textHighlight';
+import { Button, Input, Spinner, Modal, ExportButtons, Skeleton, Confetti } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { administracionApi } from '../api';
@@ -46,6 +48,18 @@ const ModalPagination = ({ current, total, onPageChange, filteredCount, label = 
 
 export const GestionMiembrosPage = () => {
   const { miembros, loading, error, setMiembros, refetch } = useMiembros();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,6 +78,11 @@ export const GestionMiembrosPage = () => {
     rol: 'socio', 
     estado: 'activo' 
   });
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Auto-guardado de borrador (deshabilitado cuando estamos editando un miembro existente)
+  const { clearDraft } = useFormDraft('miembro_form_draft', formData, setFormData, !editingMember);
+
   const [detailModal, setDetailModal] = useState({ 
     open: false, 
     miembro: null, 
@@ -152,29 +171,26 @@ export const GestionMiembrosPage = () => {
     const { miembro, nuevoEstado, reactivationMode } = statusConfirmModal;
     if (!miembro) return;
 
+    const estadoAnterior = miembro.estado;
+
+    // Actualización optimista local inmediata
+    setMiembros(prev => prev.map(m => m.id === miembro.id ? { ...m, estado: nuevoEstado } : m));
+
     setStatusConfirmModal({ open: false, miembro: null, nuevoEstado: 'activo', reactivationMode: 'resume' });
     setIsSubmitting(true);
-    setLoadingModal({
-      open: true,
-      text: nuevoEstado === 'activo' ? 'Reactivando miembro...' : 'Desactivando miembro...'
-    });
     try {
       const updates = { estado: nuevoEstado };
       if (nuevoEstado === 'activo' && reactivationMode === 'reset') {
         updates.tiempo_restante_cuota = null;
       }
       const actualizado = await administracionApi.actualizarMiembro(miembro.id, updates);
-      setMiembros(miembros.map(m => m.id === miembro.id ? actualizado : m));
-      setLoadingModal({ open: false, text: '' });
-      setResultModal({
-        open: true,
-        type: 'success',
-        text: nuevoEstado === 'activo' ? '¡Miembro Reactivado!' : '¡Miembro Desactivado!',
-        details: `El estado del miembro ${miembro.nombre} ha sido actualizado a ${nuevoEstado} con éxito en la base de datos.`
-      });
+      // Sincronizar con el elemento oficial de respuesta del servidor
+      setMiembros(prev => prev.map(m => m.id === miembro.id ? actualizado : m));
     } catch (err) {
       console.error(err);
-      setLoadingModal({ open: false, text: '' });
+      // Revertir (Rollback) estado si hay error
+      setMiembros(prev => prev.map(m => m.id === miembro.id ? { ...m, estado: estadoAnterior } : m));
+      
       setResultModal({
         open: true,
         type: 'error',
@@ -380,6 +396,8 @@ export const GestionMiembrosPage = () => {
         }]);
 
         setLoadingModal({ open: false, text: '' });
+        clearDraft();
+        setShowConfetti(true);
         setResultModal({
           open: true,
           type: 'success',
@@ -397,6 +415,8 @@ export const GestionMiembrosPage = () => {
           setMiembros([nuevoMiembro, ...miembros]);
         }
         setLoadingModal({ open: false, text: '' });
+        clearDraft();
+        setShowConfetti(true);
         setResultModal({
           open: true,
           type: 'success',
@@ -461,14 +481,18 @@ export const GestionMiembrosPage = () => {
     ),
     nombre_completo: (
       <div className="font-semibold text-slate-900">
-        {`${miembro.nombre} ${miembro.apellidoPaterno || ''} ${miembro.apellidoMaterno || ''}`.trim()}
+        <HighlightMatch text={`${miembro.nombre} ${miembro.apellidoPaterno || ''} ${miembro.apellidoMaterno || ''}`.trim()} query={searchTerm} />
       </div>
     ),
     email: (
-      <span className="text-slate-600">{miembro.email}</span>
+      <span className="text-slate-600">
+        <HighlightMatch text={miembro.email} query={searchTerm} />
+      </span>
     ),
     telefono: (
-      <span className="text-slate-600 font-mono text-xs">{miembro.telefono || '-'}</span>
+      <span className="text-slate-600 font-mono text-xs">
+        <HighlightMatch text={miembro.telefono || '-'} query={searchTerm} />
+      </span>
     ),
     rol: (
       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${
@@ -476,14 +500,14 @@ export const GestionMiembrosPage = () => {
         miembro.rol === 'secretario' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
         'bg-slate-50 text-slate-700 border-slate-100'
       }`}>
-        {miembro.rol}
+        <HighlightMatch text={miembro.rol} query={searchTerm} />
       </span>
     ),
     estado: (
       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${
         miembro.estado === 'activo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200'
       }`}>
-        {miembro.estado}
+        <HighlightMatch text={miembro.estado} query={searchTerm} />
       </span>
     ),
     acciones: (
@@ -656,7 +680,11 @@ export const GestionMiembrosPage = () => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xl font-black text-slate-900 truncate">
-              {totalMiembros}
+              {loading ? (
+                <span className="inline-block h-6 w-12 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                totalMiembros
+              )}
             </p>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Total Miembros</p>
           </div>
@@ -668,7 +696,11 @@ export const GestionMiembrosPage = () => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xl font-black text-emerald-600 truncate">
-              {sociosCount}
+              {loading ? (
+                <span className="inline-block h-6 w-12 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                sociosCount
+              )}
             </p>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Miembros (Socios)</p>
           </div>
@@ -680,7 +712,11 @@ export const GestionMiembrosPage = () => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xl font-black text-rose-600 truncate">
-              {secretariosCount}
+              {loading ? (
+                <span className="inline-block h-6 w-12 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                secretariosCount
+              )}
             </p>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Secretarios</p>
           </div>
@@ -692,7 +728,11 @@ export const GestionMiembrosPage = () => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xl font-black text-indigo-600 truncate">
-              {adminCount}
+              {loading ? (
+                <span className="inline-block h-6 w-12 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                adminCount
+              )}
             </p>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Administradores</p>
           </div>
@@ -734,10 +774,7 @@ export const GestionMiembrosPage = () => {
 
         <div className="mt-6">
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <Spinner size="sm" />
-              Cargando miembros...
-            </div>
+            <Skeleton variant="table" />
           ) : error ? (
             <Toast title="Error" message={error} variant="error" />
           ) : (
@@ -800,6 +837,7 @@ export const GestionMiembrosPage = () => {
             
             <Input 
               label="Nombres" 
+              placeholder="Ej: Juan Antonio"
               value={formData.nombre} 
               onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} 
               required 
@@ -808,11 +846,13 @@ export const GestionMiembrosPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input 
                 label="Apellido Paterno" 
+                placeholder="Ej: Pérez"
                 value={formData.apellidoPaterno || ''} 
                 onChange={(e) => setFormData({ ...formData, apellidoPaterno: e.target.value })} 
               />
               <Input 
                 label="Apellido Materno" 
+                placeholder="Ej: Flores"
                 value={formData.apellidoMaterno || ''} 
                 onChange={(e) => setFormData({ ...formData, apellidoMaterno: e.target.value })} 
               />
@@ -827,12 +867,14 @@ export const GestionMiembrosPage = () => {
               <Input 
                 label="Correo Electrónico" 
                 type="email"
+                placeholder="Ej: juan.perez@correo.com"
                 value={formData.email} 
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
                 required 
               />
               <Input 
                 label="Teléfono" 
+                placeholder="Ej: 71234567"
                 value={formData.telefono} 
                 onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} 
               />
@@ -915,9 +957,9 @@ export const GestionMiembrosPage = () => {
             <Button 
               type="submit" 
               disabled={isSubmitting || isFormUnchanged}
-              className={isFormUnchanged ? "opacity-50 cursor-not-allowed" : ""}
+              className={`${isFormUnchanged ? "opacity-50 cursor-not-allowed" : ""} ${!isOnline ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white" : ""}`}
             >
-              {isSubmitting ? 'Guardando...' : editingMember ? 'Actualizar' : 'Guardar Miembro'}
+              {isSubmitting ? 'Guardando...' : !isOnline ? '💾 Guardar localmente (Offline)' : editingMember ? 'Actualizar' : 'Guardar Miembro'}
             </Button>
           </div>
         </form>
@@ -1090,14 +1132,33 @@ export const GestionMiembrosPage = () => {
                       Abrir en nueva pestaña
                     </a>
                   </div>
-                  <iframe 
-                    src={detailModal.cvUrl?.toLowerCase().endsWith('.pdf') 
-                      ? detailModal.cvUrl 
-                      : `https://docs.google.com/gview?url=${encodeURIComponent(detailModal.cvUrl)}&embedded=true`
-                    } 
-                    className="w-full h-80 border rounded-xl bg-slate-50 shadow-inner" 
-                    title="CV del Miembro"
-                  ></iframe>
+                  {!isOnline ? (
+                    <div className="w-full flex flex-col items-center justify-center p-8 bg-slate-50 rounded-2xl border border-slate-200/60 text-center space-y-3">
+                      <div className="p-3 bg-amber-50 rounded-full text-amber-600">
+                        <AlertTriangle className="h-6 w-6" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">Previsualización No Disponible Sin Conexión</h4>
+                      <p className="text-[10px] text-slate-500 max-w-sm">
+                        La previsualización interactiva de documentos requiere conexión a internet. Puede descargar el archivo si lo necesita sin conexión.
+                      </p>
+                      <a 
+                        href={detailModal.cvUrl?.replace('/upload/', '/upload/fl_attachment/')} 
+                        download
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-md"
+                      >
+                        Descargar Documento
+                      </a>
+                    </div>
+                  ) : (
+                    <iframe 
+                      src={detailModal.cvUrl?.toLowerCase().endsWith('.pdf') 
+                        ? detailModal.cvUrl 
+                        : `https://docs.google.com/gview?url=${encodeURIComponent(detailModal.cvUrl)}&embedded=true`
+                      } 
+                      className="w-full h-80 border rounded-xl bg-slate-50 shadow-inner" 
+                      title="CV del Miembro"
+                    ></iframe>
+                  )}
                   
                   {/* Permitir actualizar desde el detalle */}
                   <div className="w-full mt-4 p-4 border border-slate-100 bg-slate-50/50 rounded-xl flex items-center justify-between">
@@ -1501,6 +1562,7 @@ export const GestionMiembrosPage = () => {
       </Modal>
 
       <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
+      <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
     </div>
   );
 };

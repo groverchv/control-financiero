@@ -14,7 +14,7 @@ import { auditoriaApi } from '../../auditoria/api';
 import { administracionApi } from '../api';
 import { finanzasApi } from '../../finanzas/api';
 import { supabase } from '../../../services/supabase';
-import { ExportButtons, Spinner } from '../../../components/ui';
+import { ExportButtons, Spinner, Skeleton } from '../../../components/ui';
 
 // ─── Formato monetario ───────────────────────────────────────────────────────
 const fmt = (n) => `Bs ${Number(n || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -366,9 +366,40 @@ export const DashboardKpisPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <Spinner size="lg" />
-        <p className="text-slate-500 font-medium animate-pulse">Cargando consola de inteligencia financiera…</p>
+      <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500">
+        {/* ─── Header ─── */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+              Consola de Inteligencia Financiera
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              Cargando consola de inteligencia financiera…
+            </p>
+          </div>
+        </div>
+
+        {/* ─── Tabs Navigation Skeleton ─── */}
+        <div className="grid grid-cols-5 gap-2 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+          {Array.from({ length: 5 }).map((_, idx) => (
+            <div key={idx} className="h-12 bg-slate-200/50 rounded-xl animate-pulse" />
+          ))}
+        </div>
+
+        {/* ─── Skeletons for KPIs ─── */}
+        <div className="space-y-6">
+          <div className="h-16 bg-slate-100 rounded-2xl animate-pulse w-full" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Skeleton variant="kpi" />
+            <Skeleton variant="kpi" />
+            <Skeleton variant="kpi" />
+            <Skeleton variant="kpi" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4 lg:col-span-2 h-48 animate-pulse bg-slate-50" />
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4 h-48 animate-pulse bg-slate-50" />
+          </div>
+        </div>
       </div>
     );
   }

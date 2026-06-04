@@ -8,6 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       background: #0f172a;
@@ -18,7 +19,6 @@
       align-items: center;
       justify-content: center;
       padding: 24px;
-      gap: 0;
     }
 
     .card {
@@ -30,6 +30,12 @@
       width: 100%;
       text-align: center;
       box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+      animation: fadeUp 0.4s ease-out;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     .icon-wrap {
@@ -39,6 +45,12 @@
       display: flex; align-items: center; justify-content: center;
       margin: 0 auto 24px;
       box-shadow: 0 8px 32px rgba(29,78,216,0.35);
+      animation: iconPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes iconPulse {
+      0%, 100% { box-shadow: 0 8px 32px rgba(29,78,216,0.35); }
+      50%       { box-shadow: 0 8px 48px rgba(29,78,216,0.6); }
     }
 
     .icon-wrap svg { width: 40px; height: 40px; color: white; }
@@ -52,35 +64,55 @@
       border: none; border-radius: 12px;
       padding: 12px 24px; font-size: 0.875rem; font-weight: 700;
       cursor: pointer; transition: background 0.2s, transform 0.1s;
-      text-decoration: none;
+      text-decoration: none; width: 100%;
+      justify-content: center;
     }
     .btn:hover { background: #1d4ed8; }
     .btn:active { transform: scale(0.97); }
+    .btn svg { animation: spin 1.5s linear infinite; display: none; }
+    .btn.loading svg { display: block; }
+    .btn.loading { opacity: 0.85; cursor: wait; }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
 
     .status {
       display: inline-flex; align-items: center; gap: 6px;
-      margin-top: 24px; padding: 8px 16px;
+      margin-top: 16px; padding: 8px 16px;
       background: #334155; border-radius: 99px;
       font-size: 0.75rem; color: #64748b; font-weight: 600;
+      width: 100%; justify-content: center;
     }
-    .dot { width: 8px; height: 8px; background: #ef4444; border-radius: 50%; animation: pulse 2s infinite; }
+    .dot { width: 8px; height: 8px; background: #ef4444; border-radius: 50%; animation: dotPulse 2s infinite; flex-shrink: 0; }
+    .dot.online { background: #22c55e; animation: none; }
 
-    @keyframes pulse {
+    @keyframes dotPulse {
       0%, 100% { opacity: 1; }
-      50%       { opacity: 0.4; }
+      50%       { opacity: 0.3; }
     }
 
-    .cached-links { margin-top: 32px; text-align: left; }
-    .cached-links h2 { font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+    .cached-links { margin-top: 28px; text-align: left; }
+    .cached-links h2 {
+      font-size: 0.7rem; font-weight: 700; color: #475569;
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px;
+    }
     .cached-links a {
       display: flex; align-items: center; gap: 10px;
-      padding: 10px 14px; border-radius: 12px;
+      padding: 9px 12px; border-radius: 10px;
       color: #94a3b8; font-size: 0.8rem; font-weight: 500;
       text-decoration: none; transition: background 0.15s, color 0.15s;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     .cached-links a:hover { background: #334155; color: #e2e8f0; }
-    .cached-links a::before { content: '→'; color: #475569; font-weight: 800; }
+    .cached-links a::before { content: '→'; color: #475569; font-weight: 800; font-size: 0.75rem; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #334155;
+      margin: 24px 0 0;
+    }
   </style>
 </head>
 <body>
@@ -92,32 +124,62 @@
     </div>
 
     <h1>Sin conexión</h1>
-    <p>No se puede conectar a internet. Las funciones que requieren datos en tiempo real no están disponibles, pero puedes navegar por las secciones cargadas en caché.</p>
+    <p>No hay conexión a internet y la aplicación aún no tiene datos guardados localmente. Conéctate a internet para cargar la app por primera vez; después funcionará sin conexión.</p>
 
-    <button class="btn" onclick="window.location.reload()">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
-      Reintentar conexión
+    <button class="btn" id="retryBtn" onclick="handleRetry()">
+      <!-- Spinner para estado de carga -->
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+      <span id="retryLabel">↺ Reintentar conexión</span>
     </button>
 
     <div class="status">
-      <span class="dot"></span>
-      &nbsp;Sin conexión a internet
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Sin conexión a internet</span>
     </div>
 
+    <hr class="divider" />
+
     <div class="cached-links">
-      <h2>Páginas disponibles en caché</h2>
-      <a href="/inicio">Dashboard Principal</a>
-      <a href="/admin/miembros">Gestión de Miembros</a>
-      <a href="/admin/ingresos">Registro de Ingresos</a>
-      <a href="/admin/egresos">Registro de Egresos</a>
-      <a href="/admin/actividades">Gestión de Actividades</a>
+      <h2>¿Qué puedo hacer?</h2>
+      <a href="#" onclick="handleRetry(); return false;">↺ &nbsp;Verificar si ya hay conexión</a>
+      <a href="/login">Ir a la página de inicio de sesión</a>
     </div>
   </div>
 
   <script>
-    // Redirigir automáticamente al inicio cuando se restaure la conexión
+    // Guardar la URL de origen para volver a ella al recuperar conexión
+    const returnUrl = document.referrer && document.referrer.includes(location.hostname)
+      ? document.referrer
+      : '/inicio';
+
+    function handleRetry() {
+      const btn = document.getElementById('retryBtn');
+      const label = document.getElementById('retryLabel');
+      btn.classList.add('loading');
+      label.textContent = 'Verificando...';
+      
+      // Intentar un fetch corto para comprobar conectividad
+      fetch('/favicon.svg?t=' + Date.now(), { method: 'HEAD', cache: 'no-store' })
+        .then(() => {
+          // Hay conexión, volver a la URL anterior o inicio
+          document.getElementById('statusDot').classList.add('online');
+          document.getElementById('statusText').textContent = '¡Conexión restaurada! Redirigiendo...';
+          label.textContent = '¡Conectado! Cargando...';
+          setTimeout(() => { window.location.href = returnUrl; }, 800);
+        })
+        .catch(() => {
+          // Sigue sin conexión
+          btn.classList.remove('loading');
+          label.textContent = '↺ Sin señal — volver a intentar';
+          setTimeout(() => { label.textContent = '↺ Reintentar conexión'; }, 2500);
+        });
+    }
+
+    // Redirección automática cuando el navegador detecte que volvió la conexión
     window.addEventListener('online', () => {
-      window.location.href = '/inicio';
+      document.getElementById('statusDot').classList.add('online');
+      document.getElementById('statusText').textContent = '¡Conexión restaurada! Redirigiendo...';
+      setTimeout(() => { window.location.href = returnUrl; }, 1000);
     });
   </script>
 </body>

@@ -1,5 +1,6 @@
 import { supabase } from '../../../services/supabase';
 import { blockchainService } from '../../../services/blockchain';
+import { withCache } from '../../../utils/apiCache';
 
 export const patrimonioApi = {
   registrarActivo: async (activo) => {
@@ -50,7 +51,7 @@ export const patrimonioApi = {
     };
   },
 
-  obtenerActivos: async () => {
+  obtenerActivos: withCache('patrimonio:activos', async () => {
     const { data, error } = await supabase
       .from('activos')
       .select('*, tipo_activo(nombre), archivo(url)')
@@ -61,7 +62,7 @@ export const patrimonioApi = {
       ...activo,
       imagen_url: activo.archivo?.[0]?.url || null
     }));
-  },
+  }),
 
   sellarActivo: async (id, idUsuario) => {
     const { data: activo, error } = await supabase

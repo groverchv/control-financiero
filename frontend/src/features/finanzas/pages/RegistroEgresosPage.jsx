@@ -5,7 +5,7 @@ import { finanzasApi } from '../api';
 import { patrimonioApi } from '../../patrimonio/api';
 import { useEgresos } from '../hooks';
 import { useAuthStore } from '../../../store/authStore';
-import { Button, Input, Select, Spinner, ExportButtons, Modal } from '../../../components/ui';
+import { Button, Input, Select, Spinner, ExportButtons, Modal, Confetti } from '../../../components/ui';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { cloudinaryService } from '../../../services/cloudinary';
 
@@ -35,6 +35,20 @@ export const RegistroEgresosPage = () => {
     comprobante: null,
   });
   const [message, setMessage] = useState(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const [submitting, setSubmitting] = useState(false);
   const [tiposEgreso, setTiposEgreso] = useState([]);
   const [activos, setActivos] = useState([]);
@@ -50,7 +64,9 @@ export const RegistroEgresosPage = () => {
   const [isPlanActive, setIsPlanActive] = useState(false);
   const ITEMS_PER_PAGE = 10;
 
-  const isSubmitDisabled = !form.concepto.trim() || !form.monto || !form.tipo_egreso_id;
+  const [formErrors, setFormErrors] = useState({});
+
+  const isSubmitDisabled = false;
   
   // Manejar redirección automática desde Gestión de Activos
   useEffect(() => {
@@ -92,6 +108,7 @@ export const RegistroEgresosPage = () => {
     if (!isCreateModalOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setComprobantePreview(null);
+      setFormErrors({});
       setForm({
         concepto: '',
         monto: '',
@@ -178,6 +195,17 @@ export const RegistroEgresosPage = () => {
   const handleSubmit = (event) => {
     event.preventDefault();
     setMessage(null);
+
+    const errors = {};
+    if (!form.tipo_egreso_id) errors.tipo_egreso_id = "Debe seleccionar un tipo de egreso.";
+    if (!form.concepto.trim()) errors.concepto = "El concepto de egreso es requerido (Ej: Compra de escritorios).";
+    if (!form.monto) errors.monto = "El monto del egreso es requerido (Ej: 150).";
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
     
     // Validar sobrepago si hay activo seleccionado
     if (form.activo_id) {
@@ -219,6 +247,7 @@ export const RegistroEgresosPage = () => {
       const updatedEgresos = await finanzasApi.obtenerEgresos();
       if (setEgresos) setEgresos(updatedEgresos);
 
+      setShowConfetti(true);
       setResultModal({
         open: true,
         type: 'success',
@@ -500,6 +529,7 @@ export const RegistroEgresosPage = () => {
               label="Tipo de Egreso"
               value={form.tipo_egreso_id}
               onChange={handleChange}
+              error={formErrors.tipo_egreso_id}
               required
             >
               <option value="">Seleccione un tipo...</option>
@@ -513,7 +543,8 @@ export const RegistroEgresosPage = () => {
               label="Concepto"
               value={form.concepto}
               onChange={handleChange}
-              placeholder="Mantenimiento, servicios, etc."
+              placeholder="Ej: Compra de papelería para oficina"
+              error={formErrors.concepto}
               required
             />
             <Select
@@ -534,10 +565,15 @@ export const RegistroEgresosPage = () => {
               label={isPlanActive ? "Monto de Cuota (Bloqueado)" : "Monto (Bs)"}
               type="number"
               value={form.monto}
-              onChange={handleChange}
+              onChange={(e) => {
+                if (formErrors.monto) setFormErrors(prev => ({ ...prev, monto: null }));
+                handleChange(e);
+              }}
               disabled={isPlanActive}
               className={isPlanActive ? "bg-slate-100 font-bold text-blue-700" : ""}
               title={isPlanActive ? "R18: El monto está bloqueado porque corresponde a una cuota fija del plan de amortización." : ""}
+              placeholder="Ej: 120.00"
+              error={formErrors.monto}
               required
             />
             <div className="md:col-span-2">
@@ -547,7 +583,7 @@ export const RegistroEgresosPage = () => {
                 label="Detalle de egreso (Opcional)"
                 value={form.descripcion}
                 onChange={handleChange}
-                placeholder="Descripción adicional..."
+                placeholder="Ej: Compra de 5 resmas de papel bond tamaño carta"
               />
             </div>
             <div className="md:col-span-2">
@@ -599,9 +635,9 @@ export const RegistroEgresosPage = () => {
             <Button 
               type="submit" 
               disabled={submitting || isSubmitDisabled}
-              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+              className={`${isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""} ${!isOnline ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white" : ""}`}
             >
-              Registrar egreso
+              {!isOnline ? '💾 Guardar localmente (Offline)' : 'Registrar egreso'}
             </Button>
           </div>
         </form>
@@ -783,6 +819,7 @@ export const RegistroEgresosPage = () => {
       </Modal>
 
       <LoadingOverlay open={submitting} text="Estamos procesando la transacción, subiendo los archivos adjuntos y sellando el egreso operativo en la Blockchain de forma segura." />
+      <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
     </div>
   );
 };

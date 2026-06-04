@@ -1,6 +1,7 @@
 import { supabase } from '../../../services/supabase';
 import { blockchainService } from '../../../services/blockchain';
 import { calcularHashRegistro } from '../utils/hashCalculator';
+import { withCache } from '../../../utils/apiCache';
 
 /**
  * API del modulo de auditoria.
@@ -18,7 +19,7 @@ export const auditoriaApi = {
     /**
      * Obtiene los registros de una tabla con sus hashes internos.
      */
-    obtenerRegistros: async (tabla, limite = 50) => {
+    obtenerRegistros: withCache('auditoria:registros', async (tabla, limite = 50) => {
         let query;
 
         switch (tabla) {
@@ -57,7 +58,7 @@ export const auditoriaApi = {
         const { data, error } = await query;
         if (error) throw error;
         return data || [];
-    },
+    }),
 
     /**
      * Verifica la integridad de un registro individual.
@@ -144,7 +145,7 @@ export const auditoriaApi = {
     /**
      * Obtiene estadisticas generales de auditoria.
      */
-    obtenerEstadisticas: async () => {
+    obtenerEstadisticas: withCache('auditoria:estadisticas', async () => {
         const [ingresos, egresos, activos, archivos] = await Promise.all([
             supabase.from('ingreso').select('id, hash_actual, blockchain_tx_id', { count: 'exact' }),
             supabase.from('egreso').select('id, hash_actual, blockchain_tx_id', { count: 'exact' }),
@@ -167,5 +168,5 @@ export const auditoriaApi = {
             activo: contar(activos),
             archivo: contar(archivos)
         };
-    }
+    })
 };

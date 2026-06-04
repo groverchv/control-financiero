@@ -44,6 +44,19 @@ export const MapPicker = ({ lat, lng, onChange, color = 'blue' }) => {
   const [tempPosition, setTempPosition] = useState(lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null);
   const [initialCenter] = useState(lat && lng ? [parseFloat(lat), parseFloat(lng)] : [-17.7834, -63.1821]);
 
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const handleConfirm = () => {
     if (tempPosition) {
       onChange(tempPosition.lat.toFixed(8), tempPosition.lng.toFixed(8));
@@ -52,6 +65,7 @@ export const MapPicker = ({ lat, lng, onChange, color = 'blue' }) => {
   };
 
   const handleMyLocation = () => {
+    if (!isOnline) return;
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
         setTempPosition({
@@ -116,9 +130,29 @@ export const MapPicker = ({ lat, lng, onChange, color = 'blue' }) => {
             <div className="absolute bottom-4 left-4 z-[1000] bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-xl border border-white/50">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Coordenadas Seleccionadas</p>
               <p className="text-sm font-bold text-slate-900 font-mono">
-                {tempPosition ? `${tempPosition.lat.toFixed(6)}, ${tempPosition.lng.toFixed(6)}` : 'Haz clic en el mapa...'}
+                {tempPosition ? `${parseFloat(tempPosition.lat).toFixed(6)}, ${parseFloat(tempPosition.lng).toFixed(6)}` : 'Haz clic en el mapa...'}
               </p>
             </div>
+
+            {!isOnline && (
+              <div className="absolute inset-0 bg-slate-900/85 backdrop-blur-sm z-[2000] flex flex-col items-center justify-center text-center p-6">
+                <div className="bg-slate-850 border border-slate-700/50 p-6 rounded-2xl max-w-sm shadow-2xl text-white">
+                  <div className="bg-amber-500/20 text-amber-400 p-3 rounded-full w-fit mx-auto mb-4">
+                    <MapIcon className="h-8 w-8 text-amber-400" />
+                  </div>
+                  <h3 className="text-base font-bold mb-1">Mapa sin Conexión</h3>
+                  <p className="text-xs text-slate-300 mb-4 leading-relaxed font-medium">
+                    El mapa interactivo y la geolocalización requieren conexión a internet para cargar los mapas de OpenStreetMap.
+                  </p>
+                  {tempPosition && (
+                    <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-850 mb-2 font-mono text-xs">
+                      <span className="text-slate-500 uppercase tracking-widest text-[9px] block font-black mb-1">Coordenadas Guardadas</span>
+                      {parseFloat(tempPosition.lat).toFixed(6)}, {parseFloat(tempPosition.lng).toFixed(6)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between gap-4 pt-2">

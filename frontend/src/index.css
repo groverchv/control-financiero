@@ -1,4 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Inter-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Inter-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Inter-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Inter-Bold.woff2') format('woff2');
+}
 
 @tailwind base;
 @tailwind components;
@@ -41,4 +68,108 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
+
+  /* Ocultar botones de subir/bajar (spinners) en inputs numéricos */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
 }
+
+/* Transiciones fluidas en toda la aplicación */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 250ms;
+}
+
+/* Estilos de Modo Oscuro Global Inteligente */
+html.dark body {
+  background-color: #0f172a !important; /* slate-900 */
+  color: #f8fafc !important; /* slate-50 */
+}
+
+/* Modificar fondos de tarjetas, tablas, modales y barras de navegación */
+html.dark .bg-white,
+html.dark aside,
+html.dark header,
+html.dark .bg-white\/70,
+html.dark .bg-white\/50 {
+  background-color: #1e293b !important; /* slate-800 */
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-100\/70,
+html.dark main {
+  background-color: #0f172a !important; /* slate-900 */
+}
+
+html.dark .border,
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark .border-slate-50,
+html.dark border-t,
+html.dark border-b,
+html.dark border-l,
+html.dark border-r {
+  border-color: #334155 !important; /* slate-700 */
+}
+
+/* Textos principales y secundarios */
+html.dark .text-slate-900,
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark .text-slate-800 {
+  color: #f8fafc !important; /* slate-50 */
+}
+
+html.dark .text-slate-700,
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #cbd5e1 !important; /* slate-300 */
+}
+
+html.dark .text-slate-400 {
+  color: #94a3b8 !important; /* slate-400 */
+}
+
+/* Inputs, Selects y Textareas */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important; /* slate-500 */
+}
+
+/* Hovers y estados activos */
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-50\/50:hover,
+html.dark .bg-slate-100 {
+  background-color: #334155 !important; /* slate-700 */
+}
+
+html.dark .hover\:bg-blue-50:hover,
+html.dark .hover\:bg-emerald-50:hover,
+html.dark .hover\:bg-purple-50:hover,
+html.dark .hover\:bg-amber-50:hover {
+  background-color: #1e293b !important;
+}
+
+html.dark .text-slate-900.font-semibold {
+  color: #f8fafc !important;
+}
+

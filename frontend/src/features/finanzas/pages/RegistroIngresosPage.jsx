@@ -4,7 +4,8 @@ import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, 
 import { finanzasApi } from '../api';
 import { administracionApi } from '../../administracion/api';
 import { usePagos } from '../hooks';
-import { Button, Input, Select, Spinner, ExportButtons, Modal } from '../../../components/ui';
+import { Button, Input, Select, Spinner, ExportButtons, Modal, Confetti } from '../../../components/ui';
+import { HighlightMatch } from '../../../utils/textHighlight';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { useAuthStore } from '../../../store/authStore';
@@ -81,6 +82,19 @@ export const RegistroCuotasPage = () => {
     estado: 'pagada',
     comprobante: null,
   });
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [miembros, setMiembros] = useState([]);
@@ -104,15 +118,13 @@ export const RegistroCuotasPage = () => {
   const [loadingInscripciones, setLoadingInscripciones] = useState(false);
   const ITEMS_PER_PAGE = 10;
 
+  const [formErrors, setFormErrors] = useState({});
+
   // Determinar si el tipo de ingreso seleccionado es "Pago de Actividad"
   const tipoActividadSeleccionado = tiposIngreso.find(t => t.id === form.tipo_ingreso_id);
   const esPagoActividad = tipoActividadSeleccionado?.nombre?.toLowerCase().includes('actividad');
 
-  const isSubmitDisabled = modoIngreso === 'cuota'
-    ? (!form.miembroBuscador || !form.monto || !form.fecha)
-    : (esPagoActividad
-      ? (!form.tipo_ingreso_id || !form.monto || !form.fecha || !inscripcionSeleccionada)
-      : (!form.tipo_ingreso_id || !form.monto || !form.fecha));
+  const isSubmitDisabled = false;
 
   // Cargar inscripciones pendientes cuando se selecciona socio + tipo Pago de Actividad en modo extra
   useEffect(() => {
@@ -247,6 +259,7 @@ export const RegistroCuotasPage = () => {
       setModoIngreso('cuota');
       setInscripcionesPendientes([]);
       setInscripcionSeleccionada(null);
+      setFormErrors({});
       setForm({ miembroBuscador: '', tipo_ingreso_id: '', monto: '', descripcion: '', fecha: '', estado: 'pagada', comprobante: null });
     } else {
       // En modo cuota preseleccionar el tipo cuota si existe
@@ -375,6 +388,26 @@ export const RegistroCuotasPage = () => {
     event.preventDefault();
     setMessage(null);
 
+    const errors = {};
+    if (modoIngreso === 'cuota') {
+      if (!form.miembroBuscador) errors.miembroBuscador = "Debe buscar y seleccionar un socio (Ej: Juan Pérez).";
+      if (!form.monto) errors.monto = "El monto de la cuota es requerido (Ej: 150).";
+      if (!form.fecha) errors.fecha = "La fecha de la cuota es requerida.";
+    } else {
+      if (!form.tipo_ingreso_id) errors.tipo_ingreso_id = "Debe seleccionar un tipo de ingreso.";
+      if (!form.monto) errors.monto = "El monto del ingreso es requerido (Ej: 50).";
+      if (!form.fecha) errors.fecha = "La fecha del ingreso es requerida.";
+      if (esPagoActividad && !inscripcionSeleccionada) {
+        errors.inscripcion = "Debe seleccionar la actividad académica con pago pendiente.";
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
+
     if (esMembresiaOrdinaria && form.miembroBuscador) {
       if (registroSocio && !registroSocio.proximaPendiente) {
         setMessage({ type: 'error', text: 'No se puede registrar el pago. El socio ya se encuentra totalmente al día con todas sus cuotas.' });
@@ -412,6 +445,7 @@ export const RegistroCuotasPage = () => {
       const updatedCuotas = await finanzasApi.obtenerCuotas();
       if (setCuotas) setCuotas(updatedCuotas);
 
+      setShowConfetti(true);
       setResultModal({
         open: true,
         type: 'success',
@@ -801,12 +835,13 @@ export const RegistroCuotasPage = () => {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Buscar socio por nombre o correo..."
-                    className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 pr-10"
+                    placeholder="Buscar socio por nombre o correo... Ej: Juan Pérez"
+                    className={`flex w-full rounded-md border ${formErrors.miembroBuscador ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-emerald-500 focus:ring-emerald-500'} bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 pr-10`}
                     value={socioSearch}
                     onChange={(e) => {
                       setSocioSearch(e.target.value);
                       setIsDropdownOpen(true);
+                      if (formErrors.miembroBuscador) setFormErrors(prev => ({ ...prev, miembroBuscador: null }));
                       if (!e.target.value) setForm(prev => ({ ...prev, miembroBuscador: '' }));
                     }}
                     onFocus={() => setIsDropdownOpen(true)}
@@ -821,6 +856,9 @@ export const RegistroCuotasPage = () => {
                     )}
                   </div>
                 </div>
+                {formErrors.miembroBuscador && (
+                  <p className="text-xs font-medium text-red-500 mt-1">{formErrors.miembroBuscador}</p>
+                )}
 
                 {isDropdownOpen && (
                   <>
@@ -834,8 +872,12 @@ export const RegistroCuotasPage = () => {
                           className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-900 flex flex-col border-b border-slate-50 last:border-0"
                           onClick={() => { setForm(prev => ({ ...prev, miembroBuscador: m.id })); setSocioSearch(`${m.nombre} ${m.apellidoPaterno || ''} - ${m.correoElectronico}`); setIsDropdownOpen(false); }}
                         >
-                          <span className="font-semibold">{m.nombre} {m.apellidoPaterno || ''} {m.apellidoMaterno || ''}</span>
-                          <span className="text-xs text-slate-500">{m.correoElectronico}</span>
+                          <span className="font-semibold">
+                            <HighlightMatch text={`${m.nombre} ${m.apellidoPaterno || ''} ${m.apellidoMaterno || ''}`.trim()} query={socioSearch} />
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            <HighlightMatch text={m.correoElectronico || ''} query={socioSearch} />
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -947,8 +989,12 @@ export const RegistroCuotasPage = () => {
                           className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-900 flex flex-col border-b border-slate-50 last:border-0"
                           onClick={() => { setForm(prev => ({ ...prev, miembroBuscador: m.id })); setSocioSearch(`${m.nombre} ${m.apellidoPaterno || ''} - ${m.correoElectronico}`); setIsDropdownOpen(false); }}
                         >
-                          <span className="font-semibold">{m.nombre} {m.apellidoPaterno || ''} {m.apellidoMaterno || ''}</span>
-                          <span className="text-xs text-slate-500">{m.correoElectronico}</span>
+                          <span className="font-semibold">
+                            <HighlightMatch text={`${m.nombre} ${m.apellidoPaterno || ''} ${m.apellidoMaterno || ''}`.trim()} query={socioSearch} />
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            <HighlightMatch text={m.correoElectronico || ''} query={socioSearch} />
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -963,6 +1009,7 @@ export const RegistroCuotasPage = () => {
                 label={<span>Tipo de Ingreso <span className="text-red-500">*</span></span>}
                 value={form.tipo_ingreso_id}
                 onChange={handleChange}
+                error={formErrors.tipo_ingreso_id}
                 required
               >
                 <option value="">Seleccione un tipo...</option>
@@ -1007,6 +1054,7 @@ export const RegistroCuotasPage = () => {
                                 fecha: new Date().toISOString().split('T')[0],
                                 descripcion: `Pago de inscripción a actividad: ${insc.actividad.titulo}`
                               }));
+                              if (formErrors.inscripcion) setFormErrors(prev => ({ ...prev, inscripcion: null }));
                             }}
                             className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
                               inscripcionSeleccionada?.id === insc.id
@@ -1017,7 +1065,7 @@ export const RegistroCuotasPage = () => {
                             <div className={`mt-0.5 h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
                               inscripcionSeleccionada?.id === insc.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
                             }`}>
-                              <BookOpen className="h-4 w-4" />
+                               <BookOpen className="h-4 w-4" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold text-sm text-slate-900 truncate">{insc.actividad.titulo}</p>
@@ -1038,6 +1086,9 @@ export const RegistroCuotasPage = () => {
                       </div>
                     </div>
                   )}
+                  {formErrors.inscripcion && (
+                    <p className="text-xs font-medium text-red-500 mt-1">{formErrors.inscripcion}</p>
+                  )}
                 </div>
               )}
 
@@ -1050,20 +1101,22 @@ export const RegistroCuotasPage = () => {
                   value={form.monto}
                   onChange={(e) => {
                     const val = e.target.value;
+                    if (formErrors.monto) setFormErrors(prev => ({ ...prev, monto: null }));
                     // R13: Borrar ceros a la izquierda para mejor UX
                     if (val === '') {
                       setForm(prev => ({ ...prev, monto: '' }));
                     } else {
                       const num = parseFloat(val);
-                      setForm(prev => ({ ...prev, monto: isNaN(num) ? 0 : num }));
+                      setForm(prev => ({ ...prev, monto: isNaN(num) ? '' : num }));
                     }
                   }}
                   onBlur={() => {
                     if (form.monto === '') {
-                      setForm(prev => ({ ...prev, monto: 0 }));
+                      setForm(prev => ({ ...prev, monto: '' }));
                     }
                   }}
-                  placeholder="0.00"
+                  placeholder="Ej: 50.00"
+                  error={formErrors.monto}
                   required
                   readOnly={esPagoActividad && !!inscripcionSeleccionada}
                 />
@@ -1075,6 +1128,7 @@ export const RegistroCuotasPage = () => {
                     type="date"
                     value={form.fecha}
                     onChange={handleChange}
+                    error={formErrors.fecha}
                     required
                   />
                 )}
@@ -1085,7 +1139,7 @@ export const RegistroCuotasPage = () => {
                 label="Descripción / Nota (Opcional)"
                 value={form.descripcion}
                 onChange={handleChange}
-                placeholder="Detalle del ingreso"
+                placeholder="Ej: Pago de membresía mensual"
                 readOnly={esPagoActividad && !!inscripcionSeleccionada}
               />
             </div>
@@ -1130,9 +1184,9 @@ export const RegistroCuotasPage = () => {
             <Button 
               type="submit" 
               disabled={submitting || isSubmitDisabled}
-              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
+              className={`${isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""} ${!isOnline ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white" : ""}`}
             >
-              Guardar ingreso
+              {!isOnline ? '💾 Guardar localmente (Offline)' : 'Guardar ingreso'}
             </Button>
           </div>
         </form>
@@ -1421,6 +1475,7 @@ export const RegistroCuotasPage = () => {
       </Modal>
 
       <LoadingOverlay open={submitting} text="Estamos procesando la transacción, subiendo los archivos adjuntos y sellando el registro financiero en la Blockchain de forma segura." />
+      <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
     </div>
   );
 };

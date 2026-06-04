@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import 'leaflet/dist/leaflet.css';
 import App from './App';
 
 const root = document.getElementById('root');
@@ -8,6 +9,22 @@ const root = document.getElementById('root');
 if (!root) {
   throw new Error('Root element not found');
 }
+
+// Evitar que la rueda del mouse cambie el valor de los campos numéricos activos
+document.addEventListener('wheel', (e) => {
+  if (document.activeElement && document.activeElement.type === 'number') {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+// Evitar que las teclas flecha arriba y flecha abajo incrementen/decrementen valores numéricos
+document.addEventListener('keydown', (e) => {
+  if (document.activeElement && document.activeElement.type === 'number') {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+    }
+  }
+});
 
 createRoot(root).render(
   <StrictMode>

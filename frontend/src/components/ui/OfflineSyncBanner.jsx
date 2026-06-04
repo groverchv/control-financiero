@@ -88,26 +88,11 @@ export const OfflineSyncBanner = () => {
       )}
 
       {!isOnline && (
-        <div className="flex flex-col gap-2 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-800 max-w-sm">
-          <div className="flex items-center gap-3">
-            <div className="bg-red-500/10 p-2 rounded-xl text-red-400 animate-pulse">
-              <WifiOff className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-bold text-sm">Modo sin conexión activo</p>
-              <p className="text-xs text-slate-400">Estás trabajando localmente. Tus cambios se guardarán.</p>
-            </div>
-          </div>
-          {queueCount > 0 && (
-            <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-              <span className="text-slate-400 font-medium">
-                {queueCount} {queueCount === 1 ? 'operación pendiente' : 'operaciones pendientes'}
-              </span>
-              <span className="bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-bold">
-                Por sincronizar
-              </span>
-            </div>
-          )}
+        <div className="flex items-center gap-2 bg-slate-900/90 text-white px-3 py-1.5 rounded-full shadow-lg border border-slate-700/80 max-w-[200px] backdrop-blur-sm">
+          <div className="bg-amber-500 h-2 w-2 rounded-full animate-pulse shrink-0" />
+          <span className="text-[10px] font-bold text-slate-300">
+            {queueCount > 0 ? `${queueCount} pendiente(s)` : 'Modo local activo'}
+          </span>
         </div>
       )}
 

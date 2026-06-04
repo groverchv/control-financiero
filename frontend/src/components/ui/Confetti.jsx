@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * Componente Confeti ligero basado en Canvas HTML5 para celebraciones sin dependencias externas.

@@ -14,7 +14,7 @@ import { auditoriaApi } from '../../auditoria/api';
 import { administracionApi } from '../api';
 import { finanzasApi } from '../../finanzas/api';
 import { supabase } from '../../../services/supabase';
-import { ExportButtons, Spinner, Skeleton } from '../../../components/ui';
+import { ExportButtons, Skeleton } from '../../../components/ui';
 
 // ─── Formato monetario ───────────────────────────────────────────────────────
 const fmt = (n) => `Bs ${Number(n || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

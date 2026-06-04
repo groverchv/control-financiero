@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { ArrowDownCircle, Bell, CalendarDays, CreditCard, History, LayoutGrid, LineChart, LogOut, Users, User as UserIcon, Menu, ChevronDown, X, Tags, Calculator, ShieldCheck, Eye, Database, Sun, Moon } from 'lucide-react';
+import { ArrowDownCircle, Bell, CalendarDays, CreditCard, History, LayoutGrid, LineChart, LogOut, Users, User as UserIcon, Menu, ChevronDown, X, Tags, Calculator, ShieldCheck, Eye, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
 import { useState, useEffect } from 'react';
@@ -278,15 +278,29 @@ export const AdminLayout = () => {
                   Blockchain
                 </NavLink>
               </li>
-              <li>
-                <NavLink to="/admin/backup" onClick={closeSidebar} className={({ isActive }) => `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-100'}`}>
-                  <Database className="h-4 w-4" />
-                  Descargar Backup
-                </NavLink>
-              </li>
             </ul>
           </div>
           )}
+
+          {/* Botón de Modo Oscuro al final del Sidebar */}
+          <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button
+              onClick={toggleTheme}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 transition-all dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              {theme === 'light' ? (
+                <>
+                  <Moon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                  <span>Modo Oscuro</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="h-5 w-5 text-yellow-500 animate-pulse" />
+                  <span>Modo Claro</span>
+                </>
+              )}
+            </button>
+          </div>
 
         </nav>
       </aside>
@@ -352,14 +366,6 @@ export const AdminLayout = () => {
                   {user?.rol}
                 </span>
               </div>
-              {/* Botón de Modo Oscuro Desktop */}
-              <button 
-                onClick={toggleTheme}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 transition-colors shrink-0"
-                title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
-              >
-                {theme === 'light' ? <Moon className="h-5 w-5 text-slate-600" /> : <Sun className="h-5 w-5 text-yellow-500 animate-pulse" />}
-              </button>
               <button 
                 onClick={handleLogoutClick}
                 className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
@@ -391,14 +397,6 @@ export const AdminLayout = () => {
                   {user?.rol?.substring(0, 5) || 'Admin'}
                 </span>
               </div>
-              {/* Botón de Modo Oscuro Mobile */}
-              <button 
-                onClick={toggleTheme}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 shrink-0 transition-colors"
-                title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
-              >
-                {theme === 'light' ? <Moon className="h-4 w-4 text-slate-600" /> : <Sun className="h-4 w-4 text-yellow-500 animate-pulse" />}
-              </button>
               <button 
                 onClick={handleLogoutClick}
                 className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 shrink-0 transition-colors"

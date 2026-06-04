@@ -1,5 +1,3 @@
-import { Toast } from '../components/feedback';
-
 const QUEUE_KEY = 'control-financiero-offline-write-queue';
 
 /**
@@ -40,7 +38,7 @@ export const syncOfflineQueue = async (apis) => {
   const remainingQueue = [];
   
   for (const action of queue) {
-    const { apiCallFnName, args, type } = action;
+    const { apiCallFnName, args } = action;
     // Localizar la API correspondiente (ej. 'administracionApi', 'finanzasApi')
     let resolvedApi = null;
     

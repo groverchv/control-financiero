@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 export const Skeleton = ({ variant = 'text', className = '' }) => {
   const baseClass = "animate-pulse bg-slate-200 dark:bg-slate-700 rounded";

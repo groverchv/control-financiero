@@ -4,6 +4,7 @@ import { brevoService } from '../../../services/brevo';
 
 import { encryptPassword, decryptPassword } from '../../../utils/encryption';
 import { withCache } from '../../../utils/apiCache';
+import { withWriteQueue } from '../../../utils/offlineQueue';
 
 const BLOCKCHAIN_API = typeof window !== 'undefined' && 
   (window.location.protocol === 'https:' || !window.location.hostname.match(/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)$/))
@@ -43,7 +44,7 @@ export const administracionApi = {
     }));
   }),
 
-  crearMiembro: async (miembro) => {
+  crearMiembro: withWriteQueue('miembro', 'crearMiembro', async (miembro) => {
     const emailToUse = miembro.email || miembro.correoElectronico;
 
     // 1. Crear usuario en Auth llamando a la API del backend
@@ -114,9 +115,9 @@ export const administracionApi = {
       email: data.correoElectronico,
       contrasena: data.contrasena ? decryptPassword(data.contrasena) : ''
     };
-  },
+  }),
 
-  actualizarMiembro: async (id, updates) => {
+  actualizarMiembro: withWriteQueue('miembro', 'actualizarMiembro', async (id, updates) => {
     // 1. Si hay email o rol o nombre en los updates, también actualizamos en Auth a través de la API del backend
     const authUpdates = {};
     if (updates.email) {
@@ -161,15 +162,15 @@ export const administracionApi = {
     if (error) throw error;
     const res = data?.[0];
     return res ? { ...res, email: res.correoElectronico, contrasena: res.contrasena ? decryptPassword(res.contrasena) : '' } : null;
-  },
+  }),
 
   eliminarMiembro: async () => {
     throw new Error('La eliminación directa de miembros está deshabilitada por motivos de integridad histórica de datos financieros. Utilice el cambio de estado a Inactivo en su lugar.');
   },
 
-  inactivarMiembro: async (id) => {
+  inactivarMiembro: withWriteQueue('miembro', 'inactivarMiembro', async (id) => {
     return administracionApi.actualizarMiembro(id, { estado: 'inactivo' });
-  },
+  }),
 
   obtenerAlertas: async () => {
     const { data, error } = await supabase

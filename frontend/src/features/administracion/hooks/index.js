@@ -13,13 +13,14 @@ export const useMiembros = () => {
       const data = await administracionApi.obtenerMiembros();
       setMiembros(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      setError(err?.message || String(err) || 'Error desconocido');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMiembros();
   }, []);
 

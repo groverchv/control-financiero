@@ -1,9 +1,10 @@
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
-import { ArrowDownCircle, Bell, CalendarDays, CreditCard, History, LayoutGrid, LineChart, LogOut, Users, User as UserIcon, Menu, ChevronDown, X, Tags, Calculator, ShieldCheck, Eye, Sun, Moon } from 'lucide-react';
+import { ArrowDownCircle, Bell, CalendarDays, CreditCard, History, LayoutGrid, LineChart, LogOut, Users, User as UserIcon, Menu, ChevronDown, X, Tags, Calculator, ShieldCheck, Eye, Sun, Moon, Monitor } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
 import { useState, useEffect } from 'react';
 import { patrimonioApi } from '../features/patrimonio/api';
+import { useTheme } from '../hooks/useTheme';
 
 export const AdminLayout = () => {
   const { user, logout } = useAuthStore();
@@ -12,20 +13,7 @@ export const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
+  const [theme, setTheme] = useTheme();
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);
@@ -282,24 +270,49 @@ export const AdminLayout = () => {
           </div>
           )}
 
-          {/* Botón de Modo Oscuro al final del Sidebar */}
+          {/* Selector de Tema de 3 Opciones */}
           <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button
-              onClick={toggleTheme}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-100 transition-all dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              {theme === 'light' ? (
-                <>
-                  <Moon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                  <span>Modo Oscuro</span>
-                </>
-              ) : (
-                <>
-                  <Sun className="h-5 w-5 text-yellow-500 animate-pulse" />
-                  <span>Modo Claro</span>
-                </>
-              )}
-            </button>
+            <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              Tema
+            </p>
+            <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/60">
+              <button
+                onClick={() => setTheme('light')}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                  theme === 'light'
+                    ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400'
+                    : 'text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/40'
+                }`}
+                title="Modo Claro"
+              >
+                <Sun className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Claro</span>
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                  theme === 'dark'
+                    ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400'
+                    : 'text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/40'
+                }`}
+                title="Modo Oscuro"
+              >
+                <Moon className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Oscuro</span>
+              </button>
+              <button
+                onClick={() => setTheme('system')}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                  theme === 'system'
+                    ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400'
+                    : 'text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/40'
+                }`}
+                title="Usar tema del sistema"
+              >
+                <Monitor className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Sistema</span>
+              </button>
+            </div>
           </div>
 
         </nav>
@@ -322,7 +335,11 @@ export const AdminLayout = () => {
                   className="text-sm sm:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 hover:opacity-80 transition-all"
                   onClick={() => setIsNavOpen(!isNavOpen)}
                 >
-                  Control<span className="text-blue-600">Financiero</span>
+                  <img src="/logo-ap.png" alt="Logo AP" className="h-8 w-auto object-contain" />
+                  <span className="text-sm sm:text-base font-bold tracking-tight text-slate-900 leading-tight text-left">
+                    <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-semibold leading-none">Asociación de</span>
+                    <span className="text-slate-900">Profesionales <span className="text-emerald-600">Financieros</span></span>
+                  </span>
                   <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isNavOpen ? 'rotate-180' : ''}`} />
                 </button>
 

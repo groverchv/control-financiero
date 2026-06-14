@@ -24,7 +24,7 @@ export default defineConfig({
         // En desarrollo, el SW usa la lista de ASSETS_TO_PRECACHE que está en el propio archivo.
         globPatterns: ['**/*.{js,css,html,ico,svg,png,webp}'],
         globIgnores: ['**/node_modules/**/*', 'sw-custom.js'],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       devOptions: {
         enabled: false, // No activar SW en desarrollo para evitar problemas de caché

@@ -2,7 +2,7 @@ import { supabase } from '../../../services/supabase';
 import { brevoService } from '../../../services/brevo';
 import { blockchainService } from '../../../services/blockchain';
 import { apiCache, withCache } from '../../../utils/apiCache';
-import { withWriteQueue } from '../../../utils/offlineQueue';
+import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
 
 export const finanzasApi = {
   // Nota: 'cuotas' ya no existe en el esquema nuevo. Se mapea a 'ingreso' temporalmente o se marca como pendiente.
@@ -220,7 +220,7 @@ export const finanzasApi = {
   obtenerCuotas: async (miembroId) => {
     const cacheKey = `finanzas:cuotas:${miembroId || 'all'}`;
     const cached = apiCache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) return applyPendingQueueToData('ingreso', cached);
 
     let query = supabase.from('ingreso').select(`
       *,
@@ -253,7 +253,7 @@ export const finanzasApi = {
     })) || [];
 
     apiCache.set(cacheKey, result);
-    return result;
+    return applyPendingQueueToData('ingreso', result);
   },
 
   // ── Historial de cuotas de membresía por miembro ──────────────────────────
@@ -295,7 +295,8 @@ export const finanzasApi = {
           ingreso_id: c.ingreso_id,
           creacion: c.creacion,
           fechaVencimientoAjustada: c.creacion, // fallback para compatibilidad UI
-        }));
+        }))
+        .sort((a, b) => new Date(a.creacion) - new Date(b.creacion));
 
       const mesesDeuda = cronograma.filter(c => !c.pagado).length;
       const mesesPagados = cronograma.filter(c => c.pagado).length;
@@ -422,8 +423,18 @@ export const finanzasApi = {
 
   actualizarConfiguracionCuotas: async (payload) => {
     apiCache.invalidate('finanzas');
-    // Para conservar el historial e inmutabilidad, siempre insertamos un registro nuevo
-    // en lugar de actualizar el ID existente.
+
+    // 1. Obtener la última configuración antes de guardar para ver la frecuencia anterior
+    const { data: configActual } = await supabase
+      .from('configuracion_cuotas')
+      .select('*')
+      .order('creacion', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const oldFreq = configActual?.frecuencia || 'mes';
+    const newFreq = payload.frecuencia;
+
     const cleanPayload = { ...payload };
     delete cleanPayload.id;
     delete cleanPayload.creacion;
@@ -438,8 +449,99 @@ export const finanzasApi = {
     };
 
     try {
+      // Guardar la nueva configuración
       const { data, error } = await executeSave(cleanPayload);
       if (error) throw error;
+
+      // Siempre ejecutar la transición/actualización al guardar la configuración
+      // Obtener todos los socios activos
+      const { data: miembros } = await supabase
+        .from('miembro')
+        .select('id, creacion, fecha_proxima_cuota, estado')
+        .eq('estado', 'activo');
+
+      if (miembros && miembros.length > 0) {
+        const frecuenciaToMs = (freq) => {
+          if (freq === '1_minuto') return 1 * 60 * 1000;
+          if (freq === '3_minutos') return 3 * 60 * 1000;
+          if (freq === '5_minutos') return 5 * 60 * 1000;
+          if (freq === '1_dia')     return 1 * 24 * 60 * 60 * 1000;
+          if (freq === '2_dias')    return 2 * 24 * 60 * 60 * 1000;
+          if (freq === '3_dias')    return 3 * 24 * 60 * 60 * 1000;
+          if (freq === 'semana')    return 7 * 24 * 60 * 60 * 1000;
+          if (freq === 'trimestre') return 90 * 24 * 60 * 60 * 1000;
+          return 30 * 24 * 60 * 60 * 1000; // 'mes' default
+        };
+
+        const msToNewFreq = frecuenciaToMs(newFreq);
+        const nextDue = new Date(Date.now() + msToNewFreq);
+
+        if (oldFreq === 'mes' && newFreq === '1_dia') {
+          // Transición mensual a diario: Generar cuotas para los días transcurridos en el mes
+          for (const m of miembros) {
+            let cycleStart;
+            if (m.fecha_proxima_cuota) {
+              // El ciclo actual comenzó un mes antes de la fecha próxima programada
+              const prox = new Date(m.fecha_proxima_cuota);
+              prox.setMonth(prox.getMonth() - 1);
+              cycleStart = prox;
+            } else {
+              cycleStart = new Date(m.creacion);
+            }
+
+            // Ajustar al máximo entre cycleStart y fecha de creación del socio
+            const minStart = new Date(m.creacion);
+            if (cycleStart < minStart) {
+              cycleStart = minStart;
+            }
+
+            const now = new Date();
+            // Si por algún motivo cycleStart está en el futuro, no generar cuotas
+            if (cycleStart < now) {
+              const diffMs = now - cycleStart;
+              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+              // Insertar cuotas diarias para los días que ya pasaron
+              if (diffDays > 0) {
+                const cuotasNuevas = [];
+                for (let i = 0; i < diffDays; i++) {
+                  const dayDate = new Date(cycleStart.getTime() + i * 24 * 60 * 60 * 1000);
+                  const yyyy = dayDate.getFullYear();
+                  const mm = String(dayDate.getMonth() + 1).padStart(2, '0');
+                  const dd = String(dayDate.getDate()).padStart(2, '0');
+                  const dateStr = `${yyyy}-${mm}-${dd}`;
+                  
+                  cuotasNuevas.push({
+                    miembro_id: m.id,
+                    periodo: `Día ${dateStr}`,
+                    monto_esperado: payload.monto_cuota || 150,
+                    estado: 'pendiente',
+                    creacion: dayDate.toISOString(),
+                  });
+                }
+                if (cuotasNuevas.length > 0) {
+                  await supabase.from('cuota_membresia').insert(cuotasNuevas);
+                }
+              }
+            }
+
+            // Actualizar fecha de próxima cuota con el nuevo intervalo
+            await supabase
+              .from('miembro')
+              .update({ fecha_proxima_cuota: nextDue.toISOString() })
+              .eq('id', m.id);
+          }
+        } else {
+          // Transición general para cualquier otra frecuencia
+          for (const m of miembros) {
+            await supabase
+              .from('miembro')
+              .update({ fecha_proxima_cuota: nextDue.toISOString() })
+              .eq('id', m.id);
+          }
+        }
+      }
+
       return data;
     } catch (err) {
       if (err.message?.includes('frecuencia') || err.message?.includes('monto_cuota') || err.code === '42703') {
@@ -571,30 +673,36 @@ export const finanzasApi = {
     };
   }),
 
-  obtenerEgresos: withCache('finanzas:egresos', async () => {
-    const { data, error } = await supabase
-      .from('egreso')
-      .select(`
-        *,
-        tipo:tipo_egreso(nombre),
-        registrador:miembro!miembro_id(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
-        activo:activos!activo_id(nombre),
-        archivos:archivo(url)
-      `)
-      .order('creacion', { ascending: false });
+  obtenerEgresos: (() => {
+    const cachedFn = withCache('finanzas:egresos', async () => {
+      const { data, error } = await supabase
+        .from('egreso')
+        .select(`
+          *,
+          tipo:tipo_egreso(nombre),
+          registrador:miembro!miembro_id(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
+          activo:activos!activo_id(nombre),
+          archivos:archivo(url)
+        `)
+        .order('creacion', { ascending: false });
 
-    if (error) throw error;
-    return data?.map(d => ({
-      ...d,
-      categoria: d.tipo?.nombre || 'Egreso',
-      registrado_por_nombre: d.registrador ? `${d.registrador.nombre} ${d.registrador.apellidoPaterno || ''} ${d.registrador.apellidoMaterno || ''}`.trim() : 'Sistema',
-      registrado_por_correo: d.registrador?.correoElectronico || null,
-      registrado_por_telefono: d.registrador?.telefono || null,
-      registrado_por_rol: d.registrador?.rol || null,
-      activo_nombre: d.activo?.nombre || null,
-      comprobanteUrl: d.archivos && d.archivos.length > 0 ? d.archivos[0].url : null
-    })) || [];
-  }),
+      if (error) throw error;
+      return data?.map(d => ({
+        ...d,
+        categoria: d.tipo?.nombre || 'Egreso',
+        registrado_por_nombre: d.registrador ? `${d.registrador.nombre} ${d.registrador.apellidoPaterno || ''} ${d.registrador.apellidoMaterno || ''}`.trim() : 'Sistema',
+        registrado_por_correo: d.registrador?.correoElectronico || null,
+        registrado_por_telefono: d.registrador?.telefono || null,
+        registrado_por_rol: d.registrador?.rol || null,
+        activo_nombre: d.activo?.nombre || null,
+        comprobanteUrl: d.archivos && d.archivos.length > 0 ? d.archivos[0].url : null
+      })) || [];
+    });
+    return async (...args) => {
+      const data = await cachedFn(...args);
+      return applyPendingQueueToData('egreso', data);
+    };
+  })(),
 
   registrarIngresoExtra: async (ingreso) => {
     const { data, error } = await supabase

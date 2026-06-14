@@ -72,7 +72,7 @@ export const InstallPWABanner = () => {
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="font-black text-white text-sm">Instalar Control Financiero</p>
+            <p className="font-black text-white text-sm">Instalar APF</p>
             <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">
               Accede más rápido, sin navegador y funciona offline.
             </p>

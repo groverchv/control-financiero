@@ -312,7 +312,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
           const str = 'Página ' + doc.internal.getNumberOfPages();
           const pageWidth = doc.internal.pageSize.width || doc.internal.pageSize.getWidth();
           doc.text(str, pageWidth - 14 - doc.getStringUnitWidth(str) * doc.internal.getFontSize() / doc.internal.scaleFactor, doc.internal.pageSize.height - 10);
-          doc.text('Control Financiero Institucional - Reporte Oficial', 14, doc.internal.pageSize.height - 10);
+          doc.text('Asociación de Profesionales Financieros - Reporte Oficial', 14, doc.internal.pageSize.height - 10);
         }
       });
       

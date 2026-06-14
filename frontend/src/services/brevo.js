@@ -14,7 +14,7 @@ const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY;
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
 const SENDER = {
-  name: 'Control Financiero Institucional',
+  name: 'Asociación de Profesionales Financieros',
   email: import.meta.env.VITE_BREVO_SENDER_EMAIL || 'notificaciones@controlfinanciero.org'
 };
 
@@ -48,8 +48,8 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
         <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
           <tr>
             <td style="background:linear-gradient(135deg, ${accentColor}, ${accentColor}dd);padding:32px 40px;">
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-0.5px;">
-                Control<span style="opacity:0.85;">Financiero</span>
+              <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.5px;line-height:1.2;">
+                Asociación de<br/><span style="opacity:0.85;font-size:20px;">Profesionales Financieros</span>
               </h1>
               <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:700;">
                 ${title}
@@ -64,7 +64,7 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
           <tr>
             <td style="padding:24px 40px;border-top:1px solid #f1f5f9;background-color:#f8fafc;">
               <p style="margin:0;color:#94a3b8;font-size:11px;text-align:center;">
-                Control Financiero Institucional ${new Date().getFullYear()}. Todos los derechos reservados.<br/>
+                Asociación de Profesionales Financieros ${new Date().getFullYear()}. Todos los derechos reservados.<br/>
                 Este correo es generado automaticamente, no responda a este mensaje.
               </p>
             </td>
@@ -153,6 +153,7 @@ if (typeof window !== 'undefined') {
           remaining.push(email);
         }
       } catch (e) {
+        console.error('Error syncing offline emails:', e);
         remaining.push(email);
       }
     }
@@ -282,7 +283,7 @@ export const brevoService = {
 
     return enviarEmail({
       to: { email, name: nombre },
-      subject: `[Control Financiero] 📑 Aviso de Cobro — Cuota de Membresía de ${periodoLimpio}`,
+      subject: `[APF] 📑 Aviso de Cobro — Cuota de Membresía de ${periodoLimpio}`,
       htmlContent: baseTemplate('Factura de Cuota', content, '#d97706'),
     });
   },
@@ -369,7 +370,7 @@ export const brevoService = {
 
     return enviarEmail({
       to: { email, name: nombre },
-      subject: `[Control Financiero] ✅ Confirmación de Pago — Recibo de ${concepto}`,
+      subject: `[APF] ✅ Confirmación de Pago — Recibo de ${concepto}`,
       htmlContent: baseTemplate('Recibo de Pago', content, '#16a34a'),
     });
   },
@@ -390,7 +391,7 @@ export const brevoService = {
       <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Tu cuenta ha sido creada exitosamente</p>
 
       <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>, nos alegra mucho darte la bienvenida a nuestra institucion. Tu cuenta de acceso al sistema de <strong>Control Financiero</strong> ya esta activa.
+        Estimado/a <strong>${nombre}</strong>, nos alegra mucho darte la bienvenida a nuestra institucion. Tu cuenta de acceso al sistema de <strong>Asociación de Profesionales Financieros</strong> ya esta activa.
       </p>
 
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px;">
@@ -429,7 +430,7 @@ export const brevoService = {
 
     return enviarEmail({
       to: { email, name: nombre },
-      subject: `[Control Financiero] 🌟 ¡Tu cuenta ha sido creada con éxito! Bienvenida`,
+      subject: `[APF] 🌟 ¡Tu cuenta ha sido creada con éxito! Bienvenida`,
       htmlContent: baseTemplate('Bienvenida', content, '#1e3a5f'),
     });
   },

@@ -341,8 +341,12 @@ BEGIN
   v_frecuencia := COALESCE(v_frecuencia, 'mes');
   v_monto := COALESCE(v_monto, 150);
 
-  IF v_frecuencia = '3_minutos' THEN
+  IF v_frecuencia = '1_minuto' THEN
+    v_interval := INTERVAL '1 minute';
+  ELSIF v_frecuencia = '3_minutos' THEN
     v_interval := INTERVAL '3 minutes';
+  ELSIF v_frecuencia = '5_minutos' THEN
+    v_interval := INTERVAL '5 minutes';
   ELSIF v_frecuencia = '1_dia' THEN
     v_interval := INTERVAL '1 day';
   ELSIF v_frecuencia = '2_dias' THEN
@@ -428,7 +432,9 @@ BEGIN
             SELECT frecuencia INTO v_frecuencia FROM public.configuracion_cuotas ORDER BY creacion DESC LIMIT 1;
             v_frecuencia := COALESCE(v_frecuencia, 'mes');
 
-            IF v_frecuencia = '3_minutos' THEN v_interval := INTERVAL '3 minutes';
+            IF v_frecuencia = '1_minuto' THEN v_interval := INTERVAL '1 minute';
+            ELSIF v_frecuencia = '3_minutos' THEN v_interval := INTERVAL '3 minutes';
+            ELSIF v_frecuencia = '5_minutos' THEN v_interval := INTERVAL '5 minutes';
             ELSIF v_frecuencia = '1_dia' THEN v_interval := INTERVAL '1 day';
             ELSIF v_frecuencia = '2_dias' THEN v_interval := INTERVAL '2 days';
             ELSIF v_frecuencia = '3_dias' THEN v_interval := INTERVAL '3 days';

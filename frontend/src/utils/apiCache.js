@@ -44,6 +44,17 @@ export const withCache = (cacheKey, asyncFn) => {
       } catch (e) {
         console.error('Error al leer de localStorage en modo offline:', e);
       }
+      
+      const cacheKeyLower = cacheKey.toLowerCase();
+      const isList = cacheKeyLower.includes('obtener') || 
+                     cacheKeyLower.includes('egresos') || 
+                     cacheKeyLower.includes('cuotas') ||
+                     cacheKeyLower.includes('lista') ||
+                     cacheKeyLower.includes('historial');
+      if (isList) {
+        console.log(`[Offline Cache] No se encontró caché para la lista ${cacheKey}. Retornando [] como fallback.`);
+        return [];
+      }
       throw new Error("Sin conexión a internet y sin datos en la caché local.");
     }
   };
@@ -81,7 +92,6 @@ export const apiCache = {
           localStorage.removeItem(key);
         }
       }
-      console.log(`[Cache Invalidated] Caché invalidada para el patrón: ${pattern}`);
     } catch (e) {
       console.error('Error al invalidar caché:', e);
     }

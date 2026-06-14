@@ -65,8 +65,9 @@ export const LoginPage = () => {
   return (
     <div className="mx-auto w-full max-w-md rounded-xl bg-white p-6 sm:p-8 shadow-md border border-slate-100">
       <div className="text-center mb-6">
-        <p className="text-sm font-semibold text-blue-600 uppercase tracking-wider">Acceso institucional</p>
-        <h2 className="mt-2 text-2xl font-bold text-slate-900">Inicia sesión</h2>
+        <img src="/logo-ap.png" alt="Logo AP" className="mx-auto h-16 w-auto object-contain mb-4" />
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Asociación de Profesionales Financieros</p>
+        <h2 className="mt-1 text-2xl font-bold text-slate-900">Inicia sesión</h2>
       </div>
 
       <div>

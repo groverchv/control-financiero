@@ -1,9 +1,10 @@
 import { supabase } from '../../../services/supabase';
 import { blockchainService } from '../../../services/blockchain';
 import { withCache } from '../../../utils/apiCache';
+import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
 
 export const patrimonioApi = {
-  registrarActivo: async (activo) => {
+  registrarActivo: withWriteQueue('activo', 'registrarActivo', async (activo) => {
     // eslint-disable-next-line no-unused-vars
     const { imagen_url, ...activoData } = activo;
     const { data, error } = await supabase
@@ -49,20 +50,26 @@ export const patrimonioApi = {
       blockchain_tx_id: txId,
       imagen_url: fullAsset.archivo?.[0]?.url || null
     };
-  },
-
-  obtenerActivos: withCache('patrimonio:activos', async () => {
-    const { data, error } = await supabase
-      .from('activos')
-      .select('*, tipo_activo(nombre), archivo(url)')
-      .order('creacion', { ascending: false }); // R19: Orden descendente
-
-    if (error) throw error;
-    return (data || []).map(activo => ({
-      ...activo,
-      imagen_url: activo.archivo?.[0]?.url || null
-    }));
   }),
+
+  obtenerActivos: (() => {
+    const cachedFn = withCache('patrimonio:activos', async () => {
+      const { data, error } = await supabase
+        .from('activos')
+        .select('*, tipo_activo(nombre), archivo(url)')
+        .order('creacion', { ascending: false }); // R19: Orden descendente
+
+      if (error) throw error;
+      return (data || []).map(activo => ({
+        ...activo,
+        imagen_url: activo.archivo?.[0]?.url || null
+      }));
+    });
+    return async (...args) => {
+      const data = await cachedFn(...args);
+      return applyPendingQueueToData('activo', data);
+    };
+  })(),
 
   sellarActivo: async (id, idUsuario) => {
     const { data: activo, error } = await supabase
@@ -78,7 +85,7 @@ export const patrimonioApi = {
     
     return txId;
   },
-  registrarAdquisicion: async (adquisicion) => {
+  registrarAdquisicion: withWriteQueue('adquisicion', 'registrarAdquisicion', async (adquisicion) => {
     const { data, error } = await supabase
       .from('adquisiciones')
       .insert([adquisicion])
@@ -86,16 +93,22 @@ export const patrimonioApi = {
 
     if (error) throw error;
     return data?.[0];
-  },
-  obtenerAdquisiciones: async () => {
-    const { data, error } = await supabase
-      .from('adquisiciones')
-      .select('*')
-      .order('fecha', { ascending: false });
+  }),
+  obtenerAdquisiciones: (() => {
+    const cachedFn = withCache('patrimonio:adquisiciones', async () => {
+      const { data, error } = await supabase
+        .from('adquisiciones')
+        .select('*')
+        .order('fecha', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
-  },
+      if (error) throw error;
+      return data || [];
+    });
+    return async (...args) => {
+      const data = await cachedFn(...args);
+      return applyPendingQueueToData('adquisicion', data);
+    };
+  })(),
   registrarAuditoria: async (auditoria) => {
     const { data, error } = await supabase
       .from('auditorias_blockchain')

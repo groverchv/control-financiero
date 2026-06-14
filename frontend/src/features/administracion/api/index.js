@@ -4,7 +4,7 @@ import { brevoService } from '../../../services/brevo';
 
 import { encryptPassword, decryptPassword } from '../../../utils/encryption';
 import { withCache } from '../../../utils/apiCache';
-import { withWriteQueue } from '../../../utils/offlineQueue';
+import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
 
 const BLOCKCHAIN_API = typeof window !== 'undefined' && 
   (window.location.protocol === 'https:' || !window.location.hostname.match(/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)$/))
@@ -12,37 +12,43 @@ const BLOCKCHAIN_API = typeof window !== 'undefined' &&
     : (import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://localhost:3001');
 
 export const administracionApi = {
-  obtenerMiembros: withCache('obtenerMiembros', async () => {
-    const { data, error } = await supabase
-      .from('miembro')
-      .select(`
-        id, 
-        nombre, 
-        "apellidoPaterno", 
-        "apellidoMaterno", 
-        "correoElectronico", 
-        telefono, 
-        rol, 
-        estado, 
-        creacion,
-        contrasena,
-        profesion,
-        biografia,
-        fecha_pausa,
-        tiempo_restante_cuota,
-        fecha_proxima_cuota,
-        archivos:archivo(url, tipo, estado)
-      `);
+  obtenerMiembros: (() => {
+    const cachedFn = withCache('obtenerMiembros', async () => {
+      const { data, error } = await supabase
+        .from('miembro')
+        .select(`
+          id, 
+          nombre, 
+          "apellidoPaterno", 
+          "apellidoMaterno", 
+          "correoElectronico", 
+          telefono, 
+          rol, 
+          estado, 
+          creacion,
+          contrasena,
+          profesion,
+          biografia,
+          fecha_pausa,
+          tiempo_restante_cuota,
+          fecha_proxima_cuota,
+          archivos:archivo(url, tipo, estado)
+        `);
 
-    if (error) throw error;
-    // Mapeo para compatibilidad con la UI
-    return (data || []).map(m => ({
-      ...m,
-      email: m.correoElectronico, // Mapeamos correoElectronico a email para la UI
-      contrasena: m.contrasena ? decryptPassword(m.contrasena) : '',
-      foto: m.archivos?.find(a => a.tipo === 'foto' && a.estado === 'activo')?.url || null,
-    }));
-  }),
+      if (error) throw error;
+      // Mapeo para compatibilidad con la UI
+      return (data || []).map(m => ({
+        ...m,
+        email: m.correoElectronico, // Mapeamos correoElectronico a email para la UI
+        contrasena: m.contrasena ? decryptPassword(m.contrasena) : '',
+        foto: m.archivos?.find(a => a.tipo === 'foto' && a.estado === 'activo')?.url || null,
+      }));
+    });
+    return async (...args) => {
+      const data = await cachedFn(...args);
+      return applyPendingQueueToData('miembro', data);
+    };
+  })(),
 
   crearMiembro: withWriteQueue('miembro', 'crearMiembro', async (miembro) => {
     const emailToUse = miembro.email || miembro.correoElectronico;

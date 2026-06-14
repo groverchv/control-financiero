@@ -1,7 +1,8 @@
 import { supabase } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 
-import { apiCache } from '../../../utils/apiCache';
+import { apiCache, withCache } from '../../../utils/apiCache';
+import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
 
 export const academicoApi = {
   obtenerTiposActividad: async () => {
@@ -134,7 +135,7 @@ export const academicoApi = {
     return true;
   },
 
-  crearActividad: async (actividad, imagenFile = null) => {
+  crearActividad: withWriteQueue('actividad', 'crearActividad', async (actividad, imagenFile = null) => {
     apiCache.invalidate('academico');
     const parsedCosto = (actividad.costo === '' || actividad.costo === null || actividad.costo === undefined) ? 0 : Number(actividad.costo);
     const { data, error } = await supabase
@@ -225,35 +226,34 @@ export const academicoApi = {
         return extName || 'Jurado Externo';
       }) || []
     };
-  },
+  }),
 
-  obtenerActividades: async () => {
-    const cacheKey = 'academico:actividades';
-    const cached = apiCache.get(cacheKey);
-    if (cached) return cached;
+  obtenerActividades: (() => {
+    const cachedFn = withCache('academico:actividades', async () => {
+      const { data, error } = await supabase
+        .from('actividad')
+        .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion), inscripcion(id)')
+        .order('fecha', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('actividad')
-      .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion), inscripcion(id)')
-      .order('fecha', { ascending: false });
-
-    if (error) throw error;
-    const result = (data || []).map(d => ({ 
-      ...d, 
-      nombre: d.titulo,
-      tipo_nombre: d.tipo_actividad?.nombre || 'General',
-      imagen: d.archivo?.[0]?.url || null,
-      jurados: d.jurado?.map(j => {
-        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
-        const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
-        return extName || 'Jurado Externo';
-      }) || [],
-      inscritos_count: d.inscripcion?.length || 0
-    }));
-
-    apiCache.set(cacheKey, result);
-    return result;
-  },
+      if (error) throw error;
+      return (data || []).map(d => ({ 
+        ...d, 
+        nombre: d.titulo,
+        tipo_nombre: d.tipo_actividad?.nombre || 'General',
+        imagen: d.archivo?.[0]?.url || null,
+        jurados: d.jurado?.map(j => {
+          if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
+          const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
+          return extName || 'Jurado Externo';
+        }) || [],
+        inscritos_count: d.inscripcion?.length || 0
+      }));
+    });
+    return async (...args) => {
+      const data = await cachedFn(...args);
+      return applyPendingQueueToData('actividad', data);
+    };
+  })(),
 
   actualizarActividad: async (id, updates, imagenFile = null) => {
     apiCache.invalidate('academico');
@@ -690,7 +690,7 @@ export const academicoApi = {
     return !!data;
   },
 
-  inscribirSocio: async (miembroId, actividadId) => {
+  inscribirSocio: withWriteQueue('inscripcion', 'inscribirSocio', async (miembroId, actividadId) => {
     // Primero, verificamos si hay cupos y la fecha/hora
     const { data: itemData, error: itemError } = await supabase
       .from('actividad')
@@ -754,9 +754,9 @@ export const academicoApi = {
     }
 
     return true;
-  },
+  }),
 
-  desinscribirSocio: async (miembroId, actividadId) => {
+  desinscribirSocio: withWriteQueue('inscripcion', 'desinscribirSocio', async (miembroId, actividadId) => {
     const { error: deleteError } = await supabase
       .from('inscripcion')
       .delete()
@@ -779,5 +779,5 @@ export const academicoApi = {
     }
 
     return true;
-  }
+  })
 };

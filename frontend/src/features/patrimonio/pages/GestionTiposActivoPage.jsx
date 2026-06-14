@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw, BarChart2 } from 'lucide-react';
+import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';

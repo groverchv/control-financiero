@@ -80,6 +80,7 @@ export const useTiposActividad = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refetch();
   }, []);
 

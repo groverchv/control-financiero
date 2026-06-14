@@ -12,7 +12,6 @@ import { academicoApi } from '../features/academico/api';
 export const useOfflineSync = () => {
   useEffect(() => {
     const handleOnline = async () => {
-      console.log('[Offline Sync] Conexión a internet restaurada. Sincronizando cola de operaciones...');
       try {
         await syncOfflineQueue({
           administracionApi,

@@ -297,47 +297,44 @@ export const EstadoCuentaSocioPage = () => {
       {!isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Cuotas Pendientes */}
-          <div className="relative overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-white p-4 shadow-sm group hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -right-4 h-20 w-20 rounded-full bg-red-100/40 blur-xl group-hover:scale-110 transition-transform" />
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm group hover:shadow-md transition-shadow">
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-xl bg-red-100 flex items-center justify-center">
-                  <TrendingDown className="h-4 w-4 text-red-600" />
+                <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
                 </div>
-                <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest">Cuotas Pendientes</p>
+                <p className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest">Cuotas Pendientes</p>
               </div>
-              <p className="text-xl font-black text-red-700">{formatCurrency(totalPendienteCuotas)}</p>
-              <p className="text-[10px] text-red-500 mt-0.5">{cuotasPendientes.length} cuota{cuotasPendientes.length !== 1 ? 's' : ''} por pagar</p>
+              <p className="text-xl font-black text-slate-900 dark:text-white">{formatCurrency(totalPendienteCuotas)}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{cuotasPendientes.length} cuota{cuotasPendientes.length !== 1 ? 's' : ''} por pagar</p>
             </div>
           </div>
 
           {/* Cursos Pendientes */}
-          <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4 shadow-sm group hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -right-4 h-20 w-20 rounded-full bg-indigo-100/40 blur-xl group-hover:scale-110 transition-transform" />
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm group hover:shadow-md transition-shadow">
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-                  <GraduationCap className="h-4 w-4 text-indigo-600" />
+                <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <GraduationCap className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Cursos Pendientes</p>
+                <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Cursos Pendientes</p>
               </div>
-              <p className="text-xl font-black text-indigo-700">{formatCurrency(totalPendienteActs)}</p>
-              <p className="text-[10px] text-indigo-500 mt-0.5">{actsPendientes.length} inscripción{actsPendientes.length !== 1 ? 'es' : ''} por pagar</p>
+              <p className="text-xl font-black text-slate-900 dark:text-white">{formatCurrency(totalPendienteActs)}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{actsPendientes.length} inscripción{actsPendientes.length !== 1 ? 'es' : ''} por pagar</p>
             </div>
           </div>
 
           {/* Deuda Global Consolidada */}
-          <div className="relative overflow-hidden rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm group hover:shadow-md transition-shadow">
-            <div className="absolute -top-4 -right-4 h-20 w-20 rounded-full bg-amber-100/40 blur-xl group-hover:scale-110 transition-transform" />
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm group hover:shadow-md transition-shadow">
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-xl bg-amber-100 flex items-center justify-center">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 </div>
-                <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Deuda Total</p>
+                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Deuda Total</p>
               </div>
-              <p className="text-xl font-black text-amber-700">{formatCurrency(deudaGlobalTotal)}</p>
-              <p className="text-[10px] text-amber-500 mt-0.5">Cuotas + Cursos pendientes</p>
+              <p className="text-xl font-black text-slate-900 dark:text-white">{formatCurrency(deudaGlobalTotal)}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Cuotas + Cursos pendientes</p>
             </div>
           </div>
         </div>

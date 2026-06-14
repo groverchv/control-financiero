@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Control Financiero",
-  "short_name": "ControlFin",
-  "description": "Sistema institucional de control financiero, académico y patrimonial",
+  "name": "Asociación de Profesionales Financieros",
+  "short_name": "APF",
+  "description": "Sistema institucional de la Asociación de Profesionales Financieros",
   "lang": "es",
   "dir": "ltr",
   "scope": "/",

@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * Componente que resalta en negrita y color amarillo las coincidencias con la búsqueda.

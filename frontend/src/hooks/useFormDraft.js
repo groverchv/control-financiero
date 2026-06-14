@@ -21,7 +21,7 @@ export const useFormDraft = (key, formData, setFormData, enabled = true) => {
     } catch (e) {
       console.error('[useFormDraft] Error cargando borrador:', e);
     }
-  }, [key, enabled]); // Solamente al montar o cambiar enabled
+  }, [key, enabled, setFormData]); // Solamente al montar o cambiar enabled o setter
 
   // Actualizar el localStorage cada vez que cambien los datos del formulario
   useEffect(() => {

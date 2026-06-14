@@ -1,583 +1,635 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { supabase } from '../../../services/supabase';
-import { 
-  BadgeCheck, ChevronRight, ShieldCheck, Heart, Compass, Activity,
-  Building, MapPin, Phone, Mail, Clock, Loader2, AlertTriangle,
-  Download, Smartphone, Check
-} from 'lucide-react';
-
-// ─── Constantes de Contenido Institucional ───────────────────────────────────
-const TIMELINE_DATA = [
-  {
-    year: '2015',
-    title: 'La Fundación',
-    color: 'blue',
-    description: 'Nace la asociación en la ciudad de Cochabamba de la inquietud de 15 fundadores egresados y destacados profesionales, quienes buscaban estructurar un entorno formal de desarrollo profesional continuo y apoyo solidario de recursos.'
-  },
-  {
-    year: '2020',
-    title: 'Consolidación',
-    color: 'purple',
-    description: 'Superamos los 250 socios activos y establecemos los módulos formales de capacitación académica continua. Firmamos alianzas con centros de postgrado e impulsamos más de 40 eventos académicos anuales de alto impacto gremial.'
-  },
-  {
-    year: '2026',
-    title: 'Integración Tecnológica',
-    color: 'emerald',
-    description: 'Lanzamiento de nuestra Plataforma Institucional v2.0, integrando sistemas automatizados de control de caja, notificaciones por correo y un registro de auditoría transparente e incorruptible basado en tecnología Hyperledger Fabric Blockchain.'
-  }
-];
+import casa1 from "../../../assets/images/casa1.jpg";
+import {
+  Compass,
+  Activity,
+  MapPin,
+  Phone,
+  Facebook,
+  Scale,
+  BookOpen,
+  Award,
+  ArrowRight,
+  Users,
+  CheckCircle2,
+  Briefcase,
+  Check,
+} from "lucide-react";
 
 const CONTACT_ITEMS = [
-  { icon: MapPin, color: 'blue', label: 'Dirección', value: 'Av. Las Américas Nº 450, Edificio El Prado, Piso 3', sub: 'Cochabamba, Bolivia' },
-  { icon: Phone, color: 'purple', label: 'Teléfono / Fax', value: '+591 4 4567890', sub: 'Lun-Vie: 08:30 - 18:30' },
-  { icon: Mail, color: 'emerald', label: 'Email Oficial', value: 'contacto@asociacion-control.org', sub: 'Soporte y Consultas 24/7' },
-  { icon: Clock, color: 'amber', label: 'Horario de Atención', value: 'Lunes a Viernes', sub: '08:30 - 12:30 | 14:30 - 18:30' }
+  {
+    icon: Phone,
+    color: "purple",
+    label: "Contáctanos al",
+    value: "61553010",
+    sub: "WhatsApp Habilitado",
+    href: "https://wa.me/59161553010",
+  },
+  {
+    icon: MapPin,
+    color: "emerald",
+    label: "Dirección Sede",
+    value: "Barrio California Calle Santa Ana #239",
+    sub: "Santa Cruz, Bolivia",
+    href: "https://maps.app.goo.gl/jtJRnNNr1APQeTKr5",
+  },
+  {
+    icon: Facebook,
+    color: "blue",
+    label: "Redes Sociales",
+    value: "APF Santa Cruz (Facebook)",
+    sub: "Sigue nuestras publicaciones",
+    href: "https://www.facebook.com/share/1R1Cs8nNtm/",
+  },
 ];
 
 const COLOR_MAP = {
-  blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', dot: 'bg-blue-100 text-blue-600' },
-  purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-100', dot: 'bg-purple-100 text-purple-600' },
-  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100', dot: 'bg-emerald-100 text-emerald-600' },
-  amber: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', dot: 'bg-amber-100 text-amber-600' }
+  blue: {
+    bg: "bg-blue-50/50 dark:bg-blue-950/10",
+    text: "text-blue-600 dark:text-blue-450",
+    border: "border-blue-100/50 dark:border-blue-950/20",
+  },
+  purple: {
+    bg: "bg-purple-50/50 dark:bg-purple-950/10",
+    text: "text-purple-600 dark:text-purple-450",
+    border: "border-purple-100/50 dark:border-purple-950/20",
+  },
+  emerald: {
+    bg: "bg-emerald-50/50 dark:bg-emerald-950/10",
+    text: "text-emerald-600 dark:text-emerald-450",
+    border: "border-emerald-100/50 dark:border-emerald-950/20",
+  },
+  amber: {
+    bg: "bg-amber-50/50 dark:bg-amber-950/10",
+    text: "text-amber-600 dark:text-amber-450",
+    border: "border-amber-100/50 dark:border-amber-950/20",
+  },
 };
 
-// ─── Hook: Estadísticas públicas en tiempo real ──────────────────────────────
-const useLandingStats = () => {
-  const [stats, setStats] = useState({ socios: 0, eventos: 0, cobertura: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [retryKey, setRetryKey] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        if (!cancelled) setLoading(true);
-        if (!cancelled) setError(null);
-
-        const [miembrosRes, actividadesRes, selladosRes, totalRes] = await Promise.all([
-          supabase.from('miembro').select('id', { count: 'exact', head: true }).eq('estado', 'activo'),
-          supabase.from('actividad').select('id', { count: 'exact', head: true }),
-          supabase.from('ingreso').select('id', { count: 'exact', head: true }).not('hash_actual', 'is', null),
-          supabase.from('ingreso').select('id', { count: 'exact', head: true })
-        ]);
-
-        if (cancelled) return;
-
-        const totalMiembros = miembrosRes.count ?? 0;
-        const totalActividades = actividadesRes.count ?? 0;
-        const totalSellados = selladosRes.count ?? 0;
-        const totalRegistros = totalRes.count ?? 0;
-        const cobertura = totalRegistros > 0 ? Math.round((totalSellados / totalRegistros) * 100) : 100;
-
-        setStats({ socios: totalMiembros, eventos: totalActividades, cobertura });
-      } catch (err) {
-        console.error('[LandingStats] Error:', err);
-        if (!cancelled) setError('No se pudieron cargar las estadísticas.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    run();
-    return () => { cancelled = true; };
-  }, [retryKey]);
-
-  const retry = () => setRetryKey(k => k + 1);
-
-  return { stats, loading, error, retry };
-};
-
-// ─── Sub-Componentes Reutilizables ───────────────────────────────────────────
-
-/** Indicador numérico con estado de carga */
-const StatCard = ({ value, label, color, loading }) => (
-  <div className="p-3 sm:p-4 rounded-xl bg-slate-50 border border-slate-100 text-center" role="figure" aria-label={`${label}: ${value}`}>
-    {loading ? (
-      <Loader2 className={`h-6 w-6 mx-auto animate-spin ${COLOR_MAP[color]?.text || 'text-blue-600'}`} />
-    ) : (
-      <span className={`block text-2xl sm:text-3xl font-extrabold ${COLOR_MAP[color]?.text || 'text-blue-600'}`}>
-        {typeof value === 'number' ? value.toLocaleString('es-BO') : value}
-      </span>
-    )}
-    <span className="text-xs text-slate-500 font-medium">{label}</span>
-  </div>
-);
-
-/** Tarjeta de Misión / Visión */
-const MissionCard = ({ icon: Icon, title, description, color }) => (
-  <div className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-all group">
-    <div className={`absolute top-0 right-0 h-24 w-24 translate-x-6 -translate-y-6 ${color === 'blue' ? 'bg-blue-500/5' : 'bg-emerald-500/5'} rounded-full group-hover:scale-125 transition-transform`} aria-hidden="true" />
-    <div className={`mb-4 inline-flex items-center justify-center h-10 w-10 rounded-lg ${COLOR_MAP[color].bg} ${COLOR_MAP[color].text}`}>
-      <Icon className="h-5 w-5" aria-hidden="true" />
-    </div>
-    <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-    <p className="mt-2 text-sm leading-relaxed text-slate-500">{description}</p>
-  </div>
-);
-
-/** Ítem de la línea de tiempo */
-const TimelineItem = ({ index, year, title, description, color }) => {
+const ContactItem = ({ icon: Icon, color, label, value, sub, href }) => {
   const c = COLOR_MAP[color] || COLOR_MAP.blue;
   return (
-    <div className="relative pl-6 md:pl-10">
-      <div className={`absolute -left-3.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full ${c.dot} border-4 border-white shadow-sm font-bold text-xs`} aria-hidden="true">
-        {index + 1}
-      </div>
-      <div className="grid md:grid-cols-12 gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-        <div className="md:col-span-3">
-          <span className={`text-lg font-extrabold ${c.text} font-mono`}>{year}</span>
-          <h4 className="text-base font-bold text-slate-900">{title}</h4>
-        </div>
-        <div className="md:col-span-9 text-slate-500 text-sm leading-relaxed">{description}</div>
-      </div>
-    </div>
-  );
-};
-
-/** Ítem de contacto */
-const ContactItem = ({ icon: Icon, color, label, value, sub }) => {
-  const c = COLOR_MAP[color] || COLOR_MAP.blue;
-  return (
-    <div className="flex gap-4 items-start">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${c.bg} ${c.text}`} aria-hidden="true">
-        <Icon className="h-5 w-5" />
+    <div className="flex gap-4 items-start group">
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${c.bg} ${c.text} transition-transform duration-300 group-hover:scale-110`}
+        aria-hidden="true"
+      >
+        <Icon className="h-5.5 w-5.5" />
       </div>
       <div>
-        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</h4>
-        <p className="text-sm font-semibold text-slate-700 mt-1">{value}</p>
-        <p className="text-xs text-slate-500">{sub}</p>
+        <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+          {label}
+        </h4>
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors mt-0.5 block"
+          >
+            {value}
+          </a>
+        ) : (
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+            {value}
+          </p>
+        )}
+        <p className="text-xs text-slate-500 dark:text-slate-450">{sub}</p>
       </div>
     </div>
   );
 };
 
-// ─── Componente Principal ────────────────────────────────────────────────────
 export const LandingPage = () => {
-  const { stats, loading, error, retry } = useLandingStats();
-
-  // --- Estados e Interacciones PWA ---
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showProgress, setShowProgress] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressMsg, setProgressMsg] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [esInstalado, setEsInstalado] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.matchMedia('(display-mode: standalone)').matches || !!window.navigator.standalone;
-    }
-    return false;
-  });
-
-  useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handler);
-
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const iniciarFlujoInstalacion = () => {
-    setShowConfirm(true);
-  };
-
-  const confirmarDescarga = () => {
-    setShowConfirm(false);
-    setShowProgress(true);
-    setProgress(0);
-    setProgressMsg('Estableciendo conexion segura con el servidor...');
-
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const next = prev + Math.floor(Math.random() * 15) + 5;
-        if (next >= 100) {
-          clearInterval(interval);
-          setProgressMsg('¡Descarga completada! Instalando en el dispositivo...');
-          setTimeout(() => {
-            setShowProgress(false);
-            setShowSuccess(true);
-          }, 800);
-          return 100;
-        }
-        if (next > 75) {
-          setProgressMsg('Configurando almacenamiento local e indexando base de datos...');
-        } else if (next > 45) {
-          setProgressMsg('Descargando paquetes de activos estaticos (iconos, tipografias)...');
-        } else if (next > 20) {
-          setProgressMsg('Descargando manifiesto de aplicacion y claves criptograficas...');
-        }
-        return next;
-      });
-    }, 200);
-  };
-
-  const activarPromptNativo = async () => {
-    setShowSuccess(false);
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setEsInstalado(true);
-        setDeferredPrompt(null);
-      }
-    }
-  };
-
-  const statsCards = useMemo(() => [
-    { value: loading ? '...' : `${stats.socios}+`, label: 'Socios Activos', color: 'blue' },
-    { value: loading ? '...' : `${stats.eventos}+`, label: 'Eventos Dictados', color: 'emerald' },
-    { value: loading ? '...' : `${stats.cobertura}%`, label: 'Transparente', color: 'purple' }
-  ], [stats, loading]);
-
   return (
-    <main className="flex flex-col gap-12 sm:gap-16 md:gap-24 pb-10 sm:pb-20" role="main">
-      
-      {/* ── HERO SECTION ── */}
-      <section className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-slate-900 px-5 sm:px-8 py-14 sm:py-24 text-white lg:px-16 shadow-xl" aria-labelledby="hero-heading">
-        <div className="relative z-10 max-w-2xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold tracking-wide text-blue-400 border border-blue-500/20">
-            <BadgeCheck className="h-4 w-4" aria-hidden="true" />
-            ASOCIACIÓN CONTROL FINANCIERO
-          </div>
-          <h1 id="hero-heading" className="text-3xl sm:text-5xl font-extrabold tracking-tight lg:text-6xl leading-tight">
-            Bienvenidos a la <br />
-            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Nueva Era Institucional</span>
-          </h1>
-          <p className="mt-6 text-base sm:text-lg text-slate-300 leading-relaxed max-w-lg">
-            Un portal unificado para socios y profesionales, diseñado para potenciar la transparencia, el desarrollo profesional y la trazabilidad criptográfica de nuestros recursos.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link
-              to="/login"
-              className="group flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-bold text-white transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/25 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-900"
-              aria-label="Acceder al portal institucional"
-            >
-              Acceso Institucional
-              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-            </Link>
-            {!esInstalado && (
-              <button
-                onClick={iniciarFlujoInstalacion}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3.5 text-sm font-bold text-white transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg hover:shadow-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+    <div className="w-full flex flex-col items-center bg-white dark:bg-slate-950 overflow-hidden">
+      {/* ── 1. SECCIÓN HERO (FULL BLEED / EDGE-TO-EDGE) ── */}
+      <section className="relative w-full bg-slate-950 text-white min-h-[60vh] md:min-h-[85vh] flex items-center justify-center py-12 md:py-20 px-4 sm:px-8 overflow-hidden">
+        {/* Immersive background effects */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.15),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(30,41,59,0.9),rgba(9,15,28,1))]" />
+
+        {/* Soft floating blur circles */}
+        <div className="absolute top-1/4 left-1/4 h-80 w-80 bg-emerald-500/10 blur-[100px] rounded-full animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 h-96 w-96 bg-blue-500/10 blur-[120px] rounded-full" />
+
+        {/* Custom grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+
+        <div className="relative z-10 max-w-4xl mx-auto w-full flex flex-col items-center text-center justify-center">
+          <div className="max-w-3xl space-y-8 flex flex-col items-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20 backdrop-blur-md">
+              <Award className="h-4 w-4" /> ASOCIACIÓN DE PROFESIONALES
+              FINANCIEROS
+            </div>
+
+            <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-white">
+              Liderando la era de la <br />
+              <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+                Excelencia Financiera
+              </span>
+            </h1>
+
+            <p className="text-slate-300 text-base sm:text-xl max-w-2xl leading-relaxed">
+              Uniendo talento, ética y desarrollo estratégico para guiar el
+              crecimiento económico y social de Santa Cruz y toda Bolivia.
+            </p>
+
+            <div className="flex flex-wrap gap-4 justify-center pt-2">
+              <a
+                href="#unete"
+                className="inline-flex items-center gap-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 px-8 py-4 text-sm font-bold text-white transition-all shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/35 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
               >
-                <Download className="h-4 w-4" />
-                Descargar App
-              </button>
-            )}
+                <span>Afiliarse Ahora</span>
+                <ArrowRight className="h-4 w-4" />
+              </a>
+              <a
+                href="#bienvenida"
+                className="inline-flex items-center gap-2.5 rounded-full bg-slate-900/80 hover:bg-slate-850 px-8 py-4 text-sm font-bold text-slate-200 border border-slate-800 transition-all hover:-translate-y-0.5 active:translate-y-0"
+              >
+                Conocer la Asociación
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 2. BIENVENIDA DEL DIRECTORIO (NATURAL FLOW) ── */}
+      <section
+        id="bienvenida"
+        className="w-full bg-white dark:bg-slate-950 py-6 md:py-16 px-4 sm:px-8 scroll-mt-20"
+      >
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-16 items-center">
+          <div className="lg:col-span-7 space-y-6">
+            <span className="text-xs font-black tracking-widest text-emerald-600 dark:text-emerald-400 uppercase">
+              La Voz del Directorio
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white leading-tight">
+              Bienvenida del Directorio
+            </h2>
+            <div className="relative text-slate-600 dark:text-slate-350 space-y-6 text-base sm:text-lg leading-relaxed font-light">
+              <p className="font-semibold text-slate-800 dark:text-slate-100 italic text-xl border-l-4 border-emerald-500 pl-5">
+                "Estimados colegas y aliados del sector financiero..."
+              </p>
+              <p>
+                Es un honor para el Directorio de la Asociación de Profesionales
+                Financieros de Santa Cruz presentarles este portafolio, un
+                reflejo de nuestra pasión, compromiso y visión para el futuro de
+                nuestra profesión en esta vibrante tierra cruceña.
+              </p>
+              <p>
+                Invitamos a cada profesional financiero de Santa Cruz a unirse a
+                esta comunidad, donde la colaboración y el desarrollo continuo
+                son los pilares de nuestro crecimiento colectivo. Juntos, no
+                solo elevaremos los estándares de nuestra profesión, sino que
+                también contribuiremos activamente al progreso económico y
+                social de nuestra querida Santa Cruz y de toda Bolivia.
+              </p>
+            </div>
+          </div>
+
+          <div className="lg:col-span-5 space-y-6">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2 mb-4">
+              Valores
+            </h3>
+            <div className="space-y-6">
+              <div className="group">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">Excelencia</h4>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Promover activamente la excelencia y calidad técnica en la gestión corporativa y personal.
+                </p>
+              </div>
+
+              <div className="group">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">Ética e Integridad</h4>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Fomentar las mejores prácticas éticas y el cumplimiento de normativas financieras con transparencia total.
+                </p>
+              </div>
+
+              <div className="group">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">Innovación Continua</h4>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Adaptabilidad constante a los cambios globales del mercado y adopción de tecnologías financieras avanzadas.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 3. ¿QUÉ HACEMOS? (INTEGRATED LAYOUT) ── */}
+      <section
+        id="que-hacemos"
+        className="w-full bg-slate-50 dark:bg-slate-900/30 py-6 md:py-16 px-4 sm:px-8 scroll-mt-20"
+      >
+        <div className="max-w-6xl mx-auto space-y-8 md:space-y-16">
+          <div className="text-left max-w-3xl space-y-4">
+            <span className="text-xs font-black tracking-widest text-emerald-600 dark:text-emerald-450 uppercase">
+              ¿Qué Hacemos?
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white leading-tight">
+              Impulsar al Futuro Financiero de Santa Cruz
+            </h2>
+            <p className="text-slate-650 dark:text-slate-350 text-base sm:text-lg font-light leading-relaxed max-w-4xl">
+              En la Asociación de Profesionales Financieros de Santa Cruz,
+              trabajamos incansablemente para brindar a nuestros miembros y al
+              sector herramientas y oportunidades que generen un impacto real.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12 lg:gap-20">
+            {/* Pilar 1 */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="h-11 w-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <BookOpen className="h-5.5 w-5.5" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                  Responsabilidad Social y Ética Financiera
+                </h3>
+              </div>
+              <div className="space-y-6">
+                <div className="flex gap-3.5 items-start">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                      Oferta
+                    </span>
+                    <p className="text-sm sm:text-base text-slate-650 dark:text-slate-400 font-light mt-0.5">
+                      Impulsar programas de educación financiera dirigidos a la
+                      comunidad.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3.5 items-start">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                      Enfoque
+                    </span>
+                    <p className="text-sm sm:text-base text-slate-650 dark:text-slate-400 font-light mt-0.5">
+                      Formar profesionales con un compromiso social y ambiental,
+                      fomentando decisiones de inversión responsables.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3.5 items-start">
+                  <div className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                      Impacto
+                    </span>
+                    <p className="text-sm sm:text-base text-slate-650 dark:text-slate-400 font-light mt-0.5">
+                      Contribuir al bienestar social y al desarrollo de una
+                      economía más consciente y sostenible en Santa Cruz.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pilar 2 */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="h-11 w-11 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <Scale className="h-5.5 w-5.5" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                  Defensa y Representación Activa
+                </h3>
+              </div>
+              <div className="space-y-6">
+                <div className="flex gap-3.5 items-start">
+                  <div className="h-5 w-5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                      Oferta
+                    </span>
+                    <p className="text-sm sm:text-base text-slate-650 dark:text-slate-400 font-light mt-0.5">
+                      Ser la voz unificada de los profesionales financieros ante
+                      autoridades, reguladores y la sociedad en general.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3.5 items-start">
+                  <div className="h-5 w-5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                      Enfoque
+                    </span>
+                    <p className="text-sm sm:text-base text-slate-650 dark:text-slate-400 font-light mt-0.5">
+                      Participar activamente en la discusión y construcción de
+                      marcos normativos y políticas públicas que beneficien al
+                      sector y promuevan un mercado justo y transparente.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3.5 items-start">
+                  <div className="h-5 w-5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                      Impacto
+                    </span>
+                    <p className="text-sm sm:text-base text-slate-650 dark:text-slate-400 font-light mt-0.5">
+                      Proteger los intereses profesionales de nuestros asociados
+                      y promover un entorno favorable para el desarrollo
+                      financiero.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4. SECCIÓN PROPÓSITO INSTITUCIONAL (FLUID / MISIÓN Y VISIÓN) ── */}
+      <section 
+        id="proposito"
+        className="w-full bg-white dark:bg-slate-950 py-6 md:py-16 px-4 sm:px-8 relative scroll-mt-20"
+      >
+        <div className="max-w-6xl mx-auto space-y-8 md:space-y-16 relative z-10">
+          <div className="text-center max-w-xl mx-auto space-y-3">
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-1.5 text-xs font-bold text-blue-500 border border-blue-500/20">
+              <Compass className="h-4 w-4" /> PROPÓSITO
+            </span>
+            <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              Nuestra Esencia
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-10 items-stretch">
+            {/* Misión */}
+            <div className="space-y-3.5 text-left p-2">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                  <Compass className="h-5.5 w-5.5" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                  Misión
+                </h3>
+              </div>
+              <p className="text-slate-650 dark:text-slate-400 leading-relaxed text-sm sm:text-base font-light">
+                Impulsar el desarrollo, la ética y la excelencia de nuestros
+                miembros, cimentando las mejores prácticas del sector
+                financiero. Nuestro propósito es ser el faro que guíe el
+                conocimiento, la integridad y el impacto positivo, contribuyendo
+                de forma decisiva al crecimiento sostenible y responsable de la
+                economía de Santa Cruz y de Bolivia.
+              </p>
+            </div>
+
+            {/* Visión */}
+            <div className="space-y-3.5 text-left p-2">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                  <Activity className="h-5.5 w-5.5" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                  Visión
+                </h3>
+              </div>
+              <p className="text-slate-650 dark:text-slate-400 leading-relaxed text-sm sm:text-base font-light">
+                Aspiramos a que la Asociación de Profesionales Financieros de
+                Santa Cruz sea reconocida como la organización líder y más
+                influyente en el ámbito financiero regional y nacional.
+                Visualizamos una asociación que no solo eleve el estándar
+                profesional, sino que también sea un referente clave en la
+                formación de líderes éticos, la promoción de la innovación y la
+                defensa proactiva de los intereses del sector, generando una
+                confianza invaluable y un valor tangible para la sociedad y el
+                progreso económico de nuestra querida Santa Cruz.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 5. HISTORIA (FLUID TIMELINE BANNER) ── */}
+      <section
+        id="historia"
+        className="w-full bg-slate-50 dark:bg-slate-900/30 py-6 md:py-16 px-4 sm:px-8 scroll-mt-20"
+      >
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-5 space-y-4 text-left">
+            <span className="text-xs font-black tracking-widest text-purple-600 dark:text-purple-400 uppercase">
+              Orígenes del Programa
+            </span>
+            <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              Nuestra Historia
+            </h2>
+            <div className="h-1 bg-purple-500 w-12 rounded-full" />
+          </div>
+
+          <div className="lg:col-span-7 text-slate-600 dark:text-slate-300 text-base sm:text-lg leading-relaxed font-light pl-6 border-l-4 border-purple-500/30">
+            <p>
+              La carrera de <strong>Ingeniería Financiera</strong> se fundó el{" "}
+              <strong>11 de Junio de 2002</strong>. Las universidades pioneras
+              en lanzar esta disciplina en Santa Cruz fueron la{" "}
+              <strong>U.A.G.R.M.</strong> y la <strong>UPSA</strong>,
+              integrándose luego prestigiosas instituciones de formación
+              superior como NUR, UCB, UTEPSA y UPB. Actualmente es una
+              especialidad de gran proyección con profesionales activos en
+              puestos clave alrededor del mundo.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 6. SECCIÓN ÚNETE (LUXURY CARD CTA) ── */}
+      <section
+        id="unete"
+        className="w-full py-8 md:py-16 px-4 sm:px-8 bg-slate-950 text-white scroll-mt-20 relative overflow-hidden"
+      >
+        {/* Background lights */}
+        <div className="absolute -right-20 -bottom-20 h-64 w-64 bg-emerald-500/10 blur-3xl rounded-full" />
+
+        <div className="max-w-6xl mx-auto relative z-10 grid lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-7 space-y-6">
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+              <Briefcase className="h-3.5 w-3.5" /> MEMBRESÍA INSTITUCIONAL
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+              Únete a la Asociación de Profesionales Financieros
+            </h2>
+            <p className="text-slate-350 text-sm sm:text-base leading-relaxed font-light">
+              Tu crecimiento es nuestro motor. Afíliate hoy para expandir tu red
+              corporativa, capacitarte continuamente y tener representación ante
+              los principales entes financieros.
+            </p>
+
+            <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm border-l-2 border-emerald-500/30 pl-4">
+              <div>
+                <span className="block text-[10px] text-slate-450 uppercase tracking-widest">
+                  Inscripción
+                </span>
+                <span className="text-lg font-bold text-emerald-450">
+                  150 Bs.
+                </span>
+              </div>
+              <div className="w-[1px] bg-slate-800 self-stretch hidden sm:block" />
+              <div>
+                <span className="block text-[10px] text-slate-450 uppercase tracking-widest">
+                  Mensualidad
+                </span>
+                <span className="text-lg font-bold text-emerald-450">
+                  20 Bs.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-5 space-y-6">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Users className="h-5 w-5 text-emerald-400" /> Requisitos
+            </h3>
+            <ul className="space-y-3.5 text-xs sm:text-sm text-slate-300">
+              <li className="flex items-start gap-2.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>
+                  Fotocopia de Carnet de Identidad (anverso y reverso).
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>
+                  Fotocopia de Título en Provisión Nacional y/o Académico.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>Curriculum Vitae actualizado.</span>
+              </li>
+            </ul>
+
             <a
-              href="#historia"
-              className="flex items-center gap-2 rounded-xl bg-slate-800 px-6 py-3.5 text-sm font-bold text-slate-300 transition-all hover:bg-slate-700 border border-slate-700/50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+              href="https://wa.me/59161553010?text=Hola,%20quisiera%20afiliarme%20a%20la%20Asociaci%C3%B3n%20de%20Profesionales%20Financieros."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full rounded-full bg-emerald-600 hover:bg-emerald-700 px-6 py-4 text-sm font-bold text-white transition-all shadow-lg shadow-emerald-950/20 active:scale-95 cursor-pointer"
             >
-              Conocer Historia
+              <svg
+                className="h-5 w-5 fill-current"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.458L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.451 5.403.002 9.803-4.394 9.806-9.8.001-2.618-1.01-5.08-2.848-6.92C16.39 2.045 13.922 1.025 11.99 1.025 6.597 1.025 2.193 5.42 2.19 10.82c-.001 1.516.4 2.993 1.158 4.3l-.993 3.628 3.702-.972zm10.957-7.46c-.3-.15-1.77-.873-2.046-.973-.276-.1-.477-.15-.676.15-.2.3-.77.973-.944 1.173-.175.2-.35.226-.65.076-.3-.15-1.267-.467-2.413-1.488-.892-.796-1.493-1.78-1.668-2.08-.176-.3-.018-.462.13-.61.135-.133.3-.35.45-.525.15-.175.2-.3.3-.5.1-.2.05-.375-.025-.525-.075-.15-.676-1.628-.926-2.228-.243-.584-.49-.505-.676-.514-.175-.008-.375-.01-.576-.01-.2 0-.526.075-.802.375-.276.3-1.052 1.028-1.052 2.506s1.077 2.903 1.228 3.102c.15.2 2.12 3.237 5.136 4.54.717.31 1.277.494 1.714.633.72.228 1.376.196 1.894.118.577-.087 1.77-.724 2.02-1.388.25-.664.25-1.23.175-1.348-.075-.118-.275-.188-.575-.338z" />
+              </svg>
+              <span>Afiliarse por WhatsApp</span>
             </a>
           </div>
         </div>
-        
-        {/* Decorative Blockchain Widget */}
-        <div className="absolute right-0 top-0 h-full w-1/2 opacity-15 sm:opacity-25 lg:opacity-100 hidden md:block" aria-hidden="true">
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-transparent to-transparent z-10" />
-          <div className="absolute inset-0 bg-blue-600/10 blur-3xl rounded-full translate-x-1/3 -translate-y-1/3" />
-          <div className="h-full w-full flex items-center justify-center p-8">
-            <div className="relative border border-slate-800/80 rounded-2xl p-6 bg-slate-950/60 backdrop-blur-md shadow-2xl max-w-sm w-full space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs text-slate-400 font-mono">blockchain_audit_live</span>
-                </div>
-                <ShieldCheck className="h-4 w-4 text-blue-400" />
-              </div>
-              <div className="space-y-2 text-xs font-mono text-slate-300">
-                <p className="text-slate-500">// Última transacción sellada</p>
-                <p className="text-emerald-400">TX_ID: 0x8a9f24c08832e1...</p>
-                <p>Concepto: Pago Cuota Ordinaria</p>
-                <p>Estado: SECURE_LEDGER</p>
-              </div>
-              <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 w-3/4 rounded-full animate-pulse" />
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
-      {/* ── BIENVENIDA Y NÚMEROS CLAVE (DINÁMICOS) ── */}
-      <section className="grid md:grid-cols-12 gap-8 md:gap-12 items-center" aria-labelledby="welcome-heading">
-        <div className="md:col-span-7 space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600">
-            <Heart className="h-4 w-4" aria-hidden="true" />
-            MENSAJE DE BIENVENIDA
+      {/* ── 7. UBICACIÓN Y CONTACTO ── */}
+      <section
+        id="contacto"
+        className="w-full bg-slate-50 dark:bg-slate-900/30 py-6 md:py-16 px-4 sm:px-8 scroll-mt-20"
+      >
+        <div className="max-w-6xl mx-auto space-y-8 md:space-y-16">
+          <div className="text-center max-w-xl mx-auto space-y-3">
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <MapPin className="h-4 w-4" /> SEDE CENTRAL
+            </span>
+            <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              Contacto y Ubicación
+            </h2>
           </div>
-          <h2 id="welcome-heading" className="text-2xl sm:text-4xl font-bold text-slate-900 leading-tight">
-            Comprometidos con la excelencia profesional y la integridad
-          </h2>
-          <p className="text-slate-600 leading-relaxed">
-            Es un verdadero honor darles la bienvenida a la plataforma oficial de nuestra Asociación. Nos erigimos como una institución consagrada a congregar a los profesionales más talentosos, construyendo un entorno sólido para el desarrollo continuo, el intercambio de conocimientos científicos y sociales, y la gobernanza óptima de nuestras finanzas.
-          </p>
-          <p className="text-slate-600 leading-relaxed">
-            A través de esta plataforma digital avanzada, cada miembro puede consultar su historial de aportes, acceder a certificaciones de eventos académicos y certificar la transparencia institucional mediante nuestro innovador libro contable inmutable sellado en la Blockchain.
-          </p>
-          
-          {/* Estadísticas Dinámicas */}
-          {error ? (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-100 text-sm text-amber-700">
-              <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
-              <span>{error}</span>
-              <button onClick={retry} className="ml-auto text-xs font-bold underline hover:no-underline focus:outline-none focus:ring-1 focus:ring-amber-400 rounded">
-                Reintentar
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100" role="group" aria-label="Estadísticas institucionales">
-              {statsCards.map((s) => (
-                <StatCard key={s.label} value={s.value} label={s.label} color={s.color} loading={loading} />
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* MISIÓN Y VISIÓN CARDS */}
-        <div className="md:col-span-5 space-y-6">
-          <MissionCard
-            icon={Compass}
-            title="Nuestra Misión"
-            color="blue"
-            description="Fomentar el crecimiento integral, ético e innovador de nuestros profesionales mediante capacitaciones de vanguardia, creando una comunidad colaborativa y garantizando la pulcritud financiera institucional."
-          />
-          <MissionCard
-            icon={Activity}
-            title="Nuestra Visión"
-            color="emerald"
-            description="Consolidarnos para el año 2030 como la asociación gremial referente a nivel nacional en innovación tecnológica, transparencia administrativa y aporte educativo a la sociedad civil."
-          />
-        </div>
-      </section>
-
-      {/* ── HISTORIA (TIMELINE) ── */}
-      <section id="historia" className="space-y-12 scroll-mt-24" aria-labelledby="history-heading">
-        <div className="text-center max-w-xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-600">
-            <Building className="h-4 w-4" aria-hidden="true" />
-            NUESTRA HISTORIA
-          </div>
-          <h2 id="history-heading" className="text-2xl sm:text-3xl font-bold text-slate-900">Una década de constante evolución</h2>
-          <p className="text-slate-500 text-sm sm:text-base">
-            El camino recorrido por la Asociación refleja el esfuerzo conjunto de cada profesional y socio.
-          </p>
-        </div>
-
-        <div className="relative border-l border-slate-200 ml-4 md:ml-12 space-y-12" role="list" aria-label="Línea de tiempo institucional">
-          {TIMELINE_DATA.map((item, i) => (
-            <div key={item.year} role="listitem">
-              <TimelineItem index={i} {...item} />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── UBICACIÓN Y CONTACTO ── */}
-      <section id="contacto" className="space-y-12 scroll-mt-24" aria-labelledby="contact-heading">
-        <div className="text-center max-w-xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-600">
-            <MapPin className="h-4 w-4" aria-hidden="true" />
-            ENCUÉNTRANOS
-          </div>
-          <h2 id="contact-heading" className="text-2xl sm:text-3xl font-bold text-slate-900">Nuestra Sede y Canales de Atención</h2>
-          <p className="text-slate-500 text-sm sm:text-base">
-            Visite nuestras oficinas administrativas o contáctenos mediante cualquiera de nuestros canales oficiales.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-12 gap-8 items-stretch">
-          
-          {/* Card de Información */}
-          <div className="md:col-span-5 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between space-y-6">
-            <div className="space-y-6">
-              <h3 className="text-xl font-bold text-slate-900">Oficina Central</h3>
-              <p className="text-sm text-slate-500 leading-relaxed">
-                Nuestras instalaciones cuentan con salas de juntas, auditorio de capacitación y oficinas de gestión administrativa y auditoría.
-              </p>
-              
-              <address className="space-y-4 not-italic">
+          <div className="grid lg:grid-cols-12 gap-8 items-stretch">
+            {/* Canales */}
+            <div className="lg:col-span-5 bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-[32px] border border-slate-100 dark:border-slate-850 shadow-sm flex flex-col justify-between space-y-8">
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                  Medios de Atención
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-light">
+                  Puedes contactarte con nosotros mediante nuestros canales
+                  autorizados de atención y soporte corporativo.
+                </p>
+              </div>
+              <address className="space-y-6 not-italic">
                 {CONTACT_ITEMS.map((item) => (
                   <ContactItem key={item.label} {...item} />
                 ))}
               </address>
             </div>
-            
-            <div className="pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-medium font-mono">
-              <span>NIT: 3840291024</span>
-              <span>R.A. 204/2015</span>
-            </div>
-          </div>
 
-          {/* Mapa Visual Premium */}
-          <div className="md:col-span-7 relative overflow-hidden rounded-3xl border border-slate-100 bg-slate-950 p-6 flex flex-col justify-between shadow-inner group" aria-label="Ubicación de la sede central en Cochabamba, Bolivia">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(59,130,246,0.15),rgba(255,255,255,0))] pointer-events-none" aria-hidden="true" />
-            <div className="absolute inset-0 opacity-5 bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" aria-hidden="true" />
-            
-            <div className="relative z-10 flex items-center justify-between">
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/90 backdrop-blur border border-slate-800 px-3 py-1 text-xs text-slate-300 font-mono">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                <span>Ubicación GPS Satelital</span>
+            {/* Mapa premium */}
+            <a
+              href="https://maps.app.goo.gl/jtJRnNNr1APQeTKr5"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="lg:col-span-7 relative overflow-hidden rounded-[32px] border border-slate-100 dark:border-slate-850 bg-slate-950 p-6 flex flex-col justify-between shadow-inner group cursor-pointer block hover:border-emerald-500/30 transition-colors"
+              aria-label="Abrir mapa en Google Maps"
+            >
+              <div className="absolute inset-0 z-0 overflow-hidden">
+                <img
+                  src={casa1}
+                  alt="Ubicación"
+                  className="w-full h-full object-cover opacity-15 group-hover:scale-105 group-hover:opacity-25 transition-all duration-1000"
+                />
+                <div className="absolute inset-0 bg-slate-950/60 z-0" />
               </div>
-              <div className="flex gap-2" aria-hidden="true">
-                <span className="h-7 w-7 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-xs text-slate-400 font-bold select-none">+</span>
-                <span className="h-7 w-7 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-xs text-slate-400 font-bold select-none">-</span>
-              </div>
-            </div>
 
-            {/* Radar / Pulse location visualization */}
-            <div className="relative my-8 sm:my-12 flex items-center justify-center" aria-hidden="true">
-              <div className="absolute h-40 w-40 rounded-full border border-blue-500/10 animate-ping" />
-              <div className="absolute h-24 w-24 rounded-full border border-blue-500/20 animate-ping" />
-              <div className="absolute h-12 w-12 rounded-full bg-blue-500/10 border border-blue-500/40" />
-              
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="h-12 w-12 rounded-2xl bg-blue-600 text-white shadow-xl shadow-blue-500/35 border border-blue-400/30 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <MapPin className="h-6 w-6 animate-bounce" />
-                </div>
-                <div className="mt-4 px-4 py-2 rounded-xl bg-slate-900/95 border border-slate-800 shadow-2xl text-center backdrop-blur">
-                  <p className="text-xs font-bold text-white">Sede Central - Control Financiero</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Cochabamba, Bolivia</p>
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/90 backdrop-blur border border-slate-800 px-3 py-1 text-[10px] text-slate-350 font-mono">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  <span>GPS ONLINE</span>
                 </div>
               </div>
-            </div>
 
-            <div className="relative z-10 flex items-center justify-between text-[10px] sm:text-xs text-slate-400 border-t border-slate-900 pt-4 font-mono">
-              <span>LAT: -17.393527</span>
-              <span>LNG: -66.156944</span>
-              <span>zoom: 16.5</span>
-            </div>
+              <div className="relative my-12 flex flex-col items-center z-10">
+                <div className="h-14 w-14 rounded-full bg-emerald-600 text-white shadow-xl shadow-emerald-500/20 flex items-center justify-center animate-bounce">
+                  <MapPin className="h-6 w-6" />
+                </div>
+                <div className="mt-4 px-5 py-2.5 rounded-2xl bg-slate-900/95 border border-slate-800 shadow-xl text-center backdrop-blur">
+                  <p className="text-xs font-bold text-white">
+                    Sede Central APF
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Barrio California, Calle Santa Ana #239
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-900 pt-4 font-mono">
+                <span>LAT: -17.821663</span>
+                <span>LNG: -63.215271</span>
+              </div>
+            </a>
           </div>
-
         </div>
       </section>
 
-      {/* --- MODAL DE CONFIRMACIÓN --- */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 text-white shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-4 mb-4">
-              <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                <Smartphone className="h-5 w-5 text-blue-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">Instalar Aplicación Móvil</h3>
-                <p className="text-xs text-slate-400">Control Financiero Móvil v1.0</p>
-              </div>
-            </div>
-            <p className="text-sm text-slate-300 leading-relaxed mb-6">
-              ¿Deseas descargar e instalar la aplicación de <strong>Control Financiero</strong> en tu dispositivo? Podrás ingresar con un solo toque desde tu pantalla de inicio y disfrutar de un rendimiento óptimo.
-            </p>
-            <div className="flex items-center gap-3 justify-end">
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmarDescarga}
-                className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg shadow-blue-500/15"
-              >
-                Confirmar Acción
-              </button>
-            </div>
-          </div>
+      {/* ── 8. AGRADECIMIENTO ── */}
+      <section className="w-full text-center py-6 md:py-10 bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-900">
+        <div className="max-w-2xl mx-auto px-4 space-y-4">
+          <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+            ¡Muchas Gracias!
+          </h3>
+          <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base italic font-light leading-relaxed">
+            "Gracias por su tiempo e interés en construir un futuro financiero
+            más sólido y ético en nuestra región"
+          </p>
         </div>
-      )}
-
-      {/* --- MODAL DE PROCESANDO Y DESCARGANDO --- */}
-      {showProgress && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 text-white shadow-2xl">
-            <div className="flex flex-col items-center text-center py-4">
-              <Loader2 className="h-10 w-10 text-emerald-400 animate-spin mb-4" />
-              <h3 className="text-lg font-bold mb-1">Procesando y Descargando</h3>
-              <p className="text-xs text-slate-400 mb-6 px-4 h-8">{progressMsg}</p>
-              
-              {/* Barra de progreso */}
-              <div className="relative h-2 w-full bg-slate-800 rounded-full overflow-hidden mb-2">
-                <div 
-                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-200"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <span className="text-xs font-bold text-emerald-400 font-mono">{progress}%</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- MODAL DE INSTALACIÓN EXITOSA --- */}
-      {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 text-white shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="flex flex-col items-center text-center py-4">
-              <div className="h-14 w-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-4">
-                <Check className="h-7 w-7 text-emerald-400" />
-              </div>
-              <h3 className="text-lg font-bold mb-1">¡Descargado con Exito!</h3>
-              <p className="text-xs text-slate-400 mb-6 leading-relaxed px-4">
-                Los paquetes y activos criptograficos de la aplicacion han sido descargados en tu almacenamiento local.
-              </p>
-              
-              {/* Contenedor de instrucciones o botón de acción */}
-              <div className="w-full bg-slate-950/50 rounded-xl p-4 border border-slate-850 mb-6 text-left">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Instrucciones de Instalacion</p>
-                {deferredPrompt ? (
-                  <p className="text-xs text-slate-300">
-                    Haz clic en el boton de abajo para activar el instalador seguro de tu sistema operativo y añadir la aplicacion a tu pantalla principal.
-                  </p>
-                ) : (
-                  <div className="space-y-2 text-xs text-slate-300">
-                    <p className="font-bold text-amber-400 flex items-center gap-1">
-                      ⚠️ Dispositivo compatible detectado
-                    </p>
-                    <p>
-                      <strong>En iOS (Safari):</strong> Haz clic en el boton de compartir del navegador (cuadrado con flecha hacia arriba) y selecciona <strong>"Añadir a pantalla de inicio"</strong>.
-                    </p>
-                    <p>
-                      <strong>En Android/PC:</strong> Si el instalador no se abre solo, haz clic en el menu de 3 puntos del navegador y selecciona <strong>"Instalar aplicacion"</strong>.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3 w-full">
-                <button
-                  onClick={() => setShowSuccess(false)}
-                  className="rounded-xl border border-slate-800 hover:bg-slate-850 px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-white transition-all w-1/2"
-                >
-                  Cerrar
-                </button>
-                {deferredPrompt ? (
-                  <button
-                    onClick={activarPromptNativo}
-                    className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg shadow-emerald-500/15 w-1/2"
-                  >
-                    Instalar Ahora
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowSuccess(false)}
-                    className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg w-1/2 animate-pulse"
-                  >
-                    Entendido
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </main>
+      </section>
+    </div>
   );
 };

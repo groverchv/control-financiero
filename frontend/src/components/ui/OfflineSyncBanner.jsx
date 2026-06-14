@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, RefreshCw, CheckCircle } from 'lucide-react';
+import { Wifi, RefreshCw, CheckCircle } from 'lucide-react';
 import { syncOfflineQueue } from '../../utils/offlineQueue';
 import { administracionApi } from '../../features/administracion/api';
 import { finanzasApi } from '../../features/finanzas/api';
@@ -13,19 +13,74 @@ export const OfflineSyncBanner = () => {
   const [queueCount, setQueueCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const isSyncingRef = React.useRef(false);
 
   const checkQueue = () => {
     try {
       const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
       setQueueCount(queue.length);
+      return queue.length;
     } catch (e) {
+      console.error('[OfflineSyncBanner] Error checking queue:', e);
       setQueueCount(0);
+      return 0;
+    }
+  };
+
+  const handleManualSync = async () => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setIsSyncing(true);
+    try {
+      await syncOfflineQueue({
+        administracionApi,
+        finanzasApi,
+        patrimonioApi,
+        academicoApi
+      });
+      checkQueue();
+      const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+      if (queue.length === 0) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }
+    } catch (e) {
+      console.error('[OfflineSyncBanner] Error al sincronizar:', e);
+    } finally {
+      isSyncingRef.current = false;
+      setIsSyncing(false);
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkQueue();
-    const interval = setInterval(checkQueue, 1500);
+
+    // Auto-sync on startup if online
+    const triggerInitialSync = async () => {
+      try {
+        const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+        if (navigator.onLine && queue.length > 0) {
+          await handleManualSync();
+        }
+      } catch (err) {
+        console.error('[OfflineSyncBanner] Error in triggerInitialSync:', err);
+      }
+    };
+    triggerInitialSync();
+
+    const interval = setInterval(() => {
+      checkQueue();
+      // Auto-sync periodically if online and queue has items
+      try {
+        const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+        if (navigator.onLine && queue.length > 0 && !isSyncingRef.current) {
+          handleManualSync();
+        }
+      } catch (err) {
+        console.error('[OfflineSyncBanner] Error in periodic sync:', err);
+      }
+    }, 2000);
 
     const handleOnline = () => {
       setIsOnline(true);
@@ -44,31 +99,7 @@ export const OfflineSyncBanner = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
-
-  const handleManualSync = async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
-    try {
-      await syncOfflineQueue({
-        administracionApi,
-        finanzasApi,
-        patrimonioApi,
-        academicoApi
-      });
-      checkQueue();
-      // Si se sincronizó con éxito y no quedan pendientes, mostrar éxito por unos segundos
-      const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
-      if (queue.length === 0) {
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
-      }
-    } catch (e) {
-      console.error('[OfflineSyncBanner] Error al sincronizar:', e);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Si está online, no hay pendientes en cola, y no estamos mostrando el mensaje de éxito, no mostrar nada
   if (isOnline && queueCount === 0 && !showSuccess && !isSyncing) {

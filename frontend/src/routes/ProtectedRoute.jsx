@@ -8,9 +8,10 @@ export const ProtectedRoute = ({
   requiredPermissions = [],
   requiredRoles = [],
 }) => {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
   const { canAccess, userRole } = usePermissions();
 
+  // Mientras está cargando, mostrar spinner en vez de redirigir
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-sm text-slate-500">
@@ -20,10 +21,12 @@ export const ProtectedRoute = ({
     );
   }
 
-  if (!isAuthenticated) {
+  // Si no está autenticado y tampoco hay caché local, redirigir al login
+  if (!isAuthenticated && !user) {
     return <Navigate to="/login" replace />;
   }
 
+  // Verificar rol requerido (usando el rol del store que puede venir de caché)
   if (requiredRoles.length > 0 && !requiredRoles.includes(userRole || '')) {
     return <Navigate to="/" replace />;
   }

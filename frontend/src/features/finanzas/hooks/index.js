@@ -20,8 +20,9 @@ export const usePagos = (miembroId) => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
-  }, [miembroId]);
+  }, [miembroId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { cuotas, loading, error, setCuotas, refetch: load };
 };
@@ -58,6 +59,7 @@ export const useEgresos = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, []);
 

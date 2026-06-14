@@ -196,8 +196,13 @@ const MiembroRow = ({ registro }) => {
                 {cronograma.filter(c => !c.pagado).map((c, idx) => {
                   let labelPrincipal;
                   let labelSecundario;
-                  
-                  if (c.mes.includes('-') && !c.mes.startsWith('T')) {
+
+                  if (c.mes.startsWith('Día ')) {
+                    const datePart = c.mes.substring(4);
+                    const [year, month, day] = datePart.split('-').map(Number);
+                    labelPrincipal = `${day} ${MESES_ES[month - 1]}`;
+                    labelSecundario = year.toString();
+                  } else if (c.mes.includes('-') && !c.mes.startsWith('T')) {
                     const [year, month] = c.mes.split('-').map(Number);
                     labelPrincipal = MESES_ES[month - 1];
                     labelSecundario = year.toString();
@@ -206,11 +211,17 @@ const MiembroRow = ({ registro }) => {
                     labelSecundario = '';
                   }
 
+                  const fechaGen = c.creacion ? new Date(c.creacion) : null;
+                  const fechaGenStr = fechaGen
+                    ? fechaGen.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' +
+                      fechaGen.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                    : '—';
+
                   return (
                     <div 
                       key={c.mes + '-' + idx} 
-                      title={`Pendiente — Vence: ${new Date(c.fechaVencimientoAjustada + 'T00:00:00').toLocaleDateString('es-ES')}`}
-                      className={`flex flex-col items-center justify-center min-w-[125px] h-24 px-3 py-2 rounded-xl border-2 transition-all text-center relative group ${
+                      title={`Pendiente — Generada: ${fechaGenStr}`}
+                      className={`flex flex-col items-center justify-center min-w-[125px] h-28 px-3 py-2 rounded-xl border-2 transition-all text-center relative group ${
                         idx === 0
                           ? 'bg-red-50 border-red-400 text-red-800 ring-2 ring-red-300 ring-offset-1 shadow-sm hover:shadow-md'
                           : 'bg-orange-50 border-orange-200 text-orange-800 shadow-sm hover:shadow-md'
@@ -224,6 +235,9 @@ const MiembroRow = ({ registro }) => {
                           {formatCurrency(c.monto_esperado || 150)}
                         </span>
                       </div>
+                      <span className="text-[9px] text-slate-500 font-bold mt-1">
+                        {fechaGenStr}
+                      </span>
                       
                       {idx === 0 && (
                         <button
@@ -621,7 +635,9 @@ export const HistorialCuotasPage = () => {
                 onChange={e => setConfigForm(prev => ({ ...prev, frecuencia: e.target.value }))}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
+                <option value="1_minuto">Cada 1 min (Pruebas)</option>
                 <option value="3_minutos">Cada 3 min (Pruebas)</option>
+                <option value="5_minutos">Cada 5 min (Pruebas)</option>
                 <option value="1_dia">Cada Día (Pruebas)</option>
                 <option value="mes">Cada Mes (Estándar)</option>
               </select>

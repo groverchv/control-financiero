@@ -1,16 +1,47 @@
 import { useState, useEffect } from 'react';
-import { Link, Outlet, useNavigate, NavLink } from 'react-router-dom';
+import { Link, Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
-import { LogOut, User as UserIcon, Menu, X, ChevronDown, ShieldCheck, GraduationCap } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, X, ChevronDown, ShieldCheck, GraduationCap, Sun, Moon, Monitor, Download, Smartphone } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
 
 export const PublicLayout = () => {
   const { user, logout, isAuthenticated } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
+  const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
   const navigate = useNavigate();
+  const [theme, setTheme] = useTheme();
+  const location = useLocation();
+  const isLanding = location.pathname === '/' || location.pathname === '/inicio';
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showPwaModal, setShowPwaModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const mobileWidth = window.innerWidth < 768;
+      setIsMobile(mobileUA || mobileWidth);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);
@@ -24,10 +55,29 @@ export const PublicLayout = () => {
     setShowLogoutConfirm(false);
   };
 
-  const navLinks = [
+  const associationLinks = [
     { to: '/inicio', label: 'Inicio' },
-    { to: '/actividades', label: 'Actividades' },
+    { to: '/inicio#bienvenida', label: 'Bienvenida' },
+    { to: '/inicio#que-hacemos', label: '¿Qué Hacemos?' },
+    { to: '/inicio#proposito', label: 'Propósito' },
+    { to: '/inicio#historia', label: 'Historia' },
+    { to: '/inicio#unete', label: 'Únete' },
+    { to: '/inicio#contacto', label: 'Contacto' },
   ];
+
+  useEffect(() => {
+    if (location.hash) {
+      const id = decodeURIComponent(location.hash.replace('#', ''));
+      // Wait a tiny bit for the page content to be fully rendered
+      const timer = setTimeout(() => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname, location.hash]);
 
   const authLinks = [
     { to: '/socio/estado-cuenta', label: 'Estado de Cuenta' },
@@ -66,7 +116,7 @@ export const PublicLayout = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
+      <header className={`sticky top-0 z-50 bg-white/80 backdrop-blur-md ${isLanding ? 'border-b border-transparent' : 'border-b'}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-3 sm:gap-4 md:gap-10">
             {/* MOBILE MENU BUTTON */}
@@ -82,7 +132,11 @@ export const PublicLayout = () => {
                 className={`text-sm sm:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 hover:opacity-80 transition-all ${isAuthenticated && (user?.rol === 'admin' || user?.rol === 'secretario') ? 'cursor-pointer' : 'cursor-default'}`}
                 onClick={() => isAuthenticated && (user?.rol === 'admin' || user?.rol === 'secretario') && setIsNavOpen(!isNavOpen)}
               >
-                Control<span className="text-blue-600">Financiero</span>
+                <img src="/logo-ap.png" alt="Logo AP" className="h-8 w-auto object-contain" />
+                <span className="text-sm sm:text-base font-bold tracking-tight text-slate-900 leading-tight text-left">
+                  <span className="block text-[9px] uppercase tracking-wider text-slate-500 font-semibold leading-none">Asociación de</span>
+                  <span className="text-slate-900">Profesionales <span className="text-emerald-600">Financieros</span></span>
+                </span>
                 {isAuthenticated && (user?.rol === 'admin' || user?.rol === 'secretario') && <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isNavOpen ? 'rotate-180' : ''}`} />}
               </button>
 
@@ -118,15 +172,48 @@ export const PublicLayout = () => {
             </div>
             
             <nav className="hidden items-center gap-4 lg:gap-6 xl:flex">
-              {navLinks.map(link => (
-                <NavLink 
-                  key={link.to} 
-                  to={link.to} 
-                  className={({ isActive }) => `text-sm font-medium transition-colors ${isActive ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
+              {/* MENU DESPLEGABLE: INICIO / LA ASOCIACIÓN */}
+              <div 
+                className="relative"
+                onMouseEnter={() => setIsDropdownOpen(true)}
+                onMouseLeave={() => setIsDropdownOpen(false)}
+              >
+                <button 
+                  className={`flex items-center gap-1 text-sm font-medium transition-colors ${
+                    location.pathname === '/inicio' || location.pathname === '/'
+                      ? 'text-blue-600' 
+                      : 'text-slate-600 hover:text-blue-600'
+                  }`}
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 >
-                  {link.label}
-                </NavLink>
-              ))}
+                  Inicio
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute top-full left-0 pt-2 w-48 z-50">
+                    <div className="rounded-xl bg-white shadow-xl border border-slate-100 py-2 animate-in fade-in zoom-in-95 duration-200">
+                      {associationLinks.map(link => (
+                        <Link
+                          key={link.to}
+                          to={link.to}
+                          className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+                          onClick={() => setIsDropdownOpen(false)}
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <NavLink 
+                to="/actividades" 
+                className={({ isActive }) => `text-sm font-medium transition-colors ${isActive ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
+              >
+                Actividades
+              </NavLink>
               {isAuthenticated && authLinks.map(link => (
                 <NavLink 
                   key={link.to} 
@@ -145,6 +232,73 @@ export const PublicLayout = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 ml-auto min-w-0 shrink-0">
+            {/* Selector de Tema Escritorio (Dropdown) */}
+            <div 
+              className="relative hidden md:block mr-2"
+              onMouseEnter={() => setIsThemeDropdownOpen(true)}
+              onMouseLeave={() => setIsThemeDropdownOpen(false)}
+            >
+              <button
+                onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
+                className="flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-slate-800/60 p-2 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/80 transition-all shadow-sm"
+                title="Cambiar Tema"
+              >
+                {theme === 'light' && <Sun className="h-4 w-4 text-amber-500" />}
+                {theme === 'dark' && <Moon className="h-4 w-4 text-indigo-400" />}
+                {theme === 'system' && <Monitor className="h-4 w-4 text-blue-500" />}
+                <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isThemeDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isThemeDropdownOpen && (
+                <div className="absolute top-full right-0 pt-2 w-36 z-50">
+                  <div className="rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-105 dark:border-slate-800 py-1.5 animate-in fade-in zoom-in-95 duration-200">
+                    <button
+                      onClick={() => {
+                        setTheme('light');
+                        setIsThemeDropdownOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-bold transition-colors text-left ${
+                        theme === 'light' 
+                          ? 'text-blue-600 bg-blue-50/50 dark:text-blue-400 dark:bg-slate-800/50' 
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Sun className="h-4 w-4 text-amber-500" />
+                      <span>Claro</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTheme('dark');
+                        setIsThemeDropdownOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-bold transition-colors text-left ${
+                        theme === 'dark' 
+                          ? 'text-blue-600 bg-blue-50/50 dark:text-blue-400 dark:bg-slate-800/50' 
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Moon className="h-4 w-4 text-indigo-400" />
+                      <span>Oscuro</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTheme('system');
+                        setIsThemeDropdownOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-bold transition-colors text-left ${
+                        theme === 'system' 
+                          ? 'text-blue-600 bg-blue-50/50 dark:text-blue-400 dark:bg-slate-800/50' 
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Monitor className="h-4 w-4 text-blue-500" />
+                      <span>Sistema</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="hidden items-center gap-4 md:flex min-w-0">
               {isAuthenticated ? (
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -233,16 +387,42 @@ export const PublicLayout = () => {
         {isMenuOpen && (
           <div className="border-t bg-white px-4 sm:px-6 py-5 xl:hidden">
             <nav className="flex flex-col gap-1">
-              {navLinks.map(link => (
-                <NavLink 
-                  key={link.to} 
-                  to={link.to} 
-                  className={({ isActive }) => `text-base font-medium px-3 py-2.5 rounded-xl transition-colors ${isActive ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}
-                  onClick={() => setIsMenuOpen(false)}
+              {/* MOBILE DROPDOWN/ACCORDION: INICIO */}
+              <div className="flex flex-col">
+                <button
+                  className="flex w-full items-center justify-between text-base font-medium px-3 py-2.5 rounded-xl text-slate-900 hover:bg-slate-50 transition-colors"
+                  onClick={() => setIsMobileDropdownOpen(!isMobileDropdownOpen)}
                 >
-                  {link.label}
-                </NavLink>
-              ))}
+                  <span>Inicio</span>
+                  <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isMobileDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isMobileDropdownOpen && (
+                  <div className="flex flex-col gap-1 pl-6 mt-1 border-l border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-1 duration-200">
+                    {associationLinks.map(link => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        className="text-sm font-medium px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-600 transition-colors"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsMobileDropdownOpen(false);
+                        }}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <NavLink 
+                to="/actividades" 
+                className={({ isActive }) => `text-base font-medium px-3 py-2.5 rounded-xl transition-colors ${isActive ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Actividades
+              </NavLink>
               {isAuthenticated && (
                 <>
                   {authLinks.map(link => (
@@ -293,20 +473,155 @@ export const PublicLayout = () => {
                   </Link>
                 )}
               </div>
+
+              {/* Selector de Tema Móvil */}
+              <div className="mt-4 border-t pt-4">
+                <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Tema
+                </p>
+                <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/60">
+                  <button
+                    onClick={() => setTheme('light')}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                      theme === 'light'
+                        ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400'
+                        : 'text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/40'
+                    }`}
+                  >
+                    <Sun className="h-4 w-4" />
+                    <span>Claro</span>
+                  </button>
+                  <button
+                    onClick={() => setTheme('dark')}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                      theme === 'dark'
+                        ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400'
+                        : 'text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/40'
+                    }`}
+                  >
+                    <Moon className="h-4 w-4" />
+                    <span>Oscuro</span>
+                  </button>
+                  <button
+                    onClick={() => setTheme('system')}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                      theme === 'system'
+                        ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400'
+                        : 'text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/40'
+                    }`}
+                  >
+                    <Monitor className="h-4 w-4" />
+                    <span>Sistema</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Opción de Instalar Aplicación para Móviles */}
+              {isMobile && (
+                <div className="mt-4 border-t pt-4">
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      setShowPwaModal(true);
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-4 py-3 text-sm font-bold transition-all"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Instalar Aplicación</span>
+                  </button>
+                </div>
+              )}
             </nav>
           </div>
         )}
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-12">
+      <main className={isLanding ? "w-full" : "mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-12"}>
         <Outlet />
       </main>
 
       <footer className="border-t bg-white py-8 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 text-center">
-          <p className="text-sm text-slate-500">© 2026 Control Financiero Institucional. Todos los derechos reservados.</p>
+          <p className="text-sm text-slate-500">© 2026 Asociación de Profesionales Financieros. Todos los derechos reservados.</p>
         </div>
       </footer>
+
+      {/* MODAL DE INSTALACIÓN PWA MÓVIL */}
+      {showPwaModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-slate-900 dark:text-white shadow-2xl">
+            <button
+              onClick={() => setShowPwaModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-650 dark:hover:text-slate-300"
+              aria-label="Cerrar"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-850 pb-4 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-650 dark:text-blue-400">
+                <Smartphone className="h-5.5 w-5.5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold">Instalar Aplicación Móvil</h3>
+                <p className="text-[10px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider">APF Móvil PWA</p>
+              </div>
+            </div>
+            
+            <div className="bg-slate-50 dark:bg-slate-955 p-4 rounded-xl border border-slate-100 dark:border-slate-850 mb-6 text-left space-y-2.5">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instrucciones</p>
+              {deferredPrompt ? (
+                <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed">
+                  Haz clic en el botón de abajo para iniciar el instalador de tu sistema y añadir la aplicación a tu pantalla principal.
+                </p>
+              ) : (
+                <div className="space-y-2 text-xs text-slate-600 dark:text-slate-350 leading-relaxed">
+                  <p className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    ⚠️ Instalación semiautomática
+                  </p>
+                  <p>
+                    <strong>En iOS (Safari):</strong> Pulsa el botón de compartir del navegador (cuadrado con flecha hacia arriba) y selecciona <strong>"Añadir a pantalla de inicio"</strong>.
+                  </p>
+                  <p>
+                    <strong>En Android / Chrome:</strong> Pulsa el menú de 3 puntos del navegador y selecciona <strong>"Instalar aplicación"</strong> o "Añadir a pantalla de inicio".
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 justify-end pt-2 border-t border-slate-100 dark:border-slate-850">
+              <button
+                onClick={() => setShowPwaModal(false)}
+                className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+              >
+                Cerrar
+              </button>
+              {deferredPrompt ? (
+                <button
+                  onClick={async () => {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                      setShowPwaModal(false);
+                    }
+                    setDeferredPrompt(null);
+                  }}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg"
+                >
+                  Instalar Ahora
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowPwaModal(false)}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg"
+                >
+                  Entendido
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE CONFIRMACIÓN DE CIERRE DE SESIÓN */}
       {showLogoutConfirm && (

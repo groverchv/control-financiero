@@ -156,7 +156,7 @@ export const GestionActividadesPage = () => {
     !selectedFile &&
     !adicionalCupos;
 
-  const isSubmitDisabled = isFormUnchanged;
+  const isSubmitDisabled = isFormUnchanged || isFormInvalid;
 
   // Asistencia & Manual Enrollment States
   const [todosMiembros, setTodosMiembros] = useState([]);

@@ -232,7 +232,7 @@ const MiembroRow = ({ registro }) => {
                       <div className="flex items-center gap-1.5 mt-1">
                         <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
                         <span className="text-xs font-black tracking-tight">
-                          {formatCurrency(c.monto_esperado || 150)}
+                          {formatCurrency(c.monto_esperado || 20)}
                         </span>
                       </div>
                       <span className="text-[9px] text-slate-500 font-bold mt-1">
@@ -250,7 +250,7 @@ const MiembroRow = ({ registro }) => {
                                 socioId: miembro.id,
                                 socioNombre: nombreCompleto,
                                 socioCorreo: miembro.correoElectronico,
-                                monto: c.monto_esperado || 150,
+                                monto: c.monto_esperado || 20,
                                 descripcion: `Cuota de membresía correspondiente a ${labelPrincipal} ${labelSecundario}`.trim()
                               }
                             });
@@ -289,7 +289,7 @@ export const HistorialCuotasPage = () => {
   const [filtroDeuda, setFiltroDeuda] = useState('todos');
   const [confirmPausa, setConfirmPausa] = useState(false);
   const [configModal, setConfigModal] = useState(false);
-  const [configForm, setConfigForm] = useState({ frecuencia: 'mes', monto_cuota: 150 });
+  const [configForm, setConfigForm] = useState({ frecuencia: 'mes', monto_cuota: 20 });
   const [infoModal, setInfoModal] = useState({ open: false, title: '', message: '', isWarning: false });
   const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
   const [currentPage, setCurrentPage] = useState(1);
@@ -312,7 +312,7 @@ export const HistorialCuotasPage = () => {
       if (cfg) {
         setConfigForm({
           frecuencia: cfg.frecuencia || 'mes',
-          monto_cuota: cfg.monto_cuota || 150
+          monto_cuota: cfg.monto_cuota || 20
         });
       }
     } catch (err) {
@@ -338,7 +338,7 @@ export const HistorialCuotasPage = () => {
       // Formatear numéricos antes de guardar
       const payload = {
         ...configForm,
-        monto_cuota: parseFloat(configForm.monto_cuota) || 150
+        monto_cuota: parseFloat(configForm.monto_cuota) || 20
       };
       
       const resp = await finanzasApi.actualizarConfiguracionCuotas(payload);
@@ -431,7 +431,7 @@ export const HistorialCuotasPage = () => {
             onClick={() => {
               setConfigForm({
                 frecuencia: config?.frecuencia || 'mes',
-                monto_cuota: config?.monto_cuota || 150
+                monto_cuota: config?.monto_cuota || 20
               });
               setConfigModal(true);
             }}
@@ -439,7 +439,7 @@ export const HistorialCuotasPage = () => {
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
           >
             <Clock className="h-4 w-4 text-slate-500 shrink-0" />
-            <span className="whitespace-nowrap">Frecuencia</span>
+            <span className="whitespace-nowrap">Configuración de cuotas</span>
           </button>
 
           {/* BOTÓN PAUSA GLOBAL */}

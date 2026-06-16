@@ -371,16 +371,16 @@ BEGIN
   )
   ON CONFLICT (id) DO NOTHING;
 
-  -- Insertar primera cuota de bienvenida
+  -- Insertar primera cuota de bienvenida (Inscripción)
   INSERT INTO public.cuota_membresia (miembro_id, periodo, monto_esperado, estado)
   VALUES (
     new.id,
     CASE 
-      WHEN v_frecuencia = '3_minutos' THEN 'Registro (3 min)'
-      WHEN v_frecuencia = '1_dia' THEN 'Registro (Día)'
-      ELSE TO_CHAR(now(), 'YYYY-MM')
+      WHEN v_frecuencia = '3_minutos' THEN 'Inscripción (3 min)'
+      WHEN v_frecuencia = '1_dia' THEN 'Inscripción (Día)'
+      ELSE 'Inscripción ' || TO_CHAR(now(), 'YYYY-MM')
     END,
-    v_monto,
+    150, -- Inscripción fija de 150 bs
     'pendiente'
   );
   
@@ -672,7 +672,7 @@ CREATE TABLE IF NOT EXISTS public.configuracion_cuotas (
   dias_pausados numeric      NOT NULL DEFAULT 0,
   dias_recordatorio_activos integer NOT NULL DEFAULT 5,
   frecuencia    text         NOT NULL DEFAULT 'mes',
-  monto_cuota   numeric      NOT NULL DEFAULT 150,
+  monto_cuota   numeric      NOT NULL DEFAULT 20,
   creacion      timestamptz  NOT NULL DEFAULT now(),
   actualizacion timestamptz  NOT NULL DEFAULT now()
 );
@@ -693,10 +693,10 @@ CREATE TRIGGER trg_configuracion_cuotas_updated
 
 -- ── Upgrade guard: añadir columnas nuevas si no existen (para BDs ya creadas) ──
 ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS frecuencia    text    NOT NULL DEFAULT 'mes';
-ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS monto_cuota   numeric NOT NULL DEFAULT 150;
+ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS monto_cuota   numeric NOT NULL DEFAULT 20;
 
 INSERT INTO public.configuracion_cuotas (pausado, dias_pausados, dias_recordatorio_activos, frecuencia, monto_cuota)
-SELECT false, 0, 5, 'mes', 150
+SELECT false, 0, 5, 'mes', 20
 WHERE NOT EXISTS (SELECT 1 FROM public.configuracion_cuotas);
 
 -- ── Tabla: plan_amortizacion ──────────────────────────────────

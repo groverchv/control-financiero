@@ -1302,7 +1302,7 @@ export const GestionMiembrosPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Monto Cuota Base</span>
-                  <span className="text-lg font-black text-slate-700">{formatCurrency(detailModal.cronograma?.[0]?.monto_esperado || 150)}</span>
+                  <span className="text-lg font-black text-slate-700">{formatCurrency(detailModal.cronograma?.[0]?.monto_esperado || 20)}</span>
                 </div>
                 <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-4 shadow-sm">
                   <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block mb-1">Deuda Acumulada</span>

@@ -332,7 +332,7 @@ export const finanzasApi = {
         .ilike('titulo', 'Cuota generada:%');
 
       const { brevoService } = await import('../../../services/brevo.js');
-      const montoCuota = config?.monto_cuota || 150;
+      const montoCuota = config?.monto_cuota || 20;
 
       for (const { miembro, cronograma, proximaPendiente } of historial) {
         if (!proximaPendiente) continue;
@@ -406,7 +406,7 @@ export const finanzasApi = {
 
     const fullPayload = {
       frecuencia: configActual?.frecuencia || 'mes',
-      monto_cuota: configActual?.monto_cuota || 150,
+      monto_cuota: configActual?.monto_cuota || 20,
       dias_recordatorio_activos: configActual?.dias_recordatorio_activos || 5,
       ...payload
     };
@@ -514,7 +514,7 @@ export const finanzasApi = {
                   cuotasNuevas.push({
                     miembro_id: m.id,
                     periodo: `Día ${dateStr}`,
-                    monto_esperado: payload.monto_cuota || 150,
+                    monto_esperado: payload.monto_cuota || 20,
                     estado: 'pendiente',
                     creacion: dayDate.toISOString(),
                   });

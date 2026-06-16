@@ -347,7 +347,7 @@ export const RegistroCuotasPage = () => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({
           ...prev,
-          monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 150),
+          monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 20),
           fecha: getCuotaGeneracionDate(registroSocio.proximaPendiente),
           descripcion: desc
         }));
@@ -360,7 +360,7 @@ export const RegistroCuotasPage = () => {
         const mes = registroSocio.proximaPendiente.mes;
         const periodoNombre = parseMesToNombre(mes);
         const desc = `Cuota de membresía correspondiente a ${periodoNombre}.`;
-        setForm(prev => ({ ...prev, monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 150), fecha: getCuotaGeneracionDate(registroSocio.proximaPendiente), descripcion: desc }));
+        setForm(prev => ({ ...prev, monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 20), fecha: getCuotaGeneracionDate(registroSocio.proximaPendiente), descripcion: desc }));
       }
     }
   }, [modoIngreso, form.miembroBuscador, form.tipo_ingreso_id, registroSocio, configuracionCuotas, esMembresiaOrdinaria]);
@@ -904,7 +904,7 @@ export const RegistroCuotasPage = () => {
                         </p>
                         <p className="flex items-center gap-2">
                           <BadgeDollarSign className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                          Monto: <strong>Bs. {Number(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 150).toFixed(2)}</strong>
+                          Monto: <strong>Bs. {Number(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 20).toFixed(2)}</strong>
                         </p>
                       </div>
                     </>

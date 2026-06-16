@@ -102,6 +102,7 @@ export const GestionActividadesPage = () => {
     inscritos: [],
     loading: false,
   });
+  const [searchInscritosQuery, setSearchInscritosQuery] = useState("");
   const [imageModal, setImageModal] = useState({ open: false, url: null });
   const [detalleModal, setDetalleModal] = useState({
     open: false,
@@ -486,6 +487,7 @@ export const GestionActividadesPage = () => {
     });
     setSelectedMiembroId("");
     setMemberSearchQuery("");
+    setSearchInscritosQuery("");
     setIsMemberDropdownOpen(false);
     try {
       const [inscritos, miembros] = await Promise.all([
@@ -541,7 +543,7 @@ export const GestionActividadesPage = () => {
               a.id === inscritosModal.actividad.id
                 ? {
                     ...a,
-                    cupos: Math.max(0, a.cupos - 1),
+                    cupos: Number(a.costo) <= 0 && Number(a.cupos) === 0 ? 0 : Math.max(0, a.cupos - 1),
                     inscritos_count: (a.inscritos_count || 0) + 1,
                   }
                 : a,
@@ -606,7 +608,7 @@ export const GestionActividadesPage = () => {
               a.id === inscritosModal.actividad.id
                 ? {
                     ...a,
-                    cupos: (a.cupos || 0) + 1,
+                    cupos: Number(a.costo) <= 0 && Number(a.cupos) === 0 ? 0 : (a.cupos || 0) + 1,
                     inscritos_count: Math.max(0, (a.inscritos_count || 1) - 1),
                   }
                 : a,
@@ -1683,58 +1685,87 @@ export const GestionActividadesPage = () => {
               <p className="text-sm text-slate-400 text-center py-6">
                 No hay inscritos en esta actividad.
               </p>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-                  {inscritosModal.inscritos.length} inscrito(s)
-                </p>
-                {inscritosModal.inscritos.map((u, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2.5 text-sm border border-slate-100"
-                  >
-                    <div className="flex items-center gap-3">
-                      {!inscritosModal.actividad?.blockchain_tx_id && (
-                        <button
-                          type="button"
-                          onClick={() => handleManualDesinscribir(u)}
-                          className="p-1 text-red-500 hover:bg-rose-50 hover:text-red-700 rounded-lg transition-colors mr-1 shrink-0"
-                          title="Eliminar inscripción"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                      <span className="font-mono font-black text-slate-400 bg-slate-200/50 rounded-full h-6 w-6 flex items-center justify-center text-xs shrink-0">
-                        {i + 1}
-                      </span>
-                      <div>
-                        <p className="font-semibold text-slate-800">
-                          {u.nombre} {u.apellidoPaterno || ""}{" "}
-                          {u.apellidoMaterno || ""}
-                        </p>
-                        <p className="text-xs text-slate-400 font-medium">
-                          {u.email} {u.telefono ? `| Tel: ${u.telefono}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span
-                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${u.estado === "activo" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-slate-50 text-slate-600"}`}
-                      >
-                        {u.estado}
-                      </span>
-                      <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                        {u.fechaInscripcion
-                          ? new Date(u.fechaInscripcion).toLocaleDateString(
-                              "es-ES",
-                            )
-                          : ""}
-                      </p>
-                    </div>
+            ) : (() => {
+              const query = (searchInscritosQuery || "").toLowerCase().trim();
+              const filtered = inscritosModal.inscritos.filter((u) => {
+                const fullName = `${u.nombre || ""} ${u.apellidoPaterno || ""} ${u.apellidoMaterno || ""}`.toLowerCase();
+                const email = (u.email || "").toLowerCase();
+                const phone = (u.telefono || "").toLowerCase();
+                return fullName.includes(query) || email.includes(query) || phone.includes(query);
+              });
+              return (
+                <div className="space-y-3">
+                  {/* Buscador de inscritos */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar inscrito por nombre, correo o teléfono..."
+                      value={searchInscritosQuery}
+                      onChange={(e) => setSearchInscritosQuery(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 pl-10 pr-4 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm"
+                    />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   </div>
-                ))}
-              </div>
-            )}
+
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+                      {query ? `${filtered.length} de ` : ""}{inscritosModal.inscritos.length} inscrito(s)
+                    </p>
+                    {filtered.length === 0 ? (
+                      <p className="text-sm text-slate-400 text-center py-6">
+                        No se encontraron inscritos que coincidan con la búsqueda.
+                      </p>
+                    ) : (
+                      filtered.map((u, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2.5 text-sm border border-slate-100 animate-fadeIn"
+                        >
+                          <div className="flex items-center gap-3">
+                            {!inscritosModal.actividad?.blockchain_tx_id && (
+                              <button
+                                type="button"
+                                onClick={() => handleManualDesinscribir(u)}
+                                className="p-1 text-red-500 hover:bg-rose-50 hover:text-red-700 rounded-lg transition-colors mr-1 shrink-0"
+                                title="Eliminar inscripción"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                            <span className="font-mono font-black text-slate-400 bg-slate-200/50 rounded-full h-6 w-6 flex items-center justify-center text-xs shrink-0">
+                              {i + 1}
+                            </span>
+                            <div>
+                              <p className="font-semibold text-slate-800">
+                                {u.nombre} {u.apellidoPaterno || ""}{" "}
+                                {u.apellidoMaterno || ""}
+                              </p>
+                              <p className="text-xs text-slate-400 font-medium">
+                                {u.email} {u.telefono ? `| Tel: ${u.telefono}` : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span
+                              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${u.estado === "activo" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-slate-50 text-slate-600"}`}
+                            >
+                              {u.estado}
+                            </span>
+                            <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                              {u.fechaInscripcion
+                                ? new Date(u.fechaInscripcion).toLocaleDateString(
+                                    "es-ES",
+                                  )
+                                : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Formulario de inscripción manual */}
             {inscritosModal.actividad &&

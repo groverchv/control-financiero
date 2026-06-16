@@ -714,7 +714,7 @@ export const academicoApi = {
       }
     }
 
-    if (itemData.cupos <= 0) {
+    if (Number(itemData.cupos) <= 0 && Number(itemData.costo) > 0) {
       throw new Error('No hay cupos disponibles para esta actividad.');
     }
 
@@ -767,15 +767,17 @@ export const academicoApi = {
 
     const { data: act } = await supabase
       .from('actividad')
-      .select('cupos')
+      .select('cupos, costo')
       .eq('id', actividadId)
       .single();
 
     if (act) {
-      await supabase
-        .from('actividad')
-        .update({ cupos: (act.cupos || 0) + 1 })
-        .eq('id', actividadId);
+      if (!(Number(act.costo) <= 0 && Number(act.cupos) === 0)) {
+        await supabase
+          .from('actividad')
+          .update({ cupos: (act.cupos || 0) + 1 })
+          .eq('id', actividadId);
+      }
     }
 
     return true;

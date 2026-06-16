@@ -14,7 +14,7 @@ async function run() {
     console.log(JSON.stringify(configData, null, 2));
 
     console.log('--- Fetching Miembros ---');
-    const resMiembros = await fetch(`${supabaseUrl}/rest/v1/miembro?select=id,nombre,fecha_proxima_cuota,estado&estado=eq.activo`, {
+    const resMiembros = await fetch(`${supabaseUrl}/rest/v1/miembro?select=id,nombre,fecha_proxima_cuota,estado,monto_mensual&estado=eq.activo`, {
       headers: {
         'apikey': supabaseServiceKey,
         'Authorization': `Bearer ${supabaseServiceKey}`

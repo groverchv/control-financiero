@@ -14,7 +14,6 @@ export const PlanAmortizacionPage = () => {
       if (refetchActivos) await refetchActivos();
       const data = await patrimonioApi.obtenerTodosPlanesAmortizacion();
       setPlanesExistentes(data.map(p => p.activoId));
-      
       const configData = await patrimonioApi.obtenerConfiguracion();
       if (configData) {
         setConfiguracion(configData);
@@ -107,7 +106,7 @@ export const PlanAmortizacionPage = () => {
       if (configuracion) {
         await patrimonioApi.actualizarConfiguracion({
           id: configuracion.id,
-          dias_recordatorio_activos: diasRecordatorio
+          dias_recordatorio_activos: Number(diasRecordatorio)
         });
       }
 
@@ -261,6 +260,8 @@ export const PlanAmortizacionPage = () => {
                 min="1"
               />
 
+
+
               <Select
                 label="Frecuencia de Pago"
                 value={frecuencia}
@@ -287,9 +288,11 @@ export const PlanAmortizacionPage = () => {
                   }
                 }}
                 onBlur={() => {
-                  if (diasRecordatorio === '') setDiasRecordatorio(1);
+                  if (diasRecordatorio === '') setDiasRecordatorio(5);
                 }}
               />
+
+
 
               <Button 
                 className="w-full mt-4" 

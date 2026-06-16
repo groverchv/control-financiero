@@ -65,6 +65,24 @@ export const GestionMiembrosPage = () => {
       window.removeEventListener('offline-sync-completed', handleSyncCompleted);
     };
   }, [refetch]);
+
+  const [globalConfig, setGlobalConfig] = useState({ monto_cuota: 20 });
+
+  useEffect(() => {
+    const fetchGlobalConfig = async () => {
+      try {
+        const cfg = await finanzasApi.obtenerConfiguracionCuotas();
+        if (cfg) {
+          setGlobalConfig({
+            monto_cuota: cfg.monto_cuota || 20
+          });
+        }
+      } catch (err) {
+        console.warn('Error fetching global config for defaults:', err);
+      }
+    };
+    fetchGlobalConfig();
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -81,7 +99,8 @@ export const GestionMiembrosPage = () => {
     password: '', 
     confirmPassword: '',
     rol: 'socio', 
-    estado: 'activo' 
+    estado: 'activo',
+    monto_inscripcion: 150
   });
   const [showConfetti, setShowConfetti] = useState(false);
   const [emailError, setEmailError] = useState('');
@@ -139,7 +158,8 @@ export const GestionMiembrosPage = () => {
     formData.password === '' &&
     formData.confirmPassword === '' &&
     formData.rol === editingMember.rol &&
-    formData.estado === editingMember.estado;
+    formData.estado === editingMember.estado &&
+    Number(formData.monto_inscripcion || 150) === Number(editingMember.monto_inscripcion || 150);
 
   const columns = [
     { key: 'foto_display', label: 'Foto' },
@@ -162,7 +182,8 @@ export const GestionMiembrosPage = () => {
       password: '', 
       confirmPassword: '',
       rol: 'socio', 
-      estado: 'activo' 
+      estado: 'activo',
+      monto_inscripcion: 150
     });
     setShowPassword(false);
     setEmailError('');
@@ -180,7 +201,8 @@ export const GestionMiembrosPage = () => {
       password: '',
       confirmPassword: '',
       rol: miembro.rol,
-      estado: miembro.estado
+      estado: miembro.estado,
+      monto_inscripcion: miembro.monto_inscripcion || 150
     });
     setEmailError('');
     setIsModalOpen(true);
@@ -989,7 +1011,7 @@ export const GestionMiembrosPage = () => {
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold text-slate-500">Configuración del Sistema</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-700">Rol</label>
                 <select
@@ -1013,6 +1035,22 @@ export const GestionMiembrosPage = () => {
                   <option value="activo">Activo</option>
                   <option value="inactivo">Inactivo</option>
                 </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Monto Inscripción (Bs.)</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Ej: 150"
+                  className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200"
+                  value={formData.monto_inscripcion}
+                  onChange={(e) => setFormData({ ...formData, monto_inscripcion: e.target.value })}
+                  disabled={!!editingMember}
+                />
+                {!!editingMember && (
+                  <p className="text-[10px] text-slate-400 mt-0.5 leading-none">No editable post-registro</p>
+                )}
               </div>
             </div>
           </div>
@@ -1299,10 +1337,14 @@ export const GestionMiembrosPage = () => {
           ) : detailModal.tab === 'estado_cuenta' ? (
             <div className="space-y-5">
               {/* KPIs */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Monto Cuota Base</span>
-                  <span className="text-lg font-black text-slate-700">{formatCurrency(detailModal.cronograma?.[0]?.monto_esperado || 20)}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Monto Inscripción</span>
+                  <span className="text-lg font-black text-slate-700">{formatCurrency(detailModal.miembro?.monto_inscripcion || 150)}</span>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Cuota Mensual</span>
+                  <span className="text-lg font-black text-slate-700">{formatCurrency(globalConfig.monto_cuota || 20)}</span>
                 </div>
                 <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-4 shadow-sm">
                   <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block mb-1">Deuda Acumulada</span>
@@ -1428,9 +1470,20 @@ export const GestionMiembrosPage = () => {
             <div>
               <span>
                 ¿Estás seguro de que deseas <strong>{editingMember ? 'actualizar' : 'registrar'}</strong> a este miembro en el sistema?
-                Esta acción {editingMember 
-                  ? 'sobrescribirá la información anterior y registrará una notificación de sistema en la cuenta del miembro (sin envío de correo).' 
-                  : 'creará un nuevo registro en la base de datos y le enviará un correo de bienvenida con sus credenciales de acceso.'}
+                {editingMember ? (
+                  ' Esta acción sobrescribirá la información anterior y registrará una notificación de sistema en la cuenta del miembro (sin envío de correo).'
+                ) : (
+                  <>
+                    {' '}Esta acción creará un nuevo registro en la base de datos para{' '}
+                    <strong>
+                      {`${formData.nombre} ${formData.apellidoPaterno || ''} ${formData.apellidoMaterno || ''}`.trim()}
+                    </strong>
+                    , le enviará un correo de bienvenida con sus credenciales de acceso y{' '}
+                    <strong className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 block mt-2 text-xs">
+                      ⚠️ Se le generará automáticamente una deuda de {formData.monto_inscripcion || 150} Bs. por motivo de inscripción.
+                    </strong>
+                  </>
+                )}
               </span>
             </div>
           </div>

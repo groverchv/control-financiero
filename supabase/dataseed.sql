@@ -87,9 +87,9 @@ INSERT INTO public.miembro (id, nombre, "apellidoPaterno", "apellidoMaterno", "c
 ('e0000015-eeee-4444-8888-999999999915', 'Fabián', 'Guzmán', 'Flores', 'fabian.guzman@institucion.com', 'U2FsdGVkX19i8Sgd3k3mLJIjMgc/jlY+uHi42CDPFMI=', '75315984', 'Fotógrafo Profesional', 'socio', 'inactivo', CURRENT_DATE - interval '10 months')
 ON CONFLICT (id) DO NOTHING;
 
--- 2. CONFIGURACIÓN GENERAL DEL SISTEMA (Límites, Días de recordatorio y Estados globales)
-INSERT INTO public.configuracion_cuotas (id, pausado, dias_pausados, dias_recordatorio_activos, frecuencia) VALUES
-('b30b9c3f-c6a5-4ef8-bb6d-8a1855caccb9', false, 0, 5, 'mes')
+-- 2. CONFIGURACIÓN GENERAL DEL SISTEMA (Límites y Estados globales)
+INSERT INTO public.configuracion_cuotas (id, pausado, dias_pausados, frecuencia) VALUES
+('b30b9c3f-c6a5-4ef8-bb6d-8a1855caccb9', false, 0, 'mes')
 ON CONFLICT (id) DO NOTHING;
 
 -- 3. NOTIFICACIONES INSTITUCIONALES (Alertas de cobros, asambleas y avisos)

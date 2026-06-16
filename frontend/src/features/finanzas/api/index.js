@@ -435,7 +435,10 @@ export const finanzasApi = {
     const oldFreq = configActual?.frecuencia || 'mes';
     const newFreq = payload.frecuencia;
 
-    const cleanPayload = { ...payload };
+    const cleanPayload = { 
+      dias_recordatorio_activos: configActual?.dias_recordatorio_activos || 5,
+      ...payload 
+    };
     delete cleanPayload.id;
     delete cleanPayload.creacion;
     delete cleanPayload.actualizacion;

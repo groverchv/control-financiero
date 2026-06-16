@@ -32,6 +32,7 @@ export const administracionApi = {
           fecha_pausa,
           tiempo_restante_cuota,
           fecha_proxima_cuota,
+          monto_inscripcion,
           archivos:archivo(url, tipo, estado)
         `);
 
@@ -67,6 +68,7 @@ export const administracionApi = {
         telefono: miembro.telefono,
         apellidoPaterno: miembro.apellidoPaterno,
         apellidoMaterno: miembro.apellidoMaterno,
+        monto_inscripcion: miembro.monto_inscripcion || 150,
         contrasenaEncriptada: miembro.password ? encryptPassword(miembro.password) : undefined
       })
     });

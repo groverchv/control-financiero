@@ -25,7 +25,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
  */
 router.post('/miembros/crear', async (req, res) => {
   try {
-    const { email, password, nombre, rol, telefono, apellidoPaterno, apellidoMaterno, contrasenaEncriptada } = req.body;
+    const { email, password, nombre, rol, telefono, apellidoPaterno, apellidoMaterno, contrasenaEncriptada, monto_inscripcion } = req.body;
     
     if (!email || !password || !nombre) {
       return res.status(400).json({ error: 'Faltan campos obligatorios: email, password, nombre' });
@@ -38,7 +38,8 @@ router.post('/miembros/crear', async (req, res) => {
       email_confirm: true,
       user_metadata: {
         full_name: nombre,
-        rol: rol || 'socio'
+        rol: rol || 'socio',
+        monto_inscripcion: monto_inscripcion ? Number(monto_inscripcion) : undefined
       }
     });
 
@@ -53,12 +54,13 @@ router.post('/miembros/crear', async (req, res) => {
     if (apellidoPaterno) updates.apellidoPaterno = apellidoPaterno;
     if (apellidoMaterno) updates.apellidoMaterno = apellidoMaterno;
     if (contrasenaEncriptada) updates.contrasena = contrasenaEncriptada;
+    if (monto_inscripcion) updates.monto_inscripcion = Number(monto_inscripcion);
 
     if (Object.keys(updates).length > 0) {
       const { error: dbError } = await supabaseAdmin
-        .from('miembro')
-        .update(updates)
-        .eq('id', authData.user.id);
+         .from('miembro')
+         .update(updates)
+         .eq('id', authData.user.id);
 
       if (dbError) {
         logger.error('Error al actualizar tabla miembro en la creación:', dbError);

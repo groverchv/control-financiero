@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS public.miembro (
     dias_pausados numeric DEFAULT 0,
     fecha_proxima_cuota timestamptz DEFAULT NULL,
     tiempo_restante_cuota interval DEFAULT NULL,
+    monto_inscripcion numeric DEFAULT 150,
     creacion timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
@@ -51,6 +52,8 @@ CREATE TABLE IF NOT EXISTS public.miembro (
 -- Upgrade guard: asegurar columnas de control de cuotas para miembro
 ALTER TABLE public.miembro ADD COLUMN IF NOT EXISTS fecha_proxima_cuota timestamptz DEFAULT NULL;
 ALTER TABLE public.miembro ADD COLUMN IF NOT EXISTS tiempo_restante_cuota interval DEFAULT NULL;
+ALTER TABLE public.miembro ADD COLUMN IF NOT EXISTS monto_inscripcion numeric DEFAULT 150;
+ALTER TABLE public.miembro DROP COLUMN IF EXISTS monto_mensual;
 
 
 CREATE TABLE IF NOT EXISTS public.notificacion (
@@ -320,6 +323,7 @@ DECLARE
   v_rol text;
   v_frecuencia text;
   v_monto numeric;
+  v_monto_inscripcion numeric;
   v_interval interval;
 BEGIN
   -- Validamos si ya existen usuarios en la tabla miembro
@@ -339,7 +343,9 @@ BEGIN
   ORDER BY creacion DESC LIMIT 1;
 
   v_frecuencia := COALESCE(v_frecuencia, 'mes');
-  v_monto := COALESCE(v_monto, 150);
+  
+  -- Leer monto_inscripcion de la metadata si se especificó, o usar 150 por defecto
+  v_monto_inscripcion := COALESCE((new.raw_user_meta_data->>'monto_inscripcion')::numeric, 150);
 
   IF v_frecuencia = '1_minuto' THEN
     v_interval := INTERVAL '1 minute';
@@ -361,13 +367,14 @@ BEGIN
     v_interval := INTERVAL '1 month';
   END IF;
 
-  INSERT INTO public.miembro (id, nombre, "correoElectronico", rol, fecha_proxima_cuota)
+  INSERT INTO public.miembro (id, nombre, "correoElectronico", rol, fecha_proxima_cuota, monto_inscripcion)
   VALUES (
     new.id, 
     COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
     new.email, 
     v_rol,
-    now() + v_interval
+    now() + v_interval,
+    v_monto_inscripcion
   )
   ON CONFLICT (id) DO NOTHING;
 
@@ -380,7 +387,7 @@ BEGIN
       WHEN v_frecuencia = '1_dia' THEN 'Inscripción (Día)'
       ELSE 'Inscripción ' || TO_CHAR(now(), 'YYYY-MM')
     END,
-    150, -- Inscripción fija de 150 bs
+    v_monto_inscripcion,
     'pendiente'
   );
   
@@ -670,9 +677,9 @@ CREATE TABLE IF NOT EXISTS public.configuracion_cuotas (
   pausado       boolean      NOT NULL DEFAULT false,
   fecha_pausa   timestamptz,
   dias_pausados numeric      NOT NULL DEFAULT 0,
-  dias_recordatorio_activos integer NOT NULL DEFAULT 5,
   frecuencia    text         NOT NULL DEFAULT 'mes',
   monto_cuota   numeric      NOT NULL DEFAULT 20,
+  dias_recordatorio_activos integer NOT NULL DEFAULT 5,
   creacion      timestamptz  NOT NULL DEFAULT now(),
   actualizacion timestamptz  NOT NULL DEFAULT now()
 );
@@ -694,9 +701,10 @@ CREATE TRIGGER trg_configuracion_cuotas_updated
 -- ── Upgrade guard: añadir columnas nuevas si no existen (para BDs ya creadas) ──
 ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS frecuencia    text    NOT NULL DEFAULT 'mes';
 ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS monto_cuota   numeric NOT NULL DEFAULT 20;
+ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS dias_recordatorio_activos integer NOT NULL DEFAULT 5;
 
-INSERT INTO public.configuracion_cuotas (pausado, dias_pausados, dias_recordatorio_activos, frecuencia, monto_cuota)
-SELECT false, 0, 5, 'mes', 20
+INSERT INTO public.configuracion_cuotas (pausado, dias_pausados, frecuencia, monto_cuota, dias_recordatorio_activos)
+SELECT false, 0, 'mes', 20, 5
 WHERE NOT EXISTS (SELECT 1 FROM public.configuracion_cuotas);
 
 -- ── Tabla: plan_amortizacion ──────────────────────────────────

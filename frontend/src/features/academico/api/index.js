@@ -269,7 +269,7 @@ export const academicoApi = {
       .eq('id', id)
       .maybeSingle();
 
-    if (currentAct) {
+    if (currentAct && currentAct.estado !== 'cancelado') {
       const courseStart = new Date(`${currentAct.fecha}T${currentAct.hora}`);
       const now = new Date();
       const oneHour = 60 * 60 * 1000;
@@ -489,7 +489,7 @@ export const academicoApi = {
       .eq('id', id)
       .maybeSingle();
 
-    if (currentAct) {
+    if (currentAct && currentAct.estado !== 'cancelado') {
       const courseStart = new Date(`${currentAct.fecha}T${currentAct.hora}`);
       const now = new Date();
       const oneHour = 60 * 60 * 1000;

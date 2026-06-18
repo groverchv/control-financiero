@@ -49,6 +49,33 @@ FOR EACH ROW EXECUTE FUNCTION public.sellar_actividad();
 -- Notificar a PostgREST para recargar el esquema
 NOTIFY pgrst, 'reload schema';
 
+-- ==========================================================
+-- MIGRACIÓN: PRESERVAR ESTADO 'cancelado' EN TRIGGER
+-- ==========================================================
+-- El trigger update_academico_status ahora respeta el estado
+-- 'cancelado' y no lo sobreescribe con la lógica de fechas.
+CREATE OR REPLACE FUNCTION public.update_academico_status()
+RETURNS trigger AS $$
+BEGIN
+  -- Si la actividad fue cancelada manualmente, preservar ese estado
+  IF NEW.estado = 'cancelado' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.fecha < CURRENT_DATE THEN
+    NEW.estado := 'finalizado';
+  ELSIF NEW.fecha = CURRENT_DATE THEN
+    NEW.estado := 'en_curso';
+  ELSE
+    NEW.estado := 'programado';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Notificar recarga de esquema tras la migración del trigger
+NOTIFY pgrst, 'reload schema';
+
 
 -- 1. MIEMBROS (Administradores, Secretarios y Socios Activos/Inactivos con profesiones reales)
 INSERT INTO public.miembro (id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", contrasena, telefono, profesion, rol, estado, creacion) VALUES

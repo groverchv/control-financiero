@@ -450,19 +450,31 @@ export const GestionActividadesPage = () => {
       onConfirm: async () => {
         setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
         const estadoAnterior = act.publicado;
+        const estadoActAnterior = act.estado;
 
         // Actualización optimista local inmediata
+        // Si era cancelado y se vuelve a publicar, restablecer estado a 'programado'
+        const nuevosAtributos = { publicado: nuevoEstado };
+        if (nuevoEstado && act.estado === "cancelado") {
+          nuevosAtributos.estado = "programado";
+        }
         setActividades(prev =>
-          prev.map((a) => (a.id === act.id ? { ...a, publicado: nuevoEstado } : a))
+          prev.map((a) => (a.id === act.id ? { ...a, ...nuevosAtributos } : a))
         );
 
         try {
-          await academicoApi.togglePublicado(act.id, nuevoEstado);
+          const updated = await academicoApi.togglePublicado(act.id, nuevoEstado);
+          // Actualizar con el estado real devuelto por la API
+          if (updated) {
+            setActividades(prev =>
+              prev.map((a) => (a.id === act.id ? { ...a, publicado: updated.publicado, estado: updated.estado || a.estado } : a))
+            );
+          }
         } catch (err) {
           console.error(err);
           // Revertir (Rollback) si falla la API
           setActividades(prev =>
-            prev.map((a) => (a.id === act.id ? { ...a, publicado: estadoAnterior } : a))
+            prev.map((a) => (a.id === act.id ? { ...a, publicado: estadoAnterior, estado: estadoActAnterior } : a))
           );
           setResultModal({
             open: true,
@@ -477,6 +489,7 @@ export const GestionActividadesPage = () => {
       },
     });
   };
+
 
   const handleVerInscritos = async (act) => {
     setInscritosModal({
@@ -1017,8 +1030,11 @@ export const GestionActividadesPage = () => {
       );
     })(),
     acciones: (() => {
+      // Una actividad cancelada NUNCA es "finalizada" — tiene su propio estado
+      // y debe poder editarse / re-publicarse independientemente de su fecha.
+      const esCancelado = act.estado === "cancelado";
       const esFinalizado =
-        getDynamicEstado(act.fecha, act.hora) === "finalizado";
+        !esCancelado && getDynamicEstado(act.fecha, act.hora) === "finalizado";
       return (
         <div className="flex gap-1.5 sm:gap-2 items-center">
           <button

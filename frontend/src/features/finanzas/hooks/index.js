@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { finanzasApi } from '../api';
+import { supabase } from '../../../services/supabase';
 
 export const usePagos = (miembroId) => {
   const [cuotas, setCuotas] = useState([]);
@@ -23,6 +24,27 @@ export const usePagos = (miembroId) => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [miembroId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime: recargar cuando cambien registros de ingreso (ej. reembolso_pendiente)
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-use-pagos')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'ingreso' },
+        () => {
+          // Invalidar caché y recargar
+          import('../../../utils/apiCache').then(({ apiCache }) => {
+            apiCache.invalidate('finanzas:cuotas');
+          });
+          load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { cuotas, loading, error, setCuotas, refetch: load };
 };

@@ -32,7 +32,11 @@ const getCuotaGeneracionDate = (pendiente) => {
   }
   
   // Fallback a los vencimientos si todo lo demás falla
-  return pendiente.fechaVencimiento || pendiente.fechaVencimientoAjustada || new Date().toISOString().split('T')[0];
+  const fallback = pendiente.fechaVencimiento || pendiente.fechaVencimientoAjustada || pendiente.creacion;
+  if (fallback) {
+    return fallback.split('T')[0];
+  }
+  return new Date().toISOString().split('T')[0];
 };
 
 const formatPeriodoLabel = (pendiente, desc) => {
@@ -341,8 +345,16 @@ export const RegistroCuotasPage = () => {
     if (modoIngreso === 'cuota' && form.miembroBuscador) {
       if (registroSocio && registroSocio.proximaPendiente) {
         const mes = registroSocio.proximaPendiente.mes;
+        const isEnrollment = mes.toLowerCase().includes('inscrip');
         const periodoNombre = parseMesToNombre(mes);
-        const desc = `Cuota de membresía correspondiente a ${periodoNombre}.`;
+        
+        let desc = '';
+        if (isEnrollment) {
+          const cleanPeriodo = parseMesToNombre(mes.replace(/Inscripci[oó]n\s*/i, '').trim());
+          desc = `Pago de inscripción - ${cleanPeriodo || 'Bienvenida'}`;
+        } else {
+          desc = `Cuota de membresía - ${periodoNombre}`;
+        }
         
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setForm(prev => ({
@@ -352,14 +364,23 @@ export const RegistroCuotasPage = () => {
           descripcion: desc
         }));
       } else if (registroSocio) {
-        setForm(prev => ({ ...prev, monto: '0', fecha: '', descripcion: 'El socio se encuentra totalmente al día.' }));
+        setForm(prev => ({ ...prev, monto: '0', fecha: '', descripcion: 'Socio al día' }));
       }
     } else if (modoIngreso !== 'cuota' && form.miembroBuscador && form.tipo_ingreso_id) {
       // Modo extra: auto-completar solo si es tipo cuota (fallback al comportamiento anterior)
       if (esMembresiaOrdinaria && registroSocio && registroSocio.proximaPendiente) {
         const mes = registroSocio.proximaPendiente.mes;
+        const isEnrollment = mes.toLowerCase().includes('inscrip');
         const periodoNombre = parseMesToNombre(mes);
-        const desc = `Cuota de membresía correspondiente a ${periodoNombre}.`;
+        
+        let desc = '';
+        if (isEnrollment) {
+          const cleanPeriodo = parseMesToNombre(mes.replace(/Inscripci[oó]n\s*/i, '').trim());
+          desc = `Pago de inscripción APF - ${cleanPeriodo || 'Bienvenida'}`;
+        } else {
+          desc = `Cuota de membresía APF - ${periodoNombre}`;
+        }
+        
         setForm(prev => ({ ...prev, monto: String(registroSocio.proximaPendiente.monto_esperado || configuracionCuotas?.monto_cuota || 20), fecha: getCuotaGeneracionDate(registroSocio.proximaPendiente), descripcion: desc }));
       }
     }
@@ -673,8 +694,10 @@ export const RegistroCuotasPage = () => {
                           <td className="px-4 py-3 font-semibold text-slate-900">
                             <div className="flex items-center gap-1.5">
                               Bs. {cuota.monto}
-                              {cuota.blockchain_tx_id && (
+                               {cuota.blockchain_tx_id ? (
                                 <ShieldCheck className="h-3.5 w-3.5 text-blue-600" title="Sellado en Blockchain" />
+                              ) : (
+                                <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" title="Pendiente de sellado en Blockchain (Fallo de conexión o red offline)" />
                               )}
                             </div>
                           </td>
@@ -701,6 +724,14 @@ export const RegistroCuotasPage = () => {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-2">
+                              {cuota.estado === 'reembolso_pendiente' && (
+                                <button 
+                                  onClick={() => handleDevolver(cuota)}
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition-colors shadow-sm"
+                                >
+                                  Reembolso
+                                </button>
+                              )}
                               <button 
                                 onClick={() => setDetalleModal({ open: true, cuota })}
                                 className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
@@ -708,14 +739,6 @@ export const RegistroCuotasPage = () => {
                                 <Eye className="h-3.5 w-3.5" />
                                 Detalle
                               </button>
-                              {cuota.estado === 'reembolso_pendiente' && (
-                                <button 
-                                  onClick={() => handleDevolver(cuota)}
-                                  className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition-colors shadow-sm"
-                                >
-                                  Devolver
-                                </button>
-                              )}
                               {!cuota.blockchain_tx_id && cuota.estado !== 'devolucion' && (
                                 <button 
                                   onClick={() => handleSellar(cuota.id)}
@@ -940,12 +963,13 @@ export const RegistroCuotasPage = () => {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Descripción (autogenerada)</label>
+                <label className="text-sm font-medium text-slate-700 block mb-1">Descripción</label>
                 <input
                   type="text"
+                  name="descripcion"
                   value={form.descripcion}
-                  readOnly
-                  className="flex w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 cursor-not-allowed"
+                  onChange={handleChange}
+                  className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   placeholder="Se completará al seleccionar un socio..."
                 />
               </div>

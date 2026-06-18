@@ -971,41 +971,48 @@ export const GestionMiembrosPage = () => {
           </div>
           
           {/* Sección de Credenciales */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              {editingMember ? 'Actualizar Credenciales (Dejar en blanco para mantener la actual)' : 'Credenciales de Acceso'}
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="relative">
-                <Input 
-                  label="Contraseña" 
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password} 
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
-                  required={!editingMember} 
-                  placeholder={editingMember ? 'Dejar en blanco para mantener la actual' : 'Mínimo 4 caracteres'}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+          {(() => {
+            const passwordsMismatch = (formData.password || formData.confirmPassword) && formData.password !== formData.confirmPassword;
+            return (
+              <div className="space-y-3 pt-2">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  {editingMember ? 'Actualizar Credenciales (Dejar en blanco para mantener la actual)' : 'Credenciales de Acceso'}
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="relative">
+                    <Input 
+                      label="Contraseña" 
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password} 
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                      required={!editingMember} 
+                      placeholder={editingMember ? 'Dejar en blanco para mantener la actual' : 'Mínimo 4 caracteres'}
+                      autoComplete="new-password"
+                      error={passwordsMismatch ? ' ' : ''}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <Input 
+                    label="Confirmar Contraseña" 
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.confirmPassword} 
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
+                    required={!editingMember}
+                    placeholder={editingMember ? 'Dejar en blanco para mantener la actual' : 'Mínimo 4 caracteres'}
+                    autoComplete="new-password"
+                    error={passwordsMismatch ? 'Las contraseñas no coinciden' : ''}
+                  />
+                </div>
               </div>
-              <Input 
-                label="Confirmar Contraseña" 
-                type={showPassword ? 'text' : 'password'}
-                value={formData.confirmPassword} 
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
-                required={!editingMember}
-                placeholder={editingMember ? 'Dejar en blanco para mantener la actual' : 'Mínimo 4 caracteres'}
-                autoComplete="new-password"
-              />
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Sección de Configuración Administrativa */}
           <div className="space-y-3 pt-2">

@@ -51,8 +51,17 @@ export const finanzasApi = {
         .eq('id', pago.inscripcionId);
     }
 
-    // Si el pago es de tipo cuota mensual, marcar la cuota más antigua pendiente como pagada
-    if (miembroId && pago.tipo_ingreso_id === 'fb06aeef-2529-425b-b131-ff09466a0a83' && pagoRegistrado) {
+    // Si el pago es de tipo cuota mensual/inscripción o la descripción indica que es pago de membresía/inscripción, marcar la cuota más antigua pendiente como pagada
+    const esPagoCuotaOMembresia = 
+      pago.tipo_ingreso_id === 'fb06aeef-2529-425b-b131-ff09466a0a83' ||
+      pago.tipo_ingreso_id === '6968c28b-d79f-4cfa-86ef-b1674b93ac8e' ||
+      (pago.descripcion && (
+        pago.descripcion.toLowerCase().includes('cuota') ||
+        pago.descripcion.toLowerCase().includes('membres') ||
+        pago.descripcion.toLowerCase().includes('inscrip')
+      ));
+
+    if (miembroId && esPagoCuotaOMembresia && pagoRegistrado) {
       try {
         const { data: cuotasPendientes } = await supabase
           .from('cuota_membresia')
@@ -102,6 +111,18 @@ export const finanzasApi = {
           miembroId,
           cuotasPendientes: cuotasPendientesRestantes,
         }).catch(err => console.error('[Brevo] Error enviando recibo de pago:', err));
+
+        // Registrar notificación en el sistema (avisos en la web)
+        try {
+          await supabase.from('notificacion').insert([{
+            miembro_id: miembroId,
+            titulo: 'Pago Registrado',
+            descripcion: `Se ha registrado exitosamente un pago por Bs. ${Number(pago.monto).toFixed(2)}: ${pago.descripcion || 'Cuota de membresía'}.`,
+            estado: 'pendiente'
+          }]);
+        } catch (notifErr) {
+          console.error('[registrarPago] Error insertando notificación en BD:', notifErr);
+        }
       }
     } catch (emailErr) {
       console.error('[Brevo] Error enviando recibo de pago:', emailErr);
@@ -143,7 +164,7 @@ export const finanzasApi = {
     // 1. Obtener el ingreso y verificar si está ligado a una inscripción
     const { data: currentIngreso, error: fetchErr } = await supabase
       .from('ingreso')
-      .select('inscripcion_id, descripcion')
+      .select('miembro_id, inscripcion_id, descripcion, monto')
       .eq('id', id)
       .maybeSingle();
 
@@ -176,6 +197,20 @@ export const finanzasApi = {
       .select();
 
     if (error) throw error;
+
+    // Crear notificación para el socio
+    try {
+      if (currentIngreso?.miembro_id) {
+        await supabase.from('notificacion').insert([{
+          miembro_id: currentIngreso.miembro_id,
+          titulo: 'Reembolso Procesado',
+          descripcion: `Se ha procesado exitosamente el reembolso para: "${currentIngreso.descripcion || 'Inscripción'}". Monto devuelto: Bs. ${currentIngreso.monto || 0}.`,
+          estado: 'pendiente'
+        }]);
+      }
+    } catch (notifErr) {
+      console.error('[Notif] Error guardando notificación de devolución:', notifErr);
+    }
 
     // Si tiene una inscripción ligada, eliminarla y regresar el cupo
     if (currentIngreso?.inscripcion_id) {
@@ -257,10 +292,12 @@ export const finanzasApi = {
   },
 
   // ── Historial de cuotas de membresía por miembro ──────────────────────────
-  obtenerHistorialCuotasMiembro: async () => {
+  obtenerHistorialCuotasMiembro: async (forceRefresh = false) => {
     const cacheKey = 'finanzas:historial_cuotas';
-    const cached = apiCache.get(cacheKey);
-    if (cached) return cached;
+    if (!forceRefresh && !navigator.onLine) {
+      const cached = apiCache.get(cacheKey);
+      if (cached) return cached;
+    }
 
     // 1. Obtener todos los miembros con sus columnas de control
     const { data: miembros, error: mErr } = await supabase
@@ -284,8 +321,89 @@ export const finanzasApi = {
       .limit(1)
       .maybeSingle();
 
-    const result = (miembros || []).map(m => {
-      const cronograma = (cuotasFisicas || [])
+    // 3.5. Auto-generar cuotas vencidas si no está pausado
+    let huboCambios = false;
+    if (configUltima && !configUltima.pausado && miembros && miembros.length > 0) {
+      const frecuenciaToMs = (freq) => {
+        if (freq === '1_minuto') return 1 * 60 * 1000;
+        if (freq === '3_minutos') return 3 * 60 * 1000;
+        if (freq === '5_minutos') return 5 * 60 * 1000;
+        if (freq === '1_dia')     return 1 * 24 * 60 * 60 * 1000;
+        if (freq === '2_dias')    return 2 * 24 * 60 * 60 * 1000;
+        if (freq === '3_dias')    return 3 * 24 * 60 * 60 * 1000;
+        if (freq === 'semana')    return 7 * 24 * 60 * 60 * 1000;
+        if (freq === 'trimestre') return 90 * 24 * 60 * 60 * 1000;
+        return 30 * 24 * 60 * 60 * 1000; // 'mes' default
+      };
+
+      const getPeriodLabel = (date, freq) => {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        
+        if (freq === '1_minuto' || freq === '3_minutos' || freq === '5_minutos') {
+          const hh = String(date.getHours()).padStart(2, '0');
+          const min = String(date.getMinutes()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+        } else if (freq === '1_dia' || freq === '2_dias' || freq === '3_dias' || freq === 'semana') {
+          return `Día ${yyyy}-${mm}-${dd}`;
+        } else {
+          return `${yyyy}-${mm}`;
+        }
+      };
+
+      const msInterval = frecuenciaToMs(configUltima.frecuencia);
+      const now = new Date();
+
+      for (const m of miembros) {
+        if (m.estado === 'activo' && m.fecha_proxima_cuota) {
+          let nextDue = new Date(m.fecha_proxima_cuota);
+          if (nextDue <= now) {
+            const cuotasNuevas = [];
+            while (nextDue <= now) {
+              const periodStr = getPeriodLabel(nextDue, configUltima.frecuencia);
+              cuotasNuevas.push({
+                miembro_id: m.id,
+                periodo: periodStr,
+                monto_esperado: configUltima.monto_cuota || 20,
+                estado: 'pendiente',
+                creacion: nextDue.toISOString()
+              });
+              nextDue = new Date(nextDue.getTime() + msInterval);
+            }
+
+            if (cuotasNuevas.length > 0) {
+              huboCambios = true;
+              await supabase.from('cuota_membresia').insert(cuotasNuevas);
+              await supabase
+                .from('miembro')
+                .update({ fecha_proxima_cuota: nextDue.toISOString() })
+                .eq('id', m.id);
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Si hubo cambios, volver a consultar los datos para devolver los actualizados
+    let miembrosFinales = miembros;
+    let cuotasFisicasFinales = cuotasFisicas;
+    if (huboCambios) {
+      const { data: mNew } = await supabase
+        .from('miembro')
+        .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, creacion, fecha_pausa, dias_pausados, fecha_proxima_cuota, tiempo_restante_cuota')
+        .order('creacion', { ascending: true });
+      if (mNew) miembrosFinales = mNew;
+
+      const { data: cNew } = await supabase
+        .from('cuota_membresia')
+        .select('*')
+        .order('creacion', { ascending: true });
+      if (cNew) cuotasFisicasFinales = cNew;
+    }
+
+    const result = (miembrosFinales || []).map(m => {
+      const cronograma = (cuotasFisicasFinales || [])
         .filter(c => c.miembro_id === m.id)
         .map(c => ({
           id: c.id,

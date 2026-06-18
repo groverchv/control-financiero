@@ -29,7 +29,7 @@ export async function hashIngreso(registro) {
  * Genera el hash para un registro de egreso.
  */
 export async function hashEgreso(registro) {
-    const cadena = `${registro.id}${registro.monto}${registro.fecha}${registro.hash_anterior || 'genesis'}`;
+    const cadena = `${registro.id}${registro.monto}${registro.creacion}${registro.hash_anterior || 'genesis'}`;
     return calcularSHA256(cadena);
 }
 

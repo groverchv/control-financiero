@@ -129,8 +129,10 @@ export const GestionActivosPage = () => {
       render: (val, row) => (
         <div className="flex items-center gap-2">
           {val}
-          {row.blockchain_tx_id && (
+          {row.blockchain_tx_id ? (
             <ShieldCheck className="h-3.5 w-3.5 text-blue-600" title="Sellado en Blockchain" />
+          ) : (
+            <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" title="Pendiente de sellado en Blockchain (Fallo de conexión o red offline)" />
           )}
         </div>
       )

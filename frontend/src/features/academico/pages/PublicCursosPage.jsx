@@ -315,9 +315,9 @@ export const PublicCursosPage = () => {
                      <Users className="h-4 w-4 text-emerald-500 shrink-0" />
                      <div className="flex flex-col min-w-0">
                        <span className="text-[9px] uppercase font-bold text-slate-400 leading-none">CUPOS</span>
-                        <span className="text-xs font-bold truncate">
-                          {Number(act.costo) <= 0 && Number(act.cupos) === 0 ? 'Ilimitados' : `${act.cupos || 0} plazas`}
-                        </span>
+                       <span className="text-xs font-bold truncate">
+                         {`${act.cupos || 0} plazas`}
+                       </span>
                      </div>
                    </div>
                  </div>

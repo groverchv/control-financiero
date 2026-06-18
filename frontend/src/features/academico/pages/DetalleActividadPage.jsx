@@ -109,7 +109,7 @@ export const DetalleActividadPage = () => {
       return;
     }
 
-    if (Number(actividad.cupos) <= 0 && Number(actividad.costo) > 0) {
+    if (Number(actividad.cupos) <= 0) {
       setResultModal({
         open: true,
         type: 'error',
@@ -138,7 +138,7 @@ export const DetalleActividadPage = () => {
       setIsInscrito(true);
       setActividad(prev => ({ 
         ...prev, 
-        cupos: Number(prev.costo) <= 0 && Number(prev.cupos) === 0 ? 0 : prev.cupos - 1 
+        cupos: Math.max(0, prev.cupos - 1) 
       }));
       setLoadingModal({ open: false, text: '' });
       setResultModal({
@@ -330,7 +330,7 @@ export const DetalleActividadPage = () => {
                   <Users className="h-4 w-4" /> Cupos Disponibles
                 </span>
                 <span className="font-bold">
-                  {Number(actividad.costo) <= 0 && Number(actividad.cupos) === 0 ? 'Ilimitados' : `${actividad.cupos || 0} plazas`}
+                  {`${actividad.cupos || 0} plazas`}
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm py-3 border-b border-white/10">
@@ -354,13 +354,13 @@ export const DetalleActividadPage = () => {
 
             <Button 
               onClick={handleInscripcion}
-              disabled={isEnrolling || isInscrito || (Number(actividad.cupos) <= 0 && Number(actividad.costo) > 0) || currentEstado === 'finalizado'}
+              disabled={isEnrolling || isInscrito || Number(actividad.cupos) <= 0 || currentEstado === 'finalizado'}
               className={`w-full h-14 rounded-2xl text-base font-black shadow-lg ${
                 isInscrito 
                   ? 'bg-slate-700 text-slate-300 cursor-not-allowed shadow-none' 
                   : currentEstado === 'finalizado'
                     ? 'bg-slate-700 text-slate-300 cursor-not-allowed shadow-none'
-                    : (Number(actividad.cupos) <= 0 && Number(actividad.costo) > 0)
+                    : Number(actividad.cupos) <= 0
                       ? 'bg-red-600 text-white cursor-not-allowed shadow-red-900/20'
                       : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20'
               }`}
@@ -371,11 +371,9 @@ export const DetalleActividadPage = () => {
                   ? 'YA ESTÁS INSCRITO' 
                   : currentEstado === 'finalizado'
                     ? 'CURSO FINALIZADO'
-                    : (Number(actividad.cupos) <= 0 && Number(actividad.costo) > 0)
+                    : Number(actividad.cupos) <= 0
                       ? 'CUPOS AGOTADOS' 
-                      : (Number(actividad.costo) <= 0 && Number(actividad.cupos) === 0)
-                        ? 'CONFIRMAR PARTICIPACIÓN'
-                        : 'INSCRIBIRME AHORA'}
+                      : 'INSCRIBIRME AHORA'}
             </Button>
           </div>
         </div>

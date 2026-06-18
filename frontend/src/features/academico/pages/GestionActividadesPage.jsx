@@ -343,7 +343,7 @@ export const GestionActividadesPage = () => {
       latitud: act.latitud || "",
       longitud: act.longitud || "",
       modalidad: act.modalidad || "presencial",
-      costo: act.costo || "",
+      costo: act.costo !== undefined && act.costo !== null ? act.costo : "",
       requisitos: act.requisitos || "",
       incluye_certificacion: act.incluye_certificacion || false,
       estado: act.estado || "programado",
@@ -543,7 +543,7 @@ export const GestionActividadesPage = () => {
               a.id === inscritosModal.actividad.id
                 ? {
                     ...a,
-                    cupos: Number(a.costo) <= 0 && Number(a.cupos) === 0 ? 0 : Math.max(0, a.cupos - 1),
+                    cupos: Math.max(0, a.cupos - 1),
                     inscritos_count: (a.inscritos_count || 0) + 1,
                   }
                 : a,
@@ -608,7 +608,7 @@ export const GestionActividadesPage = () => {
               a.id === inscritosModal.actividad.id
                 ? {
                     ...a,
-                    cupos: Number(a.costo) <= 0 && Number(a.cupos) === 0 ? 0 : (a.cupos || 0) + 1,
+                    cupos: (a.cupos || 0) + 1,
                     inscritos_count: Math.max(0, (a.inscritos_count || 1) - 1),
                   }
                 : a,
@@ -813,12 +813,15 @@ export const GestionActividadesPage = () => {
     e.preventDefault();
     const errors = {};
     if (!formData.nombre.trim()) errors.nombre = "El nombre de la actividad es requerido (Ej: Taller de React).";
-    if (!formData.tipo_actividad_id) errors.tipo_actividad_id = "Debe seleccionar un tipo de actividad.";
-    if (!formData.fecha) errors.fecha = "La fecha de la actividad es requerida (Ej: 2026-06-15).";
-    if (!formData.hora) errors.hora = "La hora de la actividad es requerida (Ej: 19:30).";
+    const categoryExists = tipos.some(t => t.id === formData.tipo_actividad_id);
+    if (!formData.tipo_actividad_id || !categoryExists) {
+      errors.tipo_actividad_id = "Debe seleccionar una categoría de actividad válida.";
+    }
     if (formData.costo === "") errors.costo = "El costo de la actividad es requerido (coloque 0 si es gratuita, Ej: 50).";
     if (formData.cupos === "") errors.cupos = "El número de cupos disponibles es requerido (Ej: 30).";
 
+    if (!formData.fecha) errors.fecha = "La fecha de la actividad es requerida (Ej: 2026-06-15).";
+    if (!formData.hora) errors.hora = "La hora de la actividad es requerida (Ej: 19:30).";
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
@@ -846,6 +849,9 @@ export const GestionActividadesPage = () => {
       };
 
       if (editingAct) {
+        if (editingAct.estado === "cancelado") {
+          payload.estado = "programado";
+        }
         const actualizado = await academicoApi.actualizarActividad(
           editingAct.id,
           payload,
@@ -998,14 +1004,16 @@ export const GestionActividadesPage = () => {
 
       // Finalized but not sealed — show manual button
       return (
-        <button
-          onClick={() => handleSellarBlockchain(act)}
-          className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-700 hover:bg-amber-100 transition-colors"
-          title="Sellar esta actividad en Hyperledger Fabric"
-        >
-          <ShieldCheck className="h-3.5 w-3.5" />
-          Sellar Ahora
-        </button>
+        <div className="flex items-center gap-1.5">
+          <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" title="Pendiente de sellado en Blockchain (Fallo de conexión o red offline)" />
+          <button
+            onClick={() => handleSellarBlockchain(act)}
+            className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-300 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-700 hover:bg-amber-100 transition-colors"
+            title="Sellar esta actividad en Hyperledger Fabric"
+          >
+            Sellar Ahora
+          </button>
+        </div>
       );
     })(),
     acciones: (() => {
@@ -1425,6 +1433,11 @@ export const GestionActividadesPage = () => {
                     </option>
                   ))}
                 </select>
+                {tipos.length === 0 && (
+                  <p className="text-xs font-semibold text-amber-600 mt-1.5 flex items-center gap-1">
+                    ⚠️ No hay categorías registradas. Por favor, crea al menos una en el menú "Tipos de Actividades".
+                  </p>
+                )}
                 {formErrors.tipo_actividad_id && (
                   <p className="text-xs font-medium text-red-500 mt-1">{formErrors.tipo_actividad_id}</p>
                 )}

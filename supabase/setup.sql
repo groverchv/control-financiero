@@ -237,6 +237,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS jurado_externa_miembro_unique_idx ON public.ju
 CREATE OR REPLACE FUNCTION public.update_academico_status()
 RETURNS trigger AS $$
 BEGIN
+  IF NEW.estado = 'cancelado' THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW.fecha < CURRENT_DATE THEN
     NEW.estado := 'finalizado';
   ELSIF NEW.fecha = CURRENT_DATE THEN

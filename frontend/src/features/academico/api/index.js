@@ -54,6 +54,7 @@ export const academicoApi = {
 
   cancelarActividad: async (id) => {
     apiCache.invalidate('academico');
+    apiCache.invalidate('finanzas');
     // 1. Obtener datos de la actividad y sus inscritos
     const { data: actividad, error: actErr } = await supabase
       .from('actividad')
@@ -257,6 +258,7 @@ export const academicoApi = {
 
   actualizarActividad: async (id, updates, imagenFile = null) => {
     apiCache.invalidate('academico');
+    apiCache.invalidate('finanzas');
     const preparedUpdates = { ...updates };
     if (updates.nombre) preparedUpdates.titulo = updates.nombre;
 
@@ -497,12 +499,38 @@ export const academicoApi = {
       }
     }
 
+    const updates = { publicado };
+    if (publicado && currentAct?.estado === 'cancelado') {
+      updates.estado = 'programado';
+    }
+
     const { data, error } = await supabase
       .from('actividad')
-      .update({ publicado })
+      .update(updates)
       .eq('id', id)
       .select();
     if (error) throw error;
+
+    // Si la actividad estaba cancelada y ahora se vuelve a publicar, 
+    // los que aún no reembolsaron vuelven a estar activos (sus ingresos cambian de 'reembolso_pendiente' a 'pagada')
+    if (publicado && currentAct?.estado === 'cancelado') {
+      apiCache.invalidate('finanzas');
+      
+      const { data: inscritos } = await supabase
+        .from('inscripcion')
+        .select('id')
+        .eq('actividad_id', id);
+
+      if (inscritos && inscritos.length > 0) {
+        const inscripcionIds = inscritos.map(ins => ins.id);
+        await supabase
+          .from('ingreso')
+          .update({ estado: 'pagada' })
+          .in('inscripcion_id', inscripcionIds)
+          .eq('estado', 'reembolso_pendiente');
+      }
+    }
+
     return { ...data[0], nombre: data[0].titulo };
   },
 
@@ -714,7 +742,7 @@ export const academicoApi = {
       }
     }
 
-    if (Number(itemData.cupos) <= 0 && Number(itemData.costo) > 0) {
+    if (Number(itemData.cupos) <= 0) {
       throw new Error('No hay cupos disponibles para esta actividad.');
     }
 
@@ -772,12 +800,10 @@ export const academicoApi = {
       .single();
 
     if (act) {
-      if (!(Number(act.costo) <= 0 && Number(act.cupos) === 0)) {
-        await supabase
-          .from('actividad')
-          .update({ cupos: (act.cupos || 0) + 1 })
-          .eq('id', actividadId);
-      }
+      await supabase
+        .from('actividad')
+        .update({ cupos: (act.cupos || 0) + 1 })
+        .eq('id', actividadId);
     }
 
     return true;

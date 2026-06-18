@@ -817,12 +817,12 @@ export const DashboardKpisPage = () => {
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Capacidad de Programas Académicos</h3>
                 <div className="space-y-3 pt-2">
                   {(actividades || []).slice(0, 3).map(act => {
-                    const totalEnrollCount = act.cupos || 10;
+                    const totalEnrollCount = act.cupos ?? 0;
                     return (
                       <div key={act.id} className="space-y-1">
                         <div className="flex justify-between text-xs font-semibold text-slate-700">
                           <span className="truncate max-w-[180px]">{act.nombre || act.titulo}</span>
-                          <span>{totalEnrollCount} cupos libres</span>
+                          <span>{totalEnrollCount === 0 ? 'Sin cupos' : `${totalEnrollCount} cupos libres`}</span>
                         </div>
                         <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
                           <div 

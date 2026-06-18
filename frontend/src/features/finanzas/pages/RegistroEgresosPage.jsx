@@ -433,8 +433,10 @@ export const RegistroEgresosPage = () => {
                           <td className="px-4 py-3 font-semibold text-slate-900">
                             <div className="flex items-center gap-1.5">
                               Bs. {egreso.monto}
-                              {egreso.blockchain_tx_id && (
+                               {egreso.blockchain_tx_id ? (
                                 <ShieldCheck className="h-3.5 w-3.5 text-blue-600" title="Sellado en Blockchain" />
+                              ) : (
+                                <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" title="Pendiente de sellado en Blockchain (Fallo de conexión o red offline)" />
                               )}
                             </div>
                           </td>

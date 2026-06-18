@@ -137,20 +137,24 @@ export const administracionApi = {
     }
 
     if (Object.keys(authUpdates).length > 0) {
-      const response = await fetch(`${BLOCKCHAIN_API}/api/admin/miembros/actualizar-auth`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userId: id,
-          updates: authUpdates
-        })
-      });
+      try {
+        const response = await fetch(`${BLOCKCHAIN_API}/api/admin/miembros/actualizar-auth`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId: id,
+            updates: authUpdates
+          })
+        });
 
-      if (!response.ok) {
-        const resData = await response.json();
-        throw new Error(resData.error || 'Error al actualizar Auth en la API del backend');
+        if (!response.ok && response.status !== 404) {
+          const resData = await response.json();
+          throw new Error(resData.error || 'Error al actualizar Auth en la API del backend');
+        }
+      } catch (err) {
+        console.warn('[actualizarMiembro] No se pudo sincronizar con Auth (API offline o desactualizada):', err.message);
       }
     }
 

@@ -295,12 +295,12 @@ export const HistorialCuotasPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  const cargarDatos = useCallback(async () => {
+  const cargarDatos = useCallback(async (force = false) => {
     setLoading(true);
     setError(null);
     try {
       const [data, cfg] = await Promise.all([
-        finanzasApi.obtenerHistorialCuotasMiembro(),
+        finanzasApi.obtenerHistorialCuotasMiembro(force),
         finanzasApi.obtenerConfiguracionCuotas(),
       ]);
       setHistorial(data);
@@ -343,7 +343,7 @@ export const HistorialCuotasPage = () => {
       
       const resp = await finanzasApi.actualizarConfiguracionCuotas(payload);
       setConfig(resp);
-      await cargarDatos();
+      await cargarDatos(true);
       setConfigModal(false);
       setLoadingModal({ open: false, text: '' });
       
@@ -380,7 +380,7 @@ export const HistorialCuotasPage = () => {
     try {
       const nuevaConfig = await finanzasApi.togglePausaCuotas(!config?.pausado, config);
       setConfig(nuevaConfig);
-      await cargarDatos();
+      await cargarDatos(true);
       setLoadingModal({ open: false, text: '' });
       setInfoModal({
         open: true,
@@ -511,7 +511,7 @@ export const HistorialCuotasPage = () => {
           </div>
           <button
             type="button"
-            onClick={cargarDatos}
+            onClick={() => cargarDatos(true)}
             disabled={loading}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm disabled:opacity-50"
             title="Refrescar listado"

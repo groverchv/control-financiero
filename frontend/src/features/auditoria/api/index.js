@@ -33,7 +33,7 @@ export const auditoriaApi = {
             case 'egreso':
                 query = supabase
                     .from('egreso')
-                    .select('id, monto, fecha, concepto, descripcion, hash_anterior, hash_actual, blockchain_tx_id, creacion, miembro:miembro_id(nombre)')
+                    .select('id, monto, concepto, descripcion, hash_anterior, hash_actual, blockchain_tx_id, creacion, miembro:miembro_id(nombre)')
                     .order('creacion', { ascending: false })
                     .limit(limite);
                 break;

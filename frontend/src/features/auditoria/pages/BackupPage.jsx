@@ -239,10 +239,142 @@ export const BackupPage = () => {
 
   const handleDownloadTxt = () => {
     if (!data) return;
-    // Exportamos la estructura completa incluyendo los KPIs calculados en un archivo JSON estructurado
+    
+    let report = "";
+    report += "================================================================================\n";
+    report += "           REPORTE GENERAL DE GESTIÓN Y AUDITORÍA - CONTROL FINANCIERO          \n";
+    report += "================================================================================\n";
+    report += `Fecha de generación: ${new Date().toLocaleString('es-ES')}\n`;
+    report += "Sistema: Control Financiero y Académico Institucional\n";
+    report += "================================================================================\n\n";
+
+    // 1. KPIs
+    report += "--------------------------------------------------------------------------------\n";
+    report += "I. INDICADORES CLAVE DE GESTIÓN (KPIs)\n";
+    report += "--------------------------------------------------------------------------------\n";
+    const kpis = getKpiDataList();
+    kpis.forEach(k => {
+      report += `[${k.Categoría}] ${k.Métrica}: ${k.Valor}\n`;
+      report += `  - Descripción: ${k.Descripción}\n`;
+    });
+    report += "\n";
+
+    // 2. Miembros
+    report += "--------------------------------------------------------------------------------\n";
+    report += "II. LISTADO DE MIEMBROS\n";
+    report += "--------------------------------------------------------------------------------\n";
+    if (data.miembros && data.miembros.length > 0) {
+      report += "Nº   | Nombre Completo                   | Correo                         | Rol        | Estado\n";
+      report += "-----+-----------------------------------+--------------------------------+------------+---------\n";
+      data.miembros.forEach((m, idx) => {
+        const num = String(idx + 1).padEnd(4);
+        const name = `${m.nombre} ${m.apellidoPaterno || ''} ${m.apellidoMaterno || ''}`.trim().substring(0, 32).padEnd(33);
+        const mail = (m.correoElectronico || 'Sin correo').substring(0, 30).padEnd(30);
+        const rol = (m.rol || 'socio').padEnd(10);
+        const est = (m.estado || 'activo').padEnd(8);
+        report += `${num} | ${name} | ${mail} | ${rol} | ${est}\n`;
+      });
+    } else {
+      report += "No hay miembros registrados.\n";
+    }
+    report += "\n";
+
+    // 3. Finanzas - Ingresos
+    report += "--------------------------------------------------------------------------------\n";
+    report += "III. HISTORIAL DE INGRESOS (RECAUDACIÓN)\n";
+    report += "--------------------------------------------------------------------------------\n";
+    if (data.ingresos && data.ingresos.length > 0) {
+      report += "Nº   | Fecha      | Monto (Bs)   | Descripción\n";
+      report += "-----+------------+--------------+----------------------------------------------\n";
+      data.ingresos.forEach((ing, idx) => {
+        const num = String(idx + 1).padEnd(4);
+        const date = (ing.fecha || ing.creacion?.split('T')[0] || '—').padEnd(10);
+        const amt = String(Number(ing.monto || 0).toFixed(2)).padStart(12).padEnd(12);
+        const desc = (ing.descripcion || 'Sin descripción').substring(0, 45);
+        report += `${num} | ${date} | ${amt} | ${desc}\n`;
+      });
+    } else {
+      report += "No hay ingresos registrados.\n";
+    }
+    report += "\n";
+
+    // 4. Finanzas - Egresos
+    report += "--------------------------------------------------------------------------------\n";
+    report += "IV. HISTORIAL DE EGRESOS (GASTOS)\n";
+    report += "--------------------------------------------------------------------------------\n";
+    if (data.egresos && data.egresos.length > 0) {
+      report += "Nº   | Fecha      | Monto (Bs)   | Concepto\n";
+      report += "-----+------------+--------------+----------------------------------------------\n";
+      data.egresos.forEach((egr, idx) => {
+        const num = String(idx + 1).padEnd(4);
+        const date = (egr.creacion?.split('T')[0] || '—').padEnd(10);
+        const amt = String(Number(egr.monto || 0).toFixed(2)).padStart(12).padEnd(12);
+        const concept = (egr.concepto || egr.descripcion || 'Sin concepto').substring(0, 45);
+        report += `${num} | ${date} | ${amt} | ${concept}\n`;
+      });
+    } else {
+      report += "No hay egresos registrados.\n";
+    }
+    report += "\n";
+
+    // 5. Activos
+    report += "--------------------------------------------------------------------------------\n";
+    report += "V. ACTIVOS Y PATRIMONIO\n";
+    report += "--------------------------------------------------------------------------------\n";
+    if (data.activos && data.activos.length > 0) {
+      report += "Nº   | Nombre del Activo                 | Costo (Bs)   | Saldo Pend.  | Estado\n";
+      report += "-----+-----------------------------------+--------------+--------------+---------\n";
+      data.activos.forEach((act, idx) => {
+        const num = String(idx + 1).padEnd(4);
+        const name = act.nombre.substring(0, 32).padEnd(33);
+        const cost = String(Number(act.costo_total || 0).toFixed(2)).padStart(12).padEnd(12);
+        const sal = String(Number(act.saldo_pendiente || 0).toFixed(2)).padStart(12).padEnd(12);
+        const est = (act.estado || 'pagado').padEnd(8);
+        report += `${num} | ${name} | ${cost} | ${sal} | ${est}\n`;
+      });
+    } else {
+      report += "No hay activos registrados.\n";
+    }
+    report += "\n";
+
+    // 6. Actividades
+    report += "--------------------------------------------------------------------------------\n";
+    report += "VI. ACTIVIDADES ACADÉMICAS\n";
+    report += "--------------------------------------------------------------------------------\n";
+    if (data.actividades && data.actividades.length > 0) {
+      report += "Nº   | Fecha      | Costo (Bs) | Cupos | Actividad / Curso\n";
+      report += "-----+------------+------------+-------+----------------------------------------\n";
+      data.actividades.forEach((act, idx) => {
+        const num = String(idx + 1).padEnd(4);
+        const date = (act.fecha || '—').padEnd(10);
+        const cost = String(Number(act.costo || 0).toFixed(2)).padStart(10).padEnd(10);
+        const cupos = String(act.cupos || 0).padStart(5).padEnd(5);
+        const title = (act.nombre || act.titulo || 'Sin título').substring(0, 38);
+        report += `${num} | ${date} | ${cost} | ${cupos} | ${title}\n`;
+      });
+    } else {
+      report += "No hay actividades académicas registradas.\n";
+    }
+    report += "\n";
+
+    report += "================================================================================\n";
+    report += "                           FIN DEL REPORTE DE AUDITORÍA                         \n";
+    report += "================================================================================\n";
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Reporte_General_Auditoria_${new Date().toISOString().split('T')[0]}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadJson = () => {
+    if (!data) return;
     const backupObj = {
       generacion: new Date().toLocaleString('es-ES'),
-      kpis: getKpiDataList(),
       datos: data
     };
     const jsonContent = JSON.stringify(backupObj, null, 2);
@@ -464,22 +596,22 @@ export const BackupPage = () => {
                 </Button>
               </div>
 
-              {/* Opción CSV */}
+              {/* Opción TXT */}
               <div className="border border-slate-100 hover:border-amber-200 bg-slate-50/50 hover:bg-amber-50/10 rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-md group">
                 <div className="space-y-3">
                   <div className="p-3 bg-amber-50 text-amber-600 rounded-xl w-fit group-hover:scale-110 transition-transform">
                     <FileText className="h-6 w-6" />
                   </div>
-                  <h3 className="font-extrabold text-slate-800 text-sm">Historial de Caja (.csv)</h3>
+                  <h3 className="font-extrabold text-slate-800 text-sm">Reporte de Texto Plano (.txt)</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Exporta un reporte CSV con el historial cronológico consolidado del Libro Mayor (Ingresos y Egresos combinados).
+                    Genera un informe completo en formato legible de texto con métricas consolidadas y listados de auditoría.
                   </p>
                 </div>
                 <Button
-                  onClick={handleDownloadCsv}
+                  onClick={handleDownloadTxt}
                   className="mt-5 w-full bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/10 active:scale-95 transition-all"
                 >
-                  <Download className="h-3.5 w-3.5" /> Exportar Libro Mayor CSV
+                  <Download className="h-3.5 w-3.5" /> Exportar Reporte TXT
                 </Button>
               </div>
 
@@ -491,14 +623,14 @@ export const BackupPage = () => {
                   </div>
                   <h3 className="font-extrabold text-slate-800 text-sm">Volcado JSON de Datos (.json)</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Copia de seguridad en formato crudo estructurado (JSON) que preserva llaves primarias, UUIDs y timestamps exactos.
+                    Copia de seguridad en formato estructurado JSON. Ideal para restauración e importación de datos en el sistema.
                   </p>
                 </div>
                 <Button
-                  onClick={handleDownloadTxt}
+                  onClick={handleDownloadJson}
                   className="mt-5 w-full bg-slate-600 hover:bg-slate-700 text-white font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
                 >
-                  <Download className="h-3.5 w-3.5" /> Exportar Base JSON
+                  <Download className="h-3.5 w-3.5" /> Exportar Respaldo JSON
                 </Button>
               </div>
             </div>

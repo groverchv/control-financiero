@@ -42,4 +42,27 @@ export const authApi = {
     const { data, error } = await supabase.auth.getSession();
     return { data, error };
   },
+
+  /**
+   * Envía un enlace de restablecimiento de contraseña al correo del usuario.
+   * Supabase genera un token seguro y redirige a /reset-password.
+   */
+  resetPassword: async (email) => {
+    const redirectTo = `${window.location.origin}/reset-password`;
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    return { data, error };
+  },
+
+  /**
+   * Actualiza la contraseña del usuario autenticado (post-recovery).
+   * Solo funciona cuando el usuario tiene una sesión activa por token de recuperación.
+   */
+  updatePassword: async (newPassword) => {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    return { data, error };
+  },
 };

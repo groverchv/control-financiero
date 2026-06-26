@@ -90,8 +90,12 @@ export const BuscadorTalentoPage = () => {
               className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all group flex flex-col"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="h-14 w-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                  <User className="h-7 w-7" />
+                <div className="h-14 w-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 overflow-hidden group-hover:scale-110 transition-transform">
+                  {talento.foto ? (
+                    <img src={talento.foto} alt={talento.nombre} className="h-full w-full object-cover" />
+                  ) : (
+                    <User className="h-7 w-7" />
+                  )}
                 </div>
                 <div className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase rounded-full">
                   Activo
@@ -138,8 +142,12 @@ export const BuscadorTalentoPage = () => {
         {selectedTalento && (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-slate-50 rounded-2xl">
-              <div className="h-24 w-24 bg-blue-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
-                <User className="h-12 w-12" />
+              <div className="h-24 w-24 bg-blue-600 rounded-3xl flex items-center justify-center text-white overflow-hidden shadow-xl shadow-blue-500/20">
+                {selectedTalento.foto ? (
+                  <img src={selectedTalento.foto} alt={selectedTalento.nombre} className="h-full w-full object-cover" />
+                ) : (
+                  <User className="h-12 w-12" />
+                )}
               </div>
               <div className="text-center md:text-left flex-1">
                 <h2 className="text-2xl font-bold text-slate-900">{selectedTalento.nombre}</h2>

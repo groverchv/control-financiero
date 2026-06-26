@@ -1,9 +1,5 @@
 import { supabase } from './supabase';
-
-const BLOCKCHAIN_API = typeof window !== 'undefined' && 
-  (window.location.protocol === 'https:' || !window.location.hostname.match(/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)$/))
-    ? '/api-blockchain'
-    : (import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://localhost:3001');
+import { BLOCKCHAIN_API } from '../config/api';
 
 /**
  * Cliente HTTP para comunicarse con la API Gateway del blockchain.
@@ -132,7 +128,8 @@ export const blockchainService = {
             if (error) throw error;
 
             return txId;
-        } catch {
+        } catch (err) {
+            console.warn('[Blockchain] Error en sellarYActualizar:', err.message);
             return null;
         }
     },
@@ -167,7 +164,8 @@ export const blockchainService = {
             }
             
             return resultados;
-        } catch {
+        } catch (err) {
+            console.warn('[Blockchain] Error en sellarPendientes:', err.message);
             return [];
         }
     }

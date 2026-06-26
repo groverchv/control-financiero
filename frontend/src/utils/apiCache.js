@@ -3,15 +3,33 @@
  * Si hay conexión, realiza la petición real y la guarda.
  * Si no hay conexión o la red falla, intenta recuperar el último resultado guardado en localStorage.
  * 
+ * Pilar: Eficiencia — evita peticiones redundantes con TTL configurable.
+ * 
  * @param {string} cacheKey Identificador único para el recurso en caché
  * @param {Function} asyncFn Función asíncrona original que realiza la petición
- * @returns {Function} Función envuelta con soporte de caché offline
+ * @param {number} maxAgeMs Tiempo máximo de vida del caché en milisegundos (default: 5 minutos)
+ * @returns {Function} Función envuelta con soporte de caché offline y TTL
  */
-export const withCache = (cacheKey, asyncFn) => {
+export const withCache = (cacheKey, asyncFn, maxAgeMs = 5 * 60 * 1000) => {
   return async (...args) => {
     const key = `${cacheKey}_${JSON.stringify(args)}`;
     
     if (navigator.onLine) {
+      // Verificar si existe caché válido (no expirado)
+      try {
+        const cached = localStorage.getItem(key);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const age = Date.now() - (parsed.timestamp || 0);
+          if (age < maxAgeMs) {
+            // Caché aún válido, retornar sin petición de red
+            return parsed.data;
+          }
+        }
+      } catch (e) {
+        // Si falla la lectura de caché, continuar con la petición normal
+      }
+
       try {
         const result = await asyncFn(...args);
         try {

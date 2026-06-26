@@ -26,3 +26,15 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Security: Private keys and sensitive credentials
+*.key
+*.key.pub
+*.pem
+
+# Blockchain runtime artifacts
+blockchain/api/services/mockLedger.json
+blockchain/api/logs/
+
+# Scratch / temporary
+scratch/

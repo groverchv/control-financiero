@@ -236,7 +236,18 @@ export const DetalleActividadPage = () => {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     {actividad.modalidad === 'virtual' ? 'Plataforma / Enlace' : 'Lugar / Dirección'}
                   </p>
-                  <p className="font-bold text-slate-900">{actividad.ubicacion || 'Por confirmar'}</p>
+                  {actividad.modalidad === 'virtual' && actividad.ubicacion && (actividad.ubicacion.startsWith('http') || actividad.ubicacion.includes('.')) ? (
+                    <a 
+                      href={actividad.ubicacion.startsWith('http') ? actividad.ubicacion : `https://${actividad.ubicacion}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="font-bold text-blue-600 hover:text-blue-800 underline break-all"
+                    >
+                      {actividad.ubicacion}
+                    </a>
+                  ) : (
+                    <p className="font-bold text-slate-900">{actividad.ubicacion || 'Por confirmar'}</p>
+                  )}
 
                   {actividad.modalidad === 'presencial' && actividad.latitud && actividad.longitud && (
                     <a 
@@ -341,7 +352,7 @@ export const DetalleActividadPage = () => {
               </div>
             </div>
 
-            {currentEstado === 'en_curso' && (
+            {currentEstado === 'en_curso' && !isInscrito && (
               <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center animate-pulse flex flex-col items-center justify-center">
                 <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block mb-1">
                   TIEMPO LÍMITE DE INSCRIPCIÓN

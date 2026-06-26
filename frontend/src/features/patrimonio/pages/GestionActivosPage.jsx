@@ -188,7 +188,7 @@ export const GestionActivosPage = () => {
               title="Reintentar sellar de forma manual"
             >
               <RefreshCw className="h-3 w-3" />
-              Reintentar
+              Reintentar sellar
             </Button>
           )}
         </div>

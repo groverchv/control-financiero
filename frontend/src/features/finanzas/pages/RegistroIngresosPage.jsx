@@ -10,33 +10,65 @@ import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { useAuthStore } from '../../../store/authStore';
 // Helpers para extracción y formateo robusto de cuotas pendientes
+const cleanFrecuencia = (str) => {
+  if (!str) return '';
+  return str
+    .replace(/^(Min|Día|Sem|Mes|Noche|Año)\s+/i, '')
+    .replace(/\s*[-–—]?\s*\((Día|Min|Sem|Mes|Noche|Año)\)/gi, '')
+    .trim();
+};
+
+const formatDisplayFecha = (fechaStr) => {
+  if (!fechaStr) return '';
+  const d = new Date(fechaStr);
+  if (!isNaN(d.getTime())) {
+    // Si tiene hora/minuto en la cadena original, o no son las 00:00:00
+    const hasTime = fechaStr.includes('T') && !fechaStr.endsWith('T00:00:00') && !fechaStr.endsWith('T00:00:00.000Z');
+    
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    
+    if (hasTime) {
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const seconds = String(d.getSeconds()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    }
+    return `${day}/${month}/${year}`;
+  }
+  return fechaStr;
+};
+
 const getCuotaGeneracionDate = (pendiente) => {
   if (!pendiente) return '';
-  if (pendiente.fechaGeneracion) return pendiente.fechaGeneracion.split('T')[0];
+  if (pendiente.fechaGeneracion) return pendiente.fechaGeneracion;
   
   const mes = pendiente.mes;
   if (mes) {
-    // Extraer DD/MM/YYYY (ej: Min 21/5/2026 13:30 -> 2026-05-21)
-    const match = mes.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    // Extraer DD/MM/YYYY HH:MM (ej: Min 21/5/2026 13:30 -> 2026-05-21T13:30:00)
+    const match = mes.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
     if (match) {
       const day = match[1].padStart(2, '0');
       const month = match[2].padStart(2, '0');
       const year = match[3];
-      return `${year}-${month}-${day}`;
+      const hour = (match[4] || '00').padStart(2, '0');
+      const minute = (match[5] || '00').padStart(2, '0');
+      return `${year}-${month}-${day}T${hour}:${minute}:00`;
     }
     // Extraer YYYY-MM (ej: 2026-05 -> 2026-05-01)
     const matchMonth = mes.match(/^(\d{4})-(\d{2})$/);
     if (matchMonth) {
-      return `${matchMonth[1]}-${matchMonth[2]}-01`;
+      return `${matchMonth[1]}-${matchMonth[2]}-01T00:00:00`;
     }
   }
   
   // Fallback a los vencimientos si todo lo demás falla
   const fallback = pendiente.fechaVencimiento || pendiente.fechaVencimientoAjustada || pendiente.creacion;
   if (fallback) {
-    return fallback.split('T')[0];
+    return fallback;
   }
-  return new Date().toISOString().split('T')[0];
+  return new Date().toISOString();
 };
 
 const formatPeriodoLabel = (pendiente, desc) => {
@@ -44,8 +76,7 @@ const formatPeriodoLabel = (pendiente, desc) => {
   const mes = pendiente.mes;
   if (!mes) return '...';
   
-  // Limpiar prefijos de frecuencia corta (ej: Min 21/5/2026 13:30 -> 21/5/2026 13:30)
-  const cleanMes = mes.replace(/^(Min|Día|Sem)\s+/, '');
+  let cleanMes = cleanFrecuencia(mes);
   
   // Si es un mes en formato mensual YYYY-MM, usar la descripción más amigable (ej: Mayo 2026)
   if (mes.match(/^\d{4}-\d{2}$/)) {
@@ -316,28 +347,32 @@ export const RegistroCuotasPage = () => {
   const parseMesToNombre = (mesStr) => {
     if (!mesStr) return '';
     
+    // Primero limpiar frecuencia de la cadena
+    const cleanStr = cleanFrecuencia(mesStr);
+    if (!cleanStr) return '';
+    
     // 1. Intentar parsear como YYYY-MM (ej: 2026-06)
-    const matchIso = mesStr.match(/^(\d{4})-(\d{2})$/);
+    const matchIso = cleanStr.match(/^(\d{4})-(\d{2})$/);
     if (matchIso) {
       const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(matchIso[2]) - 1];
       return `${mesNombre} ${matchIso[1]}`;
     }
 
     // 2. Intentar parsear formato DD/MM/YYYY con o sin prefijo (ej: "Min 1/6/2026 14:24")
-    const matchSpanish = mesStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    const matchSpanish = cleanStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if (matchSpanish) {
       const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][Number(matchSpanish[2]) - 1];
       return `${mesNombre} ${matchSpanish[3]}`;
     }
 
     // 3. Fallback a objeto Date de JS
-    const d = new Date(mesStr);
+    const d = new Date(cleanStr);
     if (!isNaN(d.getTime())) {
       const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][d.getMonth()];
       return `${mesNombre} ${d.getFullYear()}`;
     }
 
-    return mesStr;
+    return cleanStr;
   };
 
   useEffect(() => {
@@ -346,12 +381,13 @@ export const RegistroCuotasPage = () => {
       if (registroSocio && registroSocio.proximaPendiente) {
         const mes = registroSocio.proximaPendiente.mes;
         const isEnrollment = mes.toLowerCase().includes('inscrip');
-        const periodoNombre = parseMesToNombre(mes);
+        const cleanMes = cleanFrecuencia(mes);
+        const periodoNombre = parseMesToNombre(cleanMes);
         
         let desc = '';
         if (isEnrollment) {
-          const cleanPeriodo = parseMesToNombre(mes.replace(/Inscripci[oó]n\s*/i, '').trim());
-          desc = `Pago de inscripción - ${cleanPeriodo || 'Bienvenida'}`;
+          const cleanPeriodo = parseMesToNombre(cleanMes.replace(/Inscripci[oó]n\s*/i, '').trim());
+          desc = `Pago de inscripción${cleanPeriodo ? ` - ${cleanPeriodo}` : ''}`;
         } else {
           desc = `Cuota de membresía - ${periodoNombre}`;
         }
@@ -371,12 +407,13 @@ export const RegistroCuotasPage = () => {
       if (esMembresiaOrdinaria && registroSocio && registroSocio.proximaPendiente) {
         const mes = registroSocio.proximaPendiente.mes;
         const isEnrollment = mes.toLowerCase().includes('inscrip');
-        const periodoNombre = parseMesToNombre(mes);
+        const cleanMes = cleanFrecuencia(mes);
+        const periodoNombre = parseMesToNombre(cleanMes);
         
         let desc = '';
         if (isEnrollment) {
-          const cleanPeriodo = parseMesToNombre(mes.replace(/Inscripci[oó]n\s*/i, '').trim());
-          desc = `Pago de inscripción APF - ${cleanPeriodo || 'Bienvenida'}`;
+          const cleanPeriodo = parseMesToNombre(cleanMes.replace(/Inscripci[oó]n\s*/i, '').trim());
+          desc = `Pago de inscripción APF${cleanPeriodo ? ` - ${cleanPeriodo}` : ''}`;
         } else {
           desc = `Cuota de membresía APF - ${periodoNombre}`;
         }
@@ -702,19 +739,32 @@ export const RegistroCuotasPage = () => {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            {cuota.estado === 'reembolso_pendiente' ? (
-                              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 border border-amber-200">
-                                Reembolso Pendiente
-                              </span>
-                            ) : cuota.estado === 'devolucion' ? (
-                              <span className="inline-flex items-center rounded-full bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-700 border border-rose-200">
-                                Devuelto
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wider bg-emerald-50 text-emerald-700">
-                                Pagado
-                              </span>
-                            )}
+                            {(() => {
+                              const esRefundablePorCosto = cuota.estado !== 'devolucion' && 
+                                                         cuota.tipo_ingreso_nombre?.toLowerCase().includes('actividad') && 
+                                                         cuota.inscripcion && 
+                                                         cuota.inscripcion.actividad && 
+                                                         Number(cuota.monto) > Number(cuota.inscripcion.actividad.costo);
+                              if (cuota.estado === 'reembolso_pendiente' || esRefundablePorCosto) {
+                                return (
+                                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 border border-amber-200">
+                                    Reembolso Pendiente
+                                  </span>
+                                );
+                              } else if (cuota.estado === 'devolucion') {
+                                return (
+                                  <span className="inline-flex items-center rounded-full bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-700 border border-rose-200">
+                                    Devuelto
+                                  </span>
+                                );
+                              } else {
+                                return (
+                                  <span className="inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wider bg-emerald-50 text-emerald-700">
+                                    Pagado
+                                  </span>
+                                );
+                              }
+                            })()}
                           </td>
                           <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                             <div>
@@ -724,14 +774,24 @@ export const RegistroCuotasPage = () => {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-2">
-                              {cuota.estado === 'reembolso_pendiente' && (
-                                <button 
-                                  onClick={() => handleDevolver(cuota)}
-                                  className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition-colors shadow-sm"
-                                >
-                                  Reembolso
-                                </button>
-                              )}
+                              {(() => {
+                                const esRefundablePorCosto = cuota.estado !== 'devolucion' && 
+                                                             cuota.tipo_ingreso_nombre?.toLowerCase().includes('actividad') && 
+                                                             cuota.inscripcion && 
+                                                             cuota.inscripcion.actividad && 
+                                                             Number(cuota.monto) > Number(cuota.inscripcion.actividad.costo);
+                                if (cuota.estado === 'reembolso_pendiente' || esRefundablePorCosto) {
+                                  return (
+                                    <button 
+                                      onClick={() => handleDevolver(cuota)}
+                                      className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition-colors shadow-sm"
+                                    >
+                                      Reembolso
+                                    </button>
+                                  );
+                                }
+                                return null;
+                              })()}
                               <button 
                                 onClick={() => setDetalleModal({ open: true, cuota })}
                                 className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
@@ -747,7 +807,7 @@ export const RegistroCuotasPage = () => {
                                   title="Reintentar sellar de forma manual"
                                 >
                                   <RefreshCw className="h-3.5 w-3.5" />
-                                  Reintentar
+                                  Reintentar sellar
                                 </button>
                               )}
                             </div>
@@ -954,8 +1014,8 @@ export const RegistroCuotasPage = () => {
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-1">Fecha de la cuota (Generación)</label>
                   <input
-                    type="date"
-                    value={form.fecha}
+                    type="text"
+                    value={formatDisplayFecha(form.fecha)}
                     readOnly
                     className="flex w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 cursor-not-allowed"
                   />
@@ -1473,9 +1533,31 @@ export const RegistroCuotasPage = () => {
           <div className="flex items-start gap-3 p-3 bg-rose-50 border border-rose-100 rounded-lg text-rose-800 text-sm">
             <AlertCircle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
             <div>
-              <span>
-                ¿Está seguro de procesar el reembolso para este ingreso? Esta acción es <strong>irreversible</strong>, fijará el monto del ingreso a <strong>Bs. 0.00</strong>, actualizará su estado a <strong>"Devuelto"</strong>, y sellará la transacción de devolución en la Blockchain.
-              </span>
+              {(() => {
+                const cuota = devolverModal.cuota;
+                if (!cuota) return null;
+                
+                const esRefundablePorCosto = cuota.tipo_ingreso_nombre?.toLowerCase().includes('actividad') && 
+                                             cuota.inscripcion && 
+                                             cuota.inscripcion.actividad && 
+                                             Number(cuota.monto) > Number(cuota.inscripcion.actividad.costo);
+                                             
+                if (esRefundablePorCosto) {
+                  const costoAct = Number(cuota.inscripcion.actividad.costo);
+                  const diff = Number(cuota.monto) - costoAct;
+                  return (
+                    <span>
+                      ¿Está seguro de procesar el reembolso para este ingreso? Esta acción es <strong>irreversible</strong>, fijará el monto del ingreso a <strong>Bs. {costoAct.toFixed(2)}</strong> (reembolsando el excedente de <strong>Bs. {diff.toFixed(2)}</strong> al socio), y sellará la transacción de devolución en la Blockchain.
+                    </span>
+                  );
+                }
+                
+                return (
+                  <span>
+                    ¿Está seguro de procesar el reembolso para este ingreso? Esta acción es <strong>irreversible</strong>, fijará el monto del ingreso a <strong>Bs. 0.00</strong>, actualizará su estado a <strong>"Devuelto"</strong>, y sellará la transacción de devolución en la Blockchain.
+                  </span>
+                );
+              })()}
             </div>
           </div>
           

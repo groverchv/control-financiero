@@ -10,6 +10,8 @@ import { Spinner } from "@/components/ui";
 // Carga diferida (Lazy Loading) de páginas con exportaciones nombradas
 const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage").then(m => ({ default: m.LoginPage })));
 const LandingPage = lazy(() => import("@/features/auth/pages/LandingPage").then(m => ({ default: m.LandingPage })));
+const ForgotPasswordPage = lazy(() => import("@/features/auth/pages/ForgotPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("@/features/auth/pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
 const GestionMiembrosPage = lazy(() => import("@/features/administracion/pages/GestionMiembrosPage").then(m => ({ default: m.GestionMiembrosPage })));
 const DashboardKpisPage = lazy(() => import("@/features/administracion/pages/DashboardKpisPage").then(m => ({ default: m.DashboardKpisPage })));
 const PerfilSocioPage = lazy(() => import("@/features/administracion/pages/PerfilSocioPage").then(m => ({ default: m.PerfilSocioPage })));
@@ -124,6 +126,8 @@ export const AppRouter = () => {
         <Routes>
           <Route element={<PublicLayout />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/inicio" element={<LandingPage />} />
             <Route path="/actividades" element={<PublicActividadesPage />} />
             <Route path="/actividades/:id" element={<DetalleActividadPage />} />
@@ -277,7 +281,7 @@ export const AppRouter = () => {
             <Route
               path="/admin/talento"
               element={
-                <ProtectedRoute requiredRoles={["admin"]}>
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
                   <BuscadorTalentoPage />
                 </ProtectedRoute>
               }

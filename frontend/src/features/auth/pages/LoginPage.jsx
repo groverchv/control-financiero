@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, LockKeyhole, Mail } from 'lucide-react';
+import { ArrowRight, LockKeyhole, Mail, Eye, EyeOff } from 'lucide-react';
 import { authApi } from '../api/authApi';
 import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/ui';
@@ -12,6 +12,7 @@ export const LoginPage = () => {
   const { setUser } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,6 +25,10 @@ export const LoginPage = () => {
     } else if (msg === 'cuenta_deshabilitada') {
       toast.error('Tu cuenta ha sido deshabilitada. Contacta al administrador.', {
         toastId: 'account_disabled_toast'
+      });
+    } else if (msg === 'contrasena_actualizada') {
+      toast.success('¡Contraseña actualizada exitosamente! Inicia sesión con tu nueva contraseña.', {
+        toastId: 'password_updated_toast'
       });
     }
   }, [searchParams]);
@@ -101,7 +106,7 @@ export const LoginPage = () => {
               <input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 required
                 className="w-full border-0 p-0 text-sm text-slate-900 outline-none placeholder:text-slate-400"
@@ -109,6 +114,14 @@ export const LoginPage = () => {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
           </div>
 
@@ -117,6 +130,15 @@ export const LoginPage = () => {
               {error}
             </div>
           ) : null}
+
+          <div className="text-right">
+            <Link
+              to="/forgot-password"
+              className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
 
           <Button type="submit" disabled={loading} className="w-full">
             {loading ? 'Ingresando...' : 'Ingresar'}

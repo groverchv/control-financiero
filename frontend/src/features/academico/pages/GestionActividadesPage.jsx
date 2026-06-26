@@ -45,6 +45,8 @@ import { academicoApi } from "../api";
 import { blockchainService } from "../../../services/blockchain";
 import { administracionApi } from "../../administracion/api";
 import { useAuthStore } from "../../../store/authStore";
+import { supabase } from "../../../services/supabase";
+import { brevoService } from "../../../services/brevo";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -127,13 +129,45 @@ export const GestionActividadesPage = () => {
 
   const [formErrors, setFormErrors] = useState({});
 
+  const handleDateOrTimeChange = (field, value) => {
+    const updated = { ...formData, [field]: value };
+    setFormData(updated);
+
+    if (updated.fecha && updated.hora) {
+      const selectedDateTime = new Date(`${updated.fecha}T${updated.hora}`);
+      const currentDateTime = new Date();
+      if (selectedDateTime < currentDateTime) {
+        setFormErrors((prev) => ({
+          ...prev,
+          fecha: "La fecha y hora de la actividad no pueden ser anteriores al momento actual.",
+          hora: "La fecha y hora de la actividad no pueden ser anteriores al momento actual.",
+        }));
+      } else {
+        setFormErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors.fecha;
+          delete newErrors.hora;
+          return newErrors;
+        });
+      }
+    } else {
+      setFormErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.fecha;
+        delete newErrors.hora;
+        return newErrors;
+      });
+    }
+  };
+
   const isFormInvalid =
     !formData.nombre.trim() ||
     !formData.tipo_actividad_id ||
     !formData.fecha ||
     !formData.hora ||
     formData.costo === "" ||
-    formData.cupos === "";
+    formData.cupos === "" ||
+    Object.keys(formErrors).length > 0;
 
   const isFormUnchanged =
     !!editingAct &&
@@ -531,12 +565,14 @@ export const GestionActividadesPage = () => {
       confirmText: "Sí, inscribir",
       actionType: "primary",
       onConfirm: async () => {
+        const miembroIdToInscribir = selectedMiembroId;
+        const miembro = todosMiembros.find((m) => m.id === miembroIdToInscribir);
         setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
         setManualInscribiendo(true);
         setLoadingModal({ open: true, text: "Registrando inscripción del socio..." });
         try {
           await academicoApi.inscribirSocio(
-            selectedMiembroId,
+            miembroIdToInscribir,
             inscritosModal.actividad.id,
           );
           // Reload inscritos list
@@ -570,6 +606,37 @@ export const GestionActividadesPage = () => {
             details:
               "El socio ha sido inscrito manualmente en la actividad de manera correcta.",
           });
+
+          // Notificar inscripción interna y por correo Brevo
+          if (miembro) {
+            try {
+              // 1. Notificación interna
+              await supabase.from('notificacion').insert([{
+                miembro_id: miembro.id,
+                titulo: 'Inscripción Exitosa',
+                descripcion: `Has sido inscrito/a en la actividad "${inscritosModal.actividad.nombre}".`,
+                estado: 'pendiente'
+              }]);
+            } catch (notifErr) {
+              console.error('[Notif] Error guardando notificación interna de inscripción:', notifErr);
+            }
+
+            try {
+              // 2. Notificación por correo Brevo
+              await brevoService.notificarInscripcionActividad({
+                email: miembro.correoElectronico,
+                nombre: `${miembro.nombre} ${miembro.apellidoPaterno || ''}`.trim(),
+                actividadTitulo: inscritosModal.actividad.nombre,
+                fecha: inscritosModal.actividad.fecha,
+                hora: inscritosModal.actividad.hora,
+                modalidad: inscritosModal.actividad.modalidad,
+                ubicacion: inscritosModal.actividad.ubicacion,
+                costo: inscritosModal.actividad.costo
+              });
+            } catch (emailErr) {
+              console.error('[Brevo] Error al enviar confirmación de inscripción:', emailErr);
+            }
+          }
         } catch (err) {
           console.error(err);
           setLoadingModal({ open: false, text: "" });
@@ -635,6 +702,18 @@ export const GestionActividadesPage = () => {
             text: "¡Inscripción eliminada!",
             details: "El socio ha sido desinscrito de la actividad con éxito.",
           });
+
+          // Notificar desinscripción únicamente de forma interna (dentro del sistema)
+          try {
+            await supabase.from('notificacion').insert([{
+              miembro_id: miembro.id,
+              titulo: 'Inscripción Anulada',
+              descripcion: `Tu inscripción en la actividad "${inscritosModal.actividad.nombre}" ha sido anulada por la administración.`,
+              estado: 'pendiente'
+            }]);
+          } catch (notifErr) {
+            console.error('[Notif] Error guardando notificación interna de desinscripción:', notifErr);
+          }
         } catch (err) {
           console.error(err);
           setLoadingModal({ open: false, text: "" });
@@ -835,6 +914,17 @@ export const GestionActividadesPage = () => {
 
     if (!formData.fecha) errors.fecha = "La fecha de la actividad es requerida (Ej: 2026-06-15).";
     if (!formData.hora) errors.hora = "La hora de la actividad es requerida (Ej: 19:30).";
+
+    if (formData.fecha && formData.hora) {
+      const selectedDateTime = new Date(`${formData.fecha}T${formData.hora}`);
+      const currentDateTime = new Date();
+      if (selectedDateTime < currentDateTime) {
+        const errorMsg = "La fecha y hora de la actividad no pueden ser anteriores al momento actual.";
+        errors.fecha = errorMsg;
+        errors.hora = errorMsg;
+      }
+    }
+
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
@@ -870,6 +960,33 @@ export const GestionActividadesPage = () => {
           payload,
           selectedFile,
         );
+
+        // Notificar a los inscritos si el costo cambió
+        const costChanged = Number(editingAct.costo) !== Number(formData.costo);
+        if (costChanged && navigator.onLine) {
+          try {
+            const { data: inscritos } = await supabase
+              .from('inscripcion')
+              .select('miembro_id')
+              .eq('actividad_id', editingAct.id);
+            
+            if (inscritos && inscritos.length > 0) {
+              const isDecreased = Number(formData.costo) < Number(editingAct.costo);
+              const notifications = inscritos.map(ins => ({
+                miembro_id: ins.miembro_id,
+                titulo: 'Modificación de Costo',
+                descripcion: isDecreased
+                  ? `El costo de la actividad "${formData.nombre}" ha sido modificado de Bs. ${editingAct.costo} a Bs. ${formData.costo}. Por favor pase por secretaría para la devolución del monto correspondiente a su favor.`
+                  : `El costo de la actividad "${formData.nombre}" ha sido modificado de Bs. ${editingAct.costo} a Bs. ${formData.costo}. Si no está de acuerdo con las modificaciones, puede pasar por secretaría para anular la inscripción.`,
+                estado: 'pendiente'
+              }));
+              await supabase.from('notificacion').insert(notifications);
+            }
+          } catch (notifErr) {
+            console.error('[Notif] Error al crear notificaciones por cambio de costo:', notifErr);
+          }
+        }
+
         setActividades(
           actividades.map((a) => (a.id === editingAct.id ? actualizado : a)),
         );
@@ -1464,9 +1581,7 @@ export const GestionActividadesPage = () => {
                   label="Fecha"
                   type="date"
                   value={formData.fecha}
-                  onChange={(e) =>
-                    setFormData({ ...formData, fecha: e.target.value })
-                  }
+                  onChange={(e) => handleDateOrTimeChange("fecha", e.target.value)}
                   error={formErrors.fecha}
                   required
                 />
@@ -1474,9 +1589,7 @@ export const GestionActividadesPage = () => {
                   label="Hora"
                   type="time"
                   value={formData.hora}
-                  onChange={(e) =>
-                    setFormData({ ...formData, hora: e.target.value })
-                  }
+                  onChange={(e) => handleDateOrTimeChange("hora", e.target.value)}
                   error={formErrors.hora}
                   required
                 />

@@ -66,7 +66,9 @@ keepAlive.inicializarKeepAlive();
 
 app.use(helmet());
 app.use(cors({
-    origin: true,
+    origin: process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',')
+      : ['http://localhost:5173'],
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -102,7 +104,7 @@ app.use((_req, res) => {
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
     logger.error('Error global no manejado en la aplicación', { error: err.message, stack: err.stack });
-    res.status(500).json({ error: 'Error interno del servidor', detalle: err.message });
+    res.status(500).json({ error: 'Error interno del servidor' });
 });
 
 let server;

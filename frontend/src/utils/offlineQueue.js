@@ -157,7 +157,41 @@ export const withWriteQueue = (type, apiCallFnName, originalFn) => {
 
 /**
  * Fusiona los registros de la cola local pendientes de sincronización con la lista de datos cargada.
+ * 
+ * Pilar: Corrección + Mantenibilidad — lógica de merge centralizada en helpers reutilizables.
  */
+
+/**
+ * Helper: Inserta un registro pendiente al inicio del array si no existe ya.
+ * Evita duplicación de lógica que antes se repetía 6+ veces.
+ */
+function insertIfNotExists(result, action, entityData, extraFields = {}) {
+  const exists = result.some(item => item.id === action.id);
+  if (!exists) {
+    result.unshift({
+      ...entityData,
+      id: action.id,
+      creacion: new Date(action.timestamp).toISOString(),
+      estado: 'pendiente_sincronizar',
+      _offlinePending: true,
+      ...extraFields
+    });
+  }
+  return result;
+}
+
+/**
+ * Helper: Actualiza un registro existente en el array por ID.
+ */
+function updateById(result, id, updates) {
+  return result.map(item => {
+    if (item.id === id) {
+      return { ...item, ...updates, _offlinePending: true };
+    }
+    return item;
+  });
+}
+
 export const applyPendingQueueToData = (type, data) => {
   if (!Array.isArray(data)) return data;
   try {
@@ -184,108 +218,39 @@ export const applyPendingQueueToData = (type, data) => {
             });
           }
         } else if (apiCallFnName === 'actualizarMiembro') {
-          const [id, updates] = args;
-          result = result.map(m => {
-            if (m.id === id) {
-              return { ...m, ...updates, _offlinePending: true };
-            }
-            return m;
-          });
+          result = updateById(result, args[0], args[1]);
         } else if (apiCallFnName === 'inactivarMiembro') {
-          const [id] = args;
-          result = result.map(m => {
-            if (m.id === id) {
-              return { ...m, estado: 'inactivo', _offlinePending: true };
-            }
-            return m;
+          result = updateById(result, args[0], { estado: 'inactivo' });
+        }
+      } else if (type === 'ingreso' && apiCallFnName === 'registrarPago') {
+        result = insertIfNotExists(result, action, args[0]);
+      } else if (type === 'egreso' && apiCallFnName === 'registrarEgreso') {
+        result = insertIfNotExists(result, action, args[0]);
+      } else if (type === 'actividad' && apiCallFnName === 'crearActividad') {
+        const actividad = args[0];
+        result = insertIfNotExists(result, action, actividad, {
+          titulo: actividad.nombre || actividad.titulo,
+          nombre: actividad.nombre || actividad.titulo
+        });
+      } else if (type === 'inscripcion' && apiCallFnName === 'inscribirSocio') {
+        const [miembroId, actividadId] = args;
+        const exists = result.some(i => i.actividad_id === actividadId && i.miembro_id === miembroId);
+        if (!exists) {
+          result.push({
+            id: action.id,
+            miembro_id: miembroId,
+            actividad_id: actividadId,
+            estado: 'pendiente_sincronizar',
+            _offlinePending: true
           });
         }
-      } else if (type === 'ingreso') {
-        if (apiCallFnName === 'registrarPago') {
-          const pago = args[0];
-          const exists = result.some(p => p.id === action.id);
-          if (!exists) {
-            result.unshift({
-              ...pago,
-              id: action.id,
-              creacion: new Date(action.timestamp).toISOString(),
-              estado: 'pendiente_sincronizar',
-              _offlinePending: true
-            });
-          }
-        }
-      } else if (type === 'egreso') {
-        if (apiCallFnName === 'registrarEgreso') {
-          const egreso = args[0];
-          const exists = result.some(e => e.id === action.id);
-          if (!exists) {
-            result.unshift({
-              ...egreso,
-              id: action.id,
-              creacion: new Date(action.timestamp).toISOString(),
-              estado: 'pendiente_sincronizar',
-              _offlinePending: true
-            });
-          }
-        }
-      } else if (type === 'actividad') {
-        if (apiCallFnName === 'crearActividad') {
-          const actividad = args[0];
-          const exists = result.some(a => a.id === action.id);
-          if (!exists) {
-            result.unshift({
-              ...actividad,
-              id: action.id,
-              titulo: actividad.nombre || actividad.titulo,
-              nombre: actividad.nombre || actividad.titulo,
-              creacion: new Date(action.timestamp).toISOString(),
-              estado: 'pendiente_sincronizar',
-              _offlinePending: true
-            });
-          }
-        }
-      } else if (type === 'inscripcion') {
-        if (apiCallFnName === 'inscribirSocio') {
-          const [miembroId, actividadId] = args;
-          const exists = result.some(i => i.actividad_id === actividadId && i.miembro_id === miembroId);
-          if (!exists) {
-            result.push({
-              id: action.id,
-              miembro_id: miembroId,
-              actividad_id: actividadId,
-              estado: 'pendiente_sincronizar',
-              _offlinePending: true
-            });
-          }
-        }
-      } else if (type === 'activo') {
-        if (apiCallFnName === 'registrarActivo') {
-          const activo = args[0];
-          const exists = result.some(a => a.id === action.id);
-          if (!exists) {
-            result.unshift({
-              ...activo,
-              id: action.id,
-              creacion: new Date(action.timestamp).toISOString(),
-              estado: 'pendiente_sincronizar',
-              _offlinePending: true
-            });
-          }
-        }
-      } else if (type === 'adquisicion') {
-        if (apiCallFnName === 'registrarAdquisicion') {
-          const adquisicion = args[0];
-          const exists = result.some(a => a.id === action.id);
-          if (!exists) {
-            result.unshift({
-              ...adquisicion,
-              id: action.id,
-              fecha: adquisicion.fecha || new Date(action.timestamp).toISOString().split('T')[0],
-              estado: 'pendiente_sincronizar',
-              _offlinePending: true
-            });
-          }
-        }
+      } else if (type === 'activo' && apiCallFnName === 'registrarActivo') {
+        result = insertIfNotExists(result, action, args[0]);
+      } else if (type === 'adquisicion' && apiCallFnName === 'registrarAdquisicion') {
+        const adquisicion = args[0];
+        result = insertIfNotExists(result, action, adquisicion, {
+          fecha: adquisicion.fecha || new Date(action.timestamp).toISOString().split('T')[0]
+        });
       }
     }
     return result;

@@ -10,6 +10,8 @@ import { finanzasApi } from '../api';
 import { Button, Spinner, Modal, ExportButtons } from '../../../components/ui';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { formatCurrency } from '../../../utils/formatters';
+import { useAuthStore } from '../../../store/authStore';
+
 
 
 const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -280,8 +282,10 @@ const MiembroRow = ({ registro }) => {
 };
 
 export const HistorialCuotasPage = () => {
+  const { user } = useAuthStore();
   const [historial, setHistorial] = useState([]);
   const [config, setConfig] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [loadingPausa, setLoadingPausa] = useState(false);
   const [error, setError] = useState(null);
@@ -424,45 +428,47 @@ export const HistorialCuotasPage = () => {
             Seguimiento mensual de pagos por miembro · Sistema automático desde la fecha de ingreso.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-          {/* BOTÓN CONFIGURACIÓN GENERAL DE CUOTAS */}
-          <button
-            type="button"
-            onClick={() => {
-              setConfigForm({
-                frecuencia: config?.frecuencia || 'mes',
-                monto_cuota: config?.monto_cuota || 20
-              });
-              setConfigModal(true);
-            }}
-            disabled={loading || loadingPausa}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
-          >
-            <Clock className="h-4 w-4 text-slate-500 shrink-0" />
-            <span className="whitespace-nowrap">Configuración de cuotas</span>
-          </button>
+        {user?.rol === 'admin' && (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            {/* BOTÓN CONFIGURACIÓN GENERAL DE CUOTAS */}
+            <button
+              type="button"
+              onClick={() => {
+                setConfigForm({
+                  frecuencia: config?.frecuencia || 'mes',
+                  monto_cuota: config?.monto_cuota || 20
+                });
+                setConfigModal(true);
+              }}
+              disabled={loading || loadingPausa}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <Clock className="h-4 w-4 text-slate-500 shrink-0" />
+              <span className="whitespace-nowrap">Configuración de cuotas</span>
+            </button>
 
-          {/* BOTÓN PAUSA GLOBAL */}
-          <button
-            type="button"
-            onClick={() => setConfirmPausa(true)}
-            disabled={loadingPausa || loading}
-            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all shadow-sm disabled:opacity-60 ${
-              config?.pausado
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
-                : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
-            }`}
-          >
-            {loadingPausa ? (
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-            ) : config?.pausado ? (
-              <PlayCircle className="h-4 w-4 shrink-0" />
-            ) : (
-              <PauseCircle className="h-4 w-4 shrink-0" />
-            )}
-            <span>{config?.pausado ? 'Reanudar generación' : 'Pausar generación'}</span>
-          </button>
-        </div>
+            {/* BOTÓN PAUSA GLOBAL */}
+            <button
+              type="button"
+              onClick={() => setConfirmPausa(true)}
+              disabled={loadingPausa || loading}
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all shadow-sm disabled:opacity-60 ${
+                config?.pausado
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
+                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
+              }`}
+            >
+              {loadingPausa ? (
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              ) : config?.pausado ? (
+                <PlayCircle className="h-4 w-4 shrink-0" />
+              ) : (
+                <PauseCircle className="h-4 w-4 shrink-0" />
+              )}
+              <span>{config?.pausado ? 'Reanudar generación' : 'Pausar generación'}</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Banner de pausa activa */}

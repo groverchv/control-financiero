@@ -307,9 +307,21 @@ export const HistorialActividadesPage = () => {
                         {/* Costo, Estado e Botones de Acción */}
                         <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 shrink-0">
                           <div>
-                            <p className="text-right text-lg font-black text-slate-900">Bs. {insc.actividad_costo.toFixed(2)}</p>
+                            <p className="text-right text-lg font-black text-slate-900">
+                              {insc.total_pagado > insc.actividad_costo ? (
+                                <span className="text-xs font-normal text-slate-500 block">
+                                  Costo: Bs. {insc.actividad_costo.toFixed(2)} | Pagado: Bs. {insc.total_pagado.toFixed(2)}
+                                </span>
+                              ) : null}
+                              Bs. {insc.actividad_costo.toFixed(2)}
+                            </p>
                             <div className="mt-1 flex justify-end">
-                              {insc.estado === 'pagado' ? (
+                              {insc.total_pagado > insc.actividad_costo ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                  <AlertCircle className="h-3 w-3" />
+                                  Devolución (Bs. {(insc.total_pagado - insc.actividad_costo).toFixed(2)} a favor)
+                                </span>
+                              ) : insc.estado === 'pagado' ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                                   <CheckCircle2 className="h-3 w-3" />
                                   Pagado

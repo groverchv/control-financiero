@@ -96,7 +96,8 @@ export const EstadoCuentaSocioPage = () => {
             actividad:actividad_id(
               id, titulo, costo, fecha, hora, modalidad,
               tipo_actividad:tipo_actividad_id(nombre)
-            )
+            ),
+            ingreso(monto)
           `)
           .eq('miembro_id', user.id)
           .order('fecha_inscripcion', { ascending: false });
@@ -177,8 +178,20 @@ export const EstadoCuentaSocioPage = () => {
   const cuotasPendientes = cronograma.filter(c => !c.pagado);
   const totalPendienteCuotas = cuotasPendientes.reduce((sum, c) => sum + Number(c.monto_esperado || 0), 0);
 
-  const actsPendientes = inscripciones.filter(i => i.estado !== 'pagado');
-  const totalPendienteActs = actsPendientes.reduce((sum, i) => sum + Number(i.actividad?.costo || 0), 0);
+  const actsPendientes = inscripciones.filter(i => {
+    const costo = i.actividad?.costo || 0;
+    const totalPaid = i.ingreso && i.ingreso.length > 0
+      ? i.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
+      : (i.estado === 'pagado' ? costo : 0);
+    return totalPaid < costo && costo > 0;
+  });
+  const totalPendienteActs = actsPendientes.reduce((sum, i) => {
+    const costo = i.actividad?.costo || 0;
+    const totalPaid = i.ingreso && i.ingreso.length > 0
+      ? i.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
+      : (i.estado === 'pagado' ? costo : 0);
+    return sum + (costo - totalPaid);
+  }, 0);
 
   const deudaGlobalTotal = totalPendienteCuotas + totalPendienteActs;
 
@@ -242,20 +255,73 @@ export const EstadoCuentaSocioPage = () => {
     fecha_inscripcion_display: (
       <span className="text-sm text-slate-600">{formatDate(ins.fecha_inscripcion)}</span>
     ),
-    costo_display: (
-      <span className={`font-bold text-sm ${Number(ins.actividad?.costo || 0) > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
-        {formatCurrency(ins.actividad?.costo || 0)}
-      </span>
-    ),
-    estado_display: ins.estado === 'pagado' ? (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-        <CheckCircle2 className="h-3 w-3" /> PAGADO
-      </span>
-    ) : (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-        <Clock className="h-3 w-3" /> PENDIENTE
-      </span>
-    ),
+    costo_display: (() => {
+      const costo = ins.actividad?.costo || 0;
+      const totalPaid = ins.ingreso && ins.ingreso.length > 0
+        ? ins.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
+        : (ins.estado === 'pagado' ? costo : 0);
+      
+      if (totalPaid > costo && costo > 0) {
+        return (
+          <div className="flex flex-col">
+            <span className="font-bold text-sm text-slate-800">
+              {formatCurrency(costo)}
+            </span>
+            <span className="text-[10px] text-slate-400">
+              Pagado: {formatCurrency(totalPaid)}
+            </span>
+          </div>
+        );
+      }
+      
+      const isFullyPaid = totalPaid >= costo || costo === 0;
+      const displayMonto = isFullyPaid ? totalPaid : costo;
+      return (
+        <span className={`font-bold text-sm ${Number(displayMonto || 0) > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+          {formatCurrency(displayMonto || 0)}
+        </span>
+      );
+    })(),
+    estado_display: (() => {
+      const costo = ins.actividad?.costo || 0;
+      const totalPaid = ins.ingreso && ins.ingreso.length > 0
+        ? ins.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
+        : (ins.estado === 'pagado' ? costo : 0);
+      
+      if (totalPaid > costo && costo > 0) {
+        const refund = totalPaid - costo;
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-bold text-blue-700">
+            <AlertCircle className="h-3 w-3" /> DEVOLUCIÓN (Bs. {Number(refund).toFixed(2)} a favor)
+          </span>
+        );
+      }
+      
+      const isFullyPaid = totalPaid >= costo || costo === 0;
+      
+      if (isFullyPaid) {
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+            <CheckCircle2 className="h-3 w-3" /> PAGADO
+          </span>
+        );
+      }
+      
+      if (totalPaid > 0) {
+        const remaining = costo - totalPaid;
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-xs font-bold text-red-700">
+            <AlertCircle className="h-3 w-3" /> DEUDA (Resta Bs. {Number(remaining).toFixed(2)})
+          </span>
+        );
+      }
+      
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+          <Clock className="h-3 w-3" /> PENDIENTE
+        </span>
+      );
+    })(),
   }));
 
   // ─── Export data ────────────────────────────────────────────────
@@ -266,13 +332,16 @@ export const EstadoCuentaSocioPage = () => {
     Estado: c.pagado ? 'Pagada' : 'Pendiente'
   }));
 
-  const exportActs = filteredActs.map(i => ({
-    Actividad: i.actividad?.titulo || 'Sin nombre',
-    Tipo: i.actividad?.tipo_actividad?.nombre || 'General',
-    'Fecha Inscripción': i.fecha_inscripcion,
-    Costo: i.actividad?.costo || 0,
-    Estado: i.estado === 'pagado' ? 'Pagado' : 'Pendiente'
-  }));
+  const exportActs = filteredActs.map(i => {
+    const actualPaid = i.estado === 'pagado' && i.ingreso && i.ingreso.length > 0 ? i.ingreso[0].monto : i.actividad?.costo;
+    return {
+      Actividad: i.actividad?.titulo || 'Sin nombre',
+      Tipo: i.actividad?.tipo_actividad?.nombre || 'General',
+      'Fecha Inscripción': i.fecha_inscripcion,
+      Costo: actualPaid || 0,
+      Estado: i.estado === 'pagado' ? 'Pagado' : 'Pendiente'
+    };
+  });
 
 
 

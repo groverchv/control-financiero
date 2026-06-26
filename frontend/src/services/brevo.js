@@ -247,7 +247,7 @@ export const brevoService = {
               </tr>
               <tr style="border-top:1px solid #fde68a;">
                 <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Estado de Pago</td>
-                <td style="padding:8px 0;color:#b45309;font-size:13px;font-weight:700;text-align:right;">⚠ Pendiente</td>
+                <td style="padding:8px 0;color:#b45309;font-size:13px;font-weight:700;text-align:right;">Pendiente</td>
               </tr>
               <tr style="border-top:1px solid #fde68a;">
                 <td style="padding:10px 0 0;color:#78716c;font-size:13px;font-weight:600;">Monto Cuota</td>
@@ -262,7 +262,7 @@ export const brevoService = {
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:12px;margin-bottom:24px;">
         <tr>
           <td style="padding:16px 24px;">
-            <p style="margin:0 0 12px;color:#92400e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">⚠ También tienes cuotas pendientes anteriores:</p>
+            <p style="margin:0 0 12px;color:#92400e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Importante: También tienes cuotas pendientes anteriores</p>
             <table width="100%" cellpadding="0" cellspacing="0">
               ${filasDeudaExtra}
               <tr style="border-top:2px solid #fcd34d;">
@@ -283,7 +283,7 @@ export const brevoService = {
 
     return enviarEmail({
       to: { email, name: nombre },
-      subject: `[APF] 📑 Aviso de Cobro — Cuota de Membresía de ${periodoLimpio}`,
+      subject: `[APF] Aviso de Cobro — Cuota de Membresía de ${periodoLimpio}`,
       htmlContent: baseTemplate('Factura de Cuota', content, '#d97706'),
     });
   },
@@ -343,7 +343,7 @@ export const brevoService = {
               </tr>` : ''}
               <tr style="border-top:1px solid #bbf7d0;">
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Estado de Transacción</td>
-                <td style="padding:8px 0;color:#16a34a;font-size:13px;font-weight:700;text-align:right;">✓ Confirmado y Sellado</td>
+                <td style="padding:8px 0;color:#16a34a;font-size:13px;font-weight:700;text-align:right;">Confirmado y Sellado</td>
               </tr>
               <tr style="border-top:1px solid #bbf7d0;">
                 <td style="padding:12px 0 0;color:#166534;font-size:14px;font-weight:800;">MONTO PAGADO</td>
@@ -355,13 +355,13 @@ export const brevoService = {
       </table>
 
       <div style="background-color:#dcfce7;border-radius:8px;padding:12px 20px;margin-bottom:${cuotasPendientes > 0 ? '16px' : '0'};text-align:center;">
-        <p style="margin:0;color:#166534;font-size:14px;font-weight:700;">✔ COMPROBANTE DE PAGO REGISTRADO</p>
+        <p style="margin:0;color:#166534;font-size:14px;font-weight:700;">COMPROBANTE DE PAGO REGISTRADO</p>
       </div>
 
       ${cuotasPendientes > 0 ? `
       <div style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 20px;text-align:center;">
         <p style="margin:0;color:#92400e;font-size:13px;font-weight:600;">
-          ⚠ Recuerda que aún tienes <strong>${cuotasPendientes}</strong> cuota(s) pendiente(s) de pago en tu cuenta.
+          Aviso: Recuerda que aún tienes <strong>${cuotasPendientes}</strong> cuota(s) pendiente(s) de pago en tu cuenta.
         </p>
       </div>` : ''}
     `;
@@ -370,7 +370,7 @@ export const brevoService = {
 
     return enviarEmail({
       to: { email, name: nombre },
-      subject: `[APF] ✅ Confirmación de Pago — Recibo de ${concepto}`,
+      subject: `[APF] Confirmación de Pago — Recibo de ${concepto}`,
       htmlContent: baseTemplate('Recibo de Pago', content, '#16a34a'),
     });
   },
@@ -384,14 +384,16 @@ export const brevoService = {
    * @param {string} params.nombre    Nombre completo o primer nombre del socio
    * @param {string} params.rol       Rol asignado al usuario
    */
-  enviarBienvenida: async ({ email, nombre, rol }) => {
+  enviarBienvenida: async ({ email, nombre, rol, contrasena, montoInscripcion }) => {
     const rolFormateado = rol ? (rol.charAt(0).toUpperCase() + rol.slice(1)) : 'Miembro';
+    const montoFormateado = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(montoInscripcion) || 150);
+
     const content = `
       <h2 style="margin:0 0 4px;color:#1e3a5f;font-size:22px;font-weight:800;text-align:center;">¡TE DAMOS LA BIENVENIDA!</h2>
       <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Tu cuenta ha sido creada exitosamente</p>
 
       <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>, nos alegra mucho darte la bienvenida a nuestra institucion. Tu cuenta de acceso al sistema de <strong>Asociación de Profesionales Financieros</strong> ya esta activa.
+        Estimado/a <strong>${nombre}</strong>, nos alegra mucho darte la bienvenida a nuestra institución. Tu cuenta de acceso al sistema de <strong>Asociación de Profesionales Financieros</strong> ya está activa.
       </p>
 
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px;">
@@ -402,6 +404,12 @@ export const brevoService = {
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Correo Registrado</td>
                 <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${email}</td>
               </tr>
+              ${contrasena ? `
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Contraseña de Acceso</td>
+                <td style="padding:8px 0;color:#e11d48;font-size:13px;font-weight:700;text-align:right;font-family:monospace;">${contrasena}</td>
+              </tr>
+              ` : ''}
               <tr style="border-top:1px solid #edf2f7;">
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Rol asignado</td>
                 <td style="padding:8px 0;color:#1e3a5f;font-size:13px;font-weight:700;text-align:right;">${rolFormateado}</td>
@@ -415,8 +423,21 @@ export const brevoService = {
         </tr>
       </table>
 
+      <div style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+        <p style="margin:0 0 8px;color:#b45309;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">MONTO DE INSCRIPCIÓN</p>
+        <p style="margin:0 0 8px;color:#475569;font-size:14px;line-height:1.5;">
+          Recuerda que debes cancelar el monto de inscripción asignado de:
+        </p>
+        <p style="margin:0 0 8px;color:#d97706;font-size:24px;font-weight:800;">
+          Bs. ${montoFormateado}
+        </p>
+        <p style="margin:0;color:#78716c;font-size:12px;font-style:italic;">
+          Por favor, realiza este pago a la brevedad posible para formalizar tu registro.
+        </p>
+      </div>
+
       <p style="margin:0 0 20px;color:#475569;font-size:14px;line-height:1.6;text-align:center;">
-        Ahora puedes iniciar sesion para ver tus actividades academicas, estado de cuenta, realizar pagos de cuotas y mas.
+        Ahora puedes iniciar sesión para ver tus actividades académicas, estado de cuenta, realizar pagos de cuotas y más.
       </p>
 
       <div style="text-align:center;margin-bottom:24px;">
@@ -432,6 +453,61 @@ export const brevoService = {
       to: { email, name: nombre },
       subject: `[APF] 🌟 ¡Tu cuenta ha sido creada con éxito! Bienvenida`,
       htmlContent: baseTemplate('Bienvenida', content, '#1e3a5f'),
+    });
+  },
+
+  /**
+   * RECUPERACIÓN DE CONTRASEÑA
+   * Se envía cuando un usuario solicita restablecer su contraseña.
+   * Contiene un enlace seguro con token de Supabase Auth.
+   *
+   * @param {string} params.email      Correo del usuario
+   * @param {string} params.nombre     Nombre del usuario (puede ser null)
+   * @param {string} params.resetLink  Enlace de restablecimiento generado por Supabase
+   */
+  enviarRecuperacionContrasena: async ({ email, nombre, resetLink }) => {
+    const nombreDisplay = nombre || email.split('@')[0];
+
+    const content = `
+      <h2 style="margin:0 0 4px;color:#4338ca;font-size:22px;font-weight:800;text-align:center;">RECUPERAR CONTRASEÑA</h2>
+      <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Solicitud de restablecimiento de acceso</p>
+
+      <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+        Estimado/a <strong>${nombreDisplay}</strong>, hemos recibido una solicitud para restablecer la contraseña de tu cuenta en el sistema de <strong>Asociación de Profesionales Financieros</strong>.
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;margin-bottom:24px;">
+        <tr>
+          <td style="padding:24px;text-align:center;">
+            <p style="margin:0 0 16px;color:#475569;font-size:14px;line-height:1.6;">
+              Haz clic en el siguiente botón para crear una nueva contraseña:
+            </p>
+            <a href="${resetLink}" style="display:inline-block;background-color:#4338ca;color:#ffffff;padding:14px 32px;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px;box-shadow:0 4px 14px rgba(67,56,202,0.3);letter-spacing:0.3px;">
+              Restablecer Contraseña
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <div style="background-color:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px 20px;margin-bottom:20px;">
+        <p style="margin:0;color:#92400e;font-size:13px;font-weight:600;line-height:1.5;">
+          Aviso: <strong>Este enlace expira en 1 hora</strong> por motivos de seguridad. Si no solicitaste este cambio, puedes ignorar este correo de forma segura.
+        </p>
+      </div>
+
+      <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 20px;">
+        <p style="margin:0;color:#64748b;font-size:12px;line-height:1.5;">
+          <strong>Seguridad:</strong> Nunca compartas este enlace con nadie. El equipo de APF nunca te pedirá tu contraseña por correo electrónico.
+        </p>
+      </div>
+    `;
+
+    if (!email || email === 'no-reply@control.com') return { success: true };
+
+    return enviarEmail({
+      to: { email, name: nombreDisplay },
+      subject: `[APF] Restablecimiento de Contraseña`,
+      htmlContent: baseTemplate('Recuperación de Contraseña', content, '#4338ca'),
     });
   },
 };

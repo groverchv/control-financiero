@@ -658,7 +658,16 @@ export const academicoApi = {
   buscarTalento: async (criterio) => {
     const { data, error } = await supabase
       .from('miembro')
-      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", profesion, biografia')
+      .select(`
+        id, 
+        nombre, 
+        "apellidoPaterno", 
+        "apellidoMaterno", 
+        "correoElectronico", 
+        profesion, 
+        biografia,
+        archivos:archivo(url, tipo, estado)
+      `)
       .or(`profesion.ilike.%${criterio}%,biografia.ilike.%${criterio}%,nombre.ilike.%${criterio}%`)
       .eq('estado', 'activo');
 
@@ -669,7 +678,8 @@ export const academicoApi = {
       email: d.correoElectronico,
       especialidad: d.profesion || 'No especificada',
       experiencia: 'N/A',
-      resumen: d.biografia
+      resumen: d.biografia,
+      foto: d.archivos?.find(a => a.tipo === 'foto' && a.estado === 'activo')?.url || null
     }));
   },
 

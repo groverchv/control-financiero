@@ -465,7 +465,7 @@ export const RegistroEgresosPage = () => {
                                   title="Reintentar sellar de forma manual"
                                 >
                                   <RefreshCw className="h-3.5 w-3.5" />
-                                  Reintentar
+                                  Reintentar sellar
                                 </button>
                               )}
                             </div>

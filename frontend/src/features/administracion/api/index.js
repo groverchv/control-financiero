@@ -2,14 +2,10 @@ import { supabase } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { brevoService } from '../../../services/brevo';
 
-import { encryptPassword, decryptPassword } from '../../../utils/encryption';
+import { encryptPassword } from '../../../utils/encryption';
 import { withCache } from '../../../utils/apiCache';
 import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
-
-const BLOCKCHAIN_API = typeof window !== 'undefined' && 
-  (window.location.protocol === 'https:' || !window.location.hostname.match(/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)$/))
-    ? '/api-blockchain'
-    : (import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://localhost:3001');
+import { BLOCKCHAIN_API } from '../../../config/api';
 
 export const administracionApi = {
   obtenerMiembros: (() => {
@@ -41,7 +37,7 @@ export const administracionApi = {
       return (data || []).map(m => ({
         ...m,
         email: m.correoElectronico, // Mapeamos correoElectronico a email para la UI
-        contrasena: m.contrasena ? decryptPassword(m.contrasena) : '',
+        // Contraseña no se expone al frontend por seguridad
         foto: m.archivos?.find(a => a.tipo === 'foto' && a.estado === 'activo')?.url || null,
       }));
     });
@@ -114,14 +110,16 @@ export const administracionApi = {
       brevoService.enviarBienvenida({
         email: data.correoElectronico,
         nombre: `${data.nombre || ''} ${data.apellidoPaterno || ''}`.trim(),
-        rol: data.rol
+        rol: data.rol,
+        contrasena: emailToUse === 'no-reply@control.com' ? undefined : (miembro.password || 'password123'),
+        montoInscripcion: data.monto_inscripcion || miembro.monto_inscripcion || 150
       }).catch(err => console.error('[Brevo] Error enviando email de bienvenida:', err));
     }
 
     return {
       ...data,
       email: data.correoElectronico,
-      contrasena: data.contrasena ? decryptPassword(data.contrasena) : ''
+      // Contraseña no se expone al frontend por seguridad
     };
   }),
 
@@ -173,7 +171,7 @@ export const administracionApi = {
 
     if (error) throw error;
     const res = data?.[0];
-    return res ? { ...res, email: res.correoElectronico, contrasena: res.contrasena ? decryptPassword(res.contrasena) : '' } : null;
+    return res ? { ...res, email: res.correoElectronico } : null;
   }),
 
   eliminarMiembro: async () => {

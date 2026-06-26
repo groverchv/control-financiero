@@ -88,8 +88,8 @@ export const useAuth = () => {
       if (miembro && miembro.estado === 'inactivo') {
         try {
           await supabase.auth.signOut();
-        } catch {
-          // Ignorar error al intentar cerrar sesión en Supabase
+        } catch (err) {
+          console.warn('[useAuth] Error al cerrar sesión de miembro inactivo:', err.message);
         }
         localStorage.removeItem('control-financiero-auth-user');
         setUser(null);
@@ -175,17 +175,19 @@ export const useAuth = () => {
               estado: 'pendiente'
             });
           }
-        } catch {
-          // Error silenciado
+        } catch (err) {
+          console.warn('[useAuth] Error al verificar/crear notificación de bienvenida:', err.message);
         }
       }, 1500);
     };
 
     // Intentar obtener la sesión de Supabase
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+      // No auto-login si el usuario está en la página de restablecimiento de contraseña
+      const isResetPage = window.location.pathname === '/reset-password';
+      if (session?.user && !isResetPage) {
         fetchUserData(session.user);
-      } else {
+      } else if (!session) {
         // Sin sesión activa: si estamos offline, usar caché local. Si estamos online, borrar sesión.
         if (!navigator.onLine) {
           const loaded = loadFromLocalCache();
@@ -196,6 +198,12 @@ export const useAuth = () => {
           setUser(null);
           setLoading(false);
         }
+      } else {
+        // Sesión existe pero estamos en /reset-password — limpiar el estado visual del usuario
+        // para que no se muestre el Layout autenticado (el token se mantiene en Supabase para el reseteo)
+        setUser(null);
+        localStorage.removeItem('control-financiero-auth-user');
+        setLoading(false);
       }
     }).catch((err) => {
       console.warn('[useAuth] getSession() falló (posiblemente offline):', err);
@@ -208,7 +216,18 @@ export const useAuth = () => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (session?.user) {
+        const isResetPage = window.location.pathname === '/reset-password';
+
+        // No procesar sesiones de recuperación de contraseña como login normal.
+        // Ni siquiera si el evento es SIGNED_IN pero estamos en la página de reset.
+        if (_event === 'PASSWORD_RECOVERY' || (session?.user && isResetPage)) {
+          setUser(null);
+          localStorage.removeItem('control-financiero-auth-user');
+          setLoading(false);
+          return;
+        }
+
+        if (session?.user && !isResetPage) {
           fetchUserData(session.user);
         } else {
           // Si estamos offline, NO borramos al usuario local para no forzar logout
@@ -246,8 +265,8 @@ export const useAuth = () => {
           await blockchainService.sellarPendientes('archivo');
           await blockchainService.sellarPendientes('actividad');
         }
-      } catch {
-        // Error silenciado
+      } catch (err) {
+        console.warn('[useAuth] Error en auto-sellado de registros pendientes:', err.message);
       }
     };
     
@@ -285,8 +304,8 @@ export const useAuth = () => {
                 body: descripcion,
                 icon: user.foto || '/favicon.svg',
               });
-            } catch {
-              // Error silenciado
+            } catch (err) {
+              console.warn('[useAuth] Error al mostrar notificación nativa de escritorio:', err.message);
             }
           }
         }

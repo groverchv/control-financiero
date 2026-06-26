@@ -164,7 +164,13 @@ export const finanzasApi = {
     // 1. Obtener el ingreso y verificar si está ligado a una inscripción
     const { data: currentIngreso, error: fetchErr } = await supabase
       .from('ingreso')
-      .select('miembro_id, inscripcion_id, descripcion, monto')
+      .select(`
+        miembro_id, 
+        inscripcion_id, 
+        descripcion, 
+        monto,
+        inscripcion(id, actividad:actividad_id(id, titulo, costo))
+      `)
       .eq('id', id)
       .maybeSingle();
 
@@ -188,11 +194,26 @@ export const finanzasApi = {
       }
     }
 
-    const nuevaDesc = `${currentIngreso?.descripcion || ''} [Devuelto por: ${infoRefund}]`.trim();
+    const activityCost = currentIngreso?.inscripcion?.actividad?.costo;
+    const esRefundablePorCosto = activityCost !== undefined && Number(currentIngreso.monto) > Number(activityCost);
+
+    let nuevoMonto = 0;
+    let nuevoEstado = 'devolucion';
+    let refundDiff = Number(currentIngreso.monto);
+
+    if (esRefundablePorCosto) {
+      nuevoMonto = Number(activityCost);
+      nuevoEstado = 'pagado';
+      refundDiff = Number(currentIngreso.monto) - nuevoMonto;
+    }
+
+    const nuevaDesc = esRefundablePorCosto
+      ? `${currentIngreso?.descripcion || ''} [Reembolso de excedente de Bs. ${refundDiff.toFixed(2)} por cambio de costo procesado por: ${infoRefund}]`.trim()
+      : `${currentIngreso?.descripcion || ''} [Devuelto por: ${infoRefund}]`.trim();
 
     const { data, error } = await supabase
       .from('ingreso')
-      .update({ monto: 0, estado: 'devolucion', descripcion: nuevaDesc })
+      .update({ monto: nuevoMonto, estado: nuevoEstado, descripcion: nuevaDesc })
       .eq('id', id)
       .select();
 
@@ -204,7 +225,9 @@ export const finanzasApi = {
         await supabase.from('notificacion').insert([{
           miembro_id: currentIngreso.miembro_id,
           titulo: 'Reembolso Procesado',
-          descripcion: `Se ha procesado exitosamente el reembolso para: "${currentIngreso.descripcion || 'Inscripción'}". Monto devuelto: Bs. ${currentIngreso.monto || 0}.`,
+          descripcion: esRefundablePorCosto
+            ? `Se ha procesado exitosamente el reembolso del excedente de costo para: "${currentIngreso.descripcion || 'Inscripción'}". Monto devuelto: Bs. ${refundDiff.toFixed(2)}.`
+            : `Se ha procesado exitosamente el reembolso para: "${currentIngreso.descripcion || 'Inscripción'}". Monto devuelto: Bs. ${refundDiff.toFixed(2)}.`,
           estado: 'pendiente'
         }]);
       }
@@ -262,7 +285,8 @@ export const finanzasApi = {
       tipo:tipo_ingreso(nombre),
       registrador:miembro!registrado_por(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
       socio:miembro!miembro_id(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
-      archivos:archivo(url, tipo)
+      archivos:archivo(url, tipo),
+      inscripcion(id, actividad:actividad_id(id, titulo, costo))
     `).order('creacion', { ascending: false });
 
     if (miembroId) {
@@ -285,6 +309,7 @@ export const finanzasApi = {
       registrado_por_telefono: d.registrador?.telefono || null,
       registrado_por_rol: d.registrador?.rol || null,
       comprobanteUrl: d.archivos?.find(a => a.tipo === 'comprobante_ingreso')?.url || d.archivos?.[0]?.url || null,
+      inscripcion: d.inscripcion
     })) || [];
 
     apiCache.set(cacheKey, result);
@@ -968,7 +993,8 @@ export const finanzasApi = {
   },
 
   obtenerHistorialActividades: async () => {
-    const { data, error } = await supabase
+    // 1. Obtener inscripciones activas
+    const { data: inscripciones, error: insErr } = await supabase
       .from('inscripcion')
       .select(`
         id,
@@ -990,28 +1016,98 @@ export const finanzasApi = {
           tipo_actividad:tipo_actividad_id(
             nombre
           )
-        )
+        ),
+        ingreso(monto)
       `)
       .order('fecha_inscripcion', { ascending: false });
 
-    if (error) throw error;
+    if (insErr) throw insErr;
 
-    // Filtrar para que solo muestre las inscripciones en actividades con costo > 0
-    return (data || [])
+    const mappedInscripciones = (inscripciones || [])
       .filter(i => i.actividad && Number(i.actividad.costo) > 0)
-      .map(i => ({
-        id: i.id,
-        estado: i.estado,
-        fecha_inscripcion: i.fecha_inscripcion,
-        miembro_id: i.miembro?.id,
-        socio_nombre: `${i.miembro?.nombre} ${i.miembro?.apellidoPaterno || ''} ${i.miembro?.apellidoMaterno || ''}`.trim(),
-        socio_email: i.miembro?.correoElectronico || '',
-        actividad_id: i.actividad?.id,
-        actividad_titulo: i.actividad?.titulo || 'Actividad general',
-        actividad_costo: Number(i.actividad?.costo || 0),
-        actividad_fecha: i.actividad?.fecha,
-        actividad_hora: i.actividad?.hora,
-        actividad_tipo: i.actividad?.tipo_actividad?.nombre || 'General'
-      }));
+      .map(i => {
+        const totalPaid = i.ingreso && i.ingreso.length > 0
+          ? i.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
+          : (i.estado === 'pagado' ? Number(i.actividad?.costo || 0) : 0);
+        return {
+          id: i.id,
+          estado: i.estado,
+          fecha_inscripcion: i.fecha_inscripcion,
+          miembro_id: i.miembro?.id,
+          socio_nombre: `${i.miembro?.nombre} ${i.miembro?.apellidoPaterno || ''} ${i.miembro?.apellidoMaterno || ''}`.trim(),
+          socio_email: i.miembro?.correoElectronico || '',
+          actividad_id: i.actividad?.id,
+          actividad_titulo: i.actividad?.titulo || 'Actividad general',
+          actividad_costo: Number(i.actividad?.costo || 0),
+          actividad_fecha: i.actividad?.fecha,
+          actividad_hora: i.actividad?.hora,
+          actividad_tipo: i.actividad?.tipo_actividad?.nombre || 'General',
+          total_pagado: totalPaid
+        };
+      });
+
+    // 2. Obtener pagos de actividad huérfanos (inscripcion_id es null pero el tipo es Pago de Actividad)
+    let mappedOrphans = [];
+    try {
+      const { data: orphanIngresos, error: ingErr } = await supabase
+        .from('ingreso')
+        .select(`
+          id,
+          estado,
+          monto,
+          creacion,
+          descripcion,
+          miembro:miembro_id(
+            id,
+            nombre,
+            apellidoPaterno,
+            apellidoMaterno,
+            correoElectronico
+          ),
+          tipo:tipo_ingreso(nombre)
+        `)
+        .is('inscripcion_id', null);
+
+      if (!ingErr && orphanIngresos) {
+        mappedOrphans = orphanIngresos
+          .filter(i => {
+            const esTipoActividad = i.tipo?.nombre?.toLowerCase().includes('actividad');
+            const esDescActividad = i.descripcion?.toLowerCase().includes('actividad') || i.descripcion?.toLowerCase().includes('inscrip');
+            return esTipoActividad || esDescActividad;
+          })
+          .map(i => {
+            let tituloExtraido = 'Actividad general';
+            const match = i.descripcion?.match(/actividad:\s*([^\[\n]+)/i);
+            if (match) {
+              tituloExtraido = match[1].trim();
+            } else if (i.descripcion) {
+              // Limpiar la descripción de marcas de reembolso para el título
+              tituloExtraido = i.descripcion.split('[')[0].replace('Pago de inscripción a actividad:', '').replace('Pago de inscripción:', '').trim();
+            }
+            return {
+              id: i.id,
+              estado: i.estado === 'devolucion' ? 'devolucion' : 'pagado',
+              fecha_inscripcion: i.creacion,
+              miembro_id: i.miembro?.id,
+              socio_nombre: i.miembro ? `${i.miembro.nombre} ${i.miembro.apellidoPaterno || ''} ${i.miembro.apellidoMaterno || ''}`.trim() : 'Socio Eliminado',
+              socio_email: i.miembro?.correoElectronico || '',
+              actividad_id: null,
+              actividad_titulo: tituloExtraido || 'Actividad general',
+              actividad_costo: Number(i.monto),
+              actividad_fecha: i.creacion ? i.creacion.split('T')[0] : null,
+              actividad_hora: i.creacion && i.creacion.includes('T') ? i.creacion.split('T')[1].substring(0, 8) : null,
+              actividad_tipo: i.tipo?.nombre || 'Pago de Actividad',
+              total_pagado: Number(i.monto)
+            };
+          });
+      }
+    } catch (e) {
+      console.error('Error fetching orphan ingresos:', e);
+    }
+
+    // Combinar ambos y ordenar por fecha de inscripción desc
+    const combined = [...mappedInscripciones, ...mappedOrphans];
+    combined.sort((a, b) => new Date(b.fecha_inscripcion) - new Date(a.fecha_inscripcion));
+    return combined;
   }
 };

@@ -4286,5 +4286,21 @@
     "hashCalculado": "5891cd58e78768248c91d662cf4e2446ef218bdf23104292fb000136cd39ae13",
     "idUsuario": "ce56fb27-94be-49f3-87e1-28d86bcaa7c0",
     "timestamp": "2026-06-27T19:55:40.442Z"
+  },
+  {
+    "txId": "b1b870f74fd38019cac9397b985708eaf803afcee51ca326a486a26ebb65c28e",
+    "tipoTabla": "archivo",
+    "idRegistro": "f06c35ae-6a59-4736-a6b5-a8dbcd97b1da",
+    "hashCalculado": "d93901501ef4b8658a93fcfe5dcdc79f530183ce98b458cc365c9e35248dbf48",
+    "idUsuario": "00000000-0000-0000-0000-000000000000",
+    "timestamp": "2026-06-27T21:27:14.268Z"
+  },
+  {
+    "txId": "d3b19a3f668c14f040b1f55114ecf1af55e5fb7a3c73a805653e0576e6b9fb5b",
+    "tipoTabla": "archivo",
+    "idRegistro": "f305fdc3-52cd-483e-b550-8ae1212b7f33",
+    "hashCalculado": "714ca5ba4580ace783edcdd85939b09a40af4a747d85c4218dacb77d08013af8",
+    "idUsuario": "00000000-0000-0000-0000-000000000000",
+    "timestamp": "2026-06-27T21:27:43.284Z"
   }
 ]

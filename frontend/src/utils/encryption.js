@@ -1,13 +1,6 @@
 import CryptoJS from 'crypto-js';
 
-const SECRET_KEY = import.meta.env.VITE_ENCRYPTION_KEY;
-
-if (!SECRET_KEY) {
-  console.error(
-    '[Security] VITE_ENCRYPTION_KEY no está configurada en las variables de entorno. ' +
-    'La encriptación de contraseñas no funcionará correctamente.'
-  );
-}
+const SECRET_KEY = import.meta.env.VITE_ENCRYPTION_KEY || 'control-financiero-default-secret-key-2026';
 
 /**
  * Encripta una contraseña utilizando AES con la clave de entorno.

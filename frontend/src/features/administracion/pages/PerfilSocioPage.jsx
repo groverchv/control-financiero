@@ -285,7 +285,7 @@ export const PerfilSocioPage = () => {
     }
   };
 
-  const fotoPerfil = archivos.find((a) => a.tipo === "foto")?.url || null;
+  const fotoPerfil = archivos.find((a) => a.tipo === "foto")?.url || user?.foto || null;
   const cvFile = archivos.find((a) => a.tipo === "cv")?.url || null;
 
   if (loading && !isSaving) {

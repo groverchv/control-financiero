@@ -6,6 +6,39 @@ import { administracionApi } from '../api';
 
 const ITEMS_PER_PAGE = 10;
 
+const renderFormattedResumen = (text) => {
+  if (!text) return "-";
+  
+  const sections = text.split(/(?=\b[A-Z\u00C0-\u00DC][a-zA-Z\u00C0-\u00DC\s\u00f1\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa\u00c1\u00c9\u00cd\u00d3\u00da\-]+:)/g);
+  
+  if (sections.length > 1) {
+    return (
+      <div className="space-y-3 mt-1.5">
+        {sections.map((sec, idx) => {
+          const colonIdx = sec.indexOf(":");
+          if (colonIdx !== -1) {
+            const title = sec.substring(0, colonIdx).trim();
+            const content = sec.substring(colonIdx + 1).trim();
+            return (
+              <div key={idx} className="flex flex-col md:flex-row md:items-start gap-1 md:gap-4 border-b border-slate-100 dark:border-slate-850 pb-2 last:border-b-0 last:pb-0">
+                <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0 md:w-44 text-[10px] sm:text-xs uppercase tracking-wider bg-slate-50 dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-150 dark:border-slate-800 w-fit">
+                  {title}
+                </span>
+                <p className="text-slate-600 dark:text-slate-350 text-xs sm:text-sm leading-relaxed flex-1">
+                  {content}
+                </p>
+              </div>
+            );
+          }
+          return <p key={idx} className="text-slate-600 dark:text-slate-350 text-xs sm:text-sm leading-relaxed">{sec.trim()}</p>;
+        })}
+      </div>
+    );
+  }
+  
+  return <p className="whitespace-pre-line text-slate-600 dark:text-slate-350 text-xs sm:text-sm leading-relaxed">{text}</p>;
+};
+
 const ModalPagination = ({ current, total, onPageChange, filteredCount, label = 'registros' }) => {
   if (total <= 1) return null;
   return (
@@ -244,8 +277,9 @@ export const MiembroDetailModal = ({
               <span className="text-slate-800 font-medium">{detailModal.miembro?.profesion || '-'}</span>
             </div>
             <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
-              <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Biografía / Habilidades</span>
-              <span className="text-slate-800 font-medium leading-relaxed">{detailModal.miembro?.biografia || '-'}</span>
+              <div className="text-slate-800 font-medium leading-relaxed">
+                {renderFormattedResumen(detailModal.miembro?.biografia)}
+              </div>
             </div>
           </div>
         </div>

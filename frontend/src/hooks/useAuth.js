@@ -154,7 +154,7 @@ export const useAuth = () => {
       // Guardar en caché local para persistencia offline
       localStorage.setItem('control-financiero-auth-user', JSON.stringify(userData));
 
-      console.info(`[Auth] Sesión iniciada: ${userData.email} (rol: ${userData.rol})`);
+
 
       setUser(userData);
       setLoading(false);

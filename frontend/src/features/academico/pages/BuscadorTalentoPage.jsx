@@ -5,6 +5,39 @@ import { Button, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
 import { administracionApi } from '../../administracion/api';
 
+const renderFormattedResumen = (text) => {
+  if (!text) return "No ha proporcionado un resumen profesional aún.";
+  
+  const sections = text.split(/(?=\b[A-Z\u00C0-\u00DC][a-zA-Z\u00C0-\u00DC\s\u00f1\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa\u00c1\u00c9\u00cd\u00d3\u00da\-]+:)/g);
+  
+  if (sections.length > 1) {
+    return (
+      <div className="space-y-4">
+        {sections.map((sec, idx) => {
+          const colonIdx = sec.indexOf(":");
+          if (colonIdx !== -1) {
+            const title = sec.substring(0, colonIdx).trim();
+            const content = sec.substring(colonIdx + 1).trim();
+            return (
+              <div key={idx} className="flex flex-col md:flex-row md:items-start gap-1 md:gap-4 border-b border-slate-100 dark:border-slate-850 pb-3 last:border-b-0 last:pb-0">
+                <span className="font-bold text-slate-800 dark:text-slate-200 shrink-0 md:w-48 text-[10px] sm:text-xs uppercase tracking-wider bg-slate-50 dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-150 dark:border-slate-800 w-fit">
+                  {title}
+                </span>
+                <p className="text-slate-600 dark:text-slate-350 text-xs sm:text-sm leading-relaxed flex-1">
+                  {content}
+                </p>
+              </div>
+            );
+          }
+          return <p key={idx} className="text-slate-600 dark:text-slate-350 text-xs sm:text-sm leading-relaxed">{sec.trim()}</p>;
+        })}
+      </div>
+    );
+  }
+  
+  return <p className="whitespace-pre-line text-slate-600 dark:text-slate-350 text-xs sm:text-sm leading-relaxed">{text}</p>;
+};
+
 export const BuscadorTalentoPage = () => {
   const [criterio, setCriterio] = useState('');
   const { talentos, loading, error } = useTalentos(criterio);
@@ -166,9 +199,9 @@ export const BuscadorTalentoPage = () => {
                 <Briefcase className="h-4 w-4 text-blue-600" />
                 Resumen de Trayectoria
               </h3>
-              <div className="p-6 bg-white border border-slate-100 rounded-2xl italic text-slate-600 relative overflow-hidden">
-                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/20"></div>
-                 {selectedTalento.resumen || "No ha proporcionado un resumen profesional aún."}
+              <div className="p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-slate-600 relative overflow-hidden">
+                 <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500/30"></div>
+                 {renderFormattedResumen(selectedTalento.resumen)}
               </div>
             </div>
 

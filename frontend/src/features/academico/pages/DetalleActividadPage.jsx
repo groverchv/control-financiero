@@ -193,47 +193,47 @@ export const DetalleActividadPage = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl sm:rounded-[3rem] p-5 sm:p-8 md:p-12 shadow-sm border border-slate-100">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl sm:rounded-[3rem] p-5 sm:p-8 md:p-12 shadow-none border border-slate-100 dark:border-slate-700">
             <div className="flex flex-wrap gap-2 items-center mb-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
                 <BookOpen className="h-3.5 w-3.5" />
                 {actividad.tipo_nombre || 'Actividad Institucional'}
               </span>
             </div>
             
-            <h1 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-4 sm:mb-6">{actividad.nombre}</h1>
+            <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight mb-4 sm:mb-6">{actividad.nombre}</h1>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 sm:mb-10">
-              <div className="flex items-start gap-4 p-4 rounded-2xl bg-emerald-50/50">
-                <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shrink-0">
+              <div className="box-emerald flex items-start gap-4 p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-500/10 border border-transparent dark:border-emerald-500/10">
+                <div className="icon-emerald h-10 w-10 rounded-xl bg-emerald-600 dark:bg-emerald-500/20 flex items-center justify-center text-white dark:text-emerald-400 shrink-0">
                   <CalendarDays className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha del Evento</p>
-                  <p className="font-bold text-slate-900">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Fecha del Evento</p>
+                  <p className="font-bold text-slate-900 dark:text-white">
                     {new Date(actividad.fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 p-4 rounded-2xl bg-blue-50/50">
-                <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0">
+              <div className="box-blue flex items-start gap-4 p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-500/10 border border-transparent dark:border-blue-500/10">
+                <div className="icon-blue h-10 w-10 rounded-xl bg-blue-600 dark:bg-blue-500/20 flex items-center justify-center text-white dark:text-blue-400 shrink-0">
                   <Clock className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Horario / Hora de Inicio</p>
-                  <p className="font-bold text-slate-900">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Horario / Hora de Inicio</p>
+                  <p className="font-bold text-slate-900 dark:text-white">
                     {actividad.hora?.substring(0, 5) || '19:00'} Hrs
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 p-4 rounded-2xl bg-teal-50/50 md:col-span-2">
-                <div className="h-10 w-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shrink-0">
+              <div className="box-teal flex items-start gap-4 p-4 rounded-2xl bg-teal-50/50 dark:bg-teal-500/10 border border-transparent dark:border-teal-500/10 md:col-span-2">
+                <div className="icon-teal h-10 w-10 rounded-xl bg-teal-600 dark:bg-teal-500/20 flex items-center justify-center text-white dark:text-teal-400 shrink-0">
                   {actividad.modalidad === 'virtual' ? <Info className="h-5 w-5" /> : <MapPin className="h-5 w-5" />}
                 </div>
                 <div className="flex-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                     {actividad.modalidad === 'virtual' ? 'Plataforma / Enlace' : 'Lugar / Dirección'}
                   </p>
                   {actividad.modalidad === 'virtual' && actividad.ubicacion && (actividad.ubicacion.startsWith('http') || actividad.ubicacion.includes('.')) ? (
@@ -241,12 +241,12 @@ export const DetalleActividadPage = () => {
                       href={actividad.ubicacion.startsWith('http') ? actividad.ubicacion : `https://${actividad.ubicacion}`} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="font-bold text-blue-600 hover:text-blue-800 underline break-all"
+                      className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline break-all"
                     >
                       {actividad.ubicacion}
                     </a>
                   ) : (
-                    <p className="font-bold text-slate-900">{actividad.ubicacion || 'Por confirmar'}</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{actividad.ubicacion || 'Por confirmar'}</p>
                   )}
 
                   {actividad.modalidad === 'presencial' && actividad.latitud && actividad.longitud && (
@@ -254,7 +254,7 @@ export const DetalleActividadPage = () => {
                       href={`https://www.google.com/maps?q=${actividad.latitud},${actividad.longitud}`} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="mt-2 inline-flex items-center gap-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest hover:bg-emerald-100 px-3 py-1.5 rounded-full transition-colors border border-emerald-200"
+                      className="mt-2 inline-flex items-center gap-2 text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-900/30 px-3 py-1.5 rounded-full transition-colors border border-emerald-200 dark:border-emerald-800/50"
                     >
                       <MapPin className="h-3 w-3" />
                       Ver en Google Maps
@@ -264,31 +264,31 @@ export const DetalleActividadPage = () => {
               </div>
             </div>
 
-            <div className="prose prose-slate max-w-none pb-8 border-b border-slate-100">
-              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2 mb-4">
-                <Info className="h-5 w-5 text-emerald-600" />
+            <div className="prose prose-slate dark:prose-invert max-w-none pb-8 border-b border-slate-100 dark:border-slate-700">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2 mb-4">
+                <Info className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 Descripción de la Actividad
               </h2>
-              <p className="text-slate-600 leading-relaxed whitespace-pre-wrap text-lg">
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap text-lg">
                 {actividad.descripcion || 'Esta capacitación académica está diseñada para brindar herramientas prácticas y teóricas a nuestros miembros. Aprovecha esta oportunidad de crecimiento profesional.'}
               </p>
             </div>
 
             {actividad.jurados && actividad.jurados.length > 0 && (
-              <div className="pt-8 border-b border-slate-100 pb-8">
-                <h3 className="font-black text-slate-900 text-lg uppercase tracking-widest mb-6 flex items-center gap-2">
-                  <Users className="h-5 w-5 text-indigo-600" />
+              <div className="pt-8 border-b border-slate-100 dark:border-slate-700 pb-8">
+                <h3 className="font-black text-slate-900 dark:text-white text-lg uppercase tracking-widest mb-6 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                   Jurado Evaluador Designado
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {actividad.jurados.map((jurado, i) => (
-                    <div key={i} className="flex items-center gap-3 bg-indigo-50/50 border border-indigo-100/50 p-4 rounded-2xl shadow-sm">
-                      <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                    <div key={i} className="flex items-center gap-3 bg-indigo-50/50 dark:bg-indigo-500/10 border border-indigo-100/50 dark:border-indigo-500/20 p-4 rounded-2xl shadow-none">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-600 dark:bg-indigo-500/20 flex items-center justify-center text-white dark:text-indigo-400 shrink-0">
                         <GraduationCap className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-800">{jurado}</p>
-                        <p className="text-[10px] font-semibold text-indigo-600 uppercase tracking-widest">Jurado de Actividad</p>
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{jurado}</p>
+                        <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Jurado de Actividad</p>
                       </div>
                     </div>
                   ))}
@@ -297,7 +297,7 @@ export const DetalleActividadPage = () => {
             )}
 
             <div className="pt-8">
-              <h3 className="font-black text-slate-900 text-lg uppercase tracking-widest mb-6 flex items-center gap-2">
+              <h3 className="font-black text-slate-900 dark:text-white text-lg uppercase tracking-widest mb-6 flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                 Requisitos Previos
               </h3>

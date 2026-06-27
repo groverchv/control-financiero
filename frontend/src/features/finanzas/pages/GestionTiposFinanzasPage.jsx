@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
@@ -18,6 +18,9 @@ export const GestionTiposFinanzasPage = () => {
   const [modalType, setModalType] = useState('ingreso'); // 'ingreso' or 'egreso'
   const [formData, setFormData] = useState({ nombre: '', descripcion: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pageIngreso, setPageIngreso] = useState(1);
+  const [pageEgreso, setPageEgreso] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
   const [editingTipo, setEditingTipo] = useState(null); // { id, nombre, descripcion, type }
   const [deletingTipo, setDeletingTipo] = useState(null); // { id, nombre, type }
@@ -122,6 +125,8 @@ export const GestionTiposFinanzasPage = () => {
         try { egresoUso[tipo.id] = await finanzasApi.verificarTipoEgresoEnUso(tipo.id); } catch { egresoUso[tipo.id] = false; }
       }
       setTiposEgresoEnUso(egresoUso);
+      setPageIngreso(1);
+      setPageEgreso(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar categorias');
     } finally {
@@ -226,17 +231,19 @@ export const GestionTiposFinanzasPage = () => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => handleEditClick(tipo, 'ingreso')}
-          className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors"
           title="Editar"
         >
-          <Edit className="h-4 w-4" />
+          <Edit className="h-3.5 w-3.5" />
+          <span>Editar</span>
         </button>
         <button
           onClick={() => handleDeleteClick(tipo, 'ingreso')}
-          className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 border border-red-200 transition-colors"
           title="Eliminar"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5" />
+          <span>Eliminar</span>
         </button>
       </div>
     )
@@ -262,17 +269,19 @@ export const GestionTiposFinanzasPage = () => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => handleEditClick(tipo, 'egreso')}
-          className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors"
           title="Editar"
         >
-          <Edit className="h-4 w-4" />
+          <Edit className="h-3.5 w-3.5" />
+          <span>Editar</span>
         </button>
         <button
           onClick={() => handleDeleteClick(tipo, 'egreso')}
-          className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 border border-red-200 transition-colors"
           title="Eliminar"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5" />
+          <span>Eliminar</span>
         </button>
       </div>
     )
@@ -366,9 +375,34 @@ export const GestionTiposFinanzasPage = () => {
             <div className="-mx-4 sm:mx-0">
               <Table
                 columns={columnasIngreso}
-                rows={rowsIngreso}
+                rows={rowsIngreso.slice((pageIngreso - 1) * ITEMS_PER_PAGE, pageIngreso * ITEMS_PER_PAGE)}
                 emptyMessage="No hay tipos de ingreso registrados."
               />
+              {Math.ceil(rowsIngreso.length / ITEMS_PER_PAGE) > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 pt-4 mt-4 gap-4">
+                  <p className="text-[10px] sm:text-xs text-slate-500">
+                    Página {pageIngreso} de {Math.ceil(rowsIngreso.length / ITEMS_PER_PAGE)}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      className="h-8 px-2 text-[10px] sm:text-xs"
+                      disabled={pageIngreso === 1}
+                      onClick={() => setPageIngreso(p => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 px-2 text-[10px] sm:text-xs"
+                      disabled={pageIngreso === Math.ceil(rowsIngreso.length / ITEMS_PER_PAGE)}
+                      onClick={() => setPageIngreso(p => Math.min(Math.ceil(rowsIngreso.length / ITEMS_PER_PAGE), p + 1))}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
@@ -391,9 +425,34 @@ export const GestionTiposFinanzasPage = () => {
             <div className="-mx-4 sm:mx-0">
               <Table
                 columns={columnasEgreso}
-                rows={rowsEgreso}
+                rows={rowsEgreso.slice((pageEgreso - 1) * ITEMS_PER_PAGE, pageEgreso * ITEMS_PER_PAGE)}
                 emptyMessage="No hay tipos de egreso registrados."
               />
+              {Math.ceil(rowsEgreso.length / ITEMS_PER_PAGE) > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 pt-4 mt-4 gap-4">
+                  <p className="text-[10px] sm:text-xs text-slate-500">
+                    Página {pageEgreso} de {Math.ceil(rowsEgreso.length / ITEMS_PER_PAGE)}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      className="h-8 px-2 text-[10px] sm:text-xs"
+                      disabled={pageEgreso === 1}
+                      onClick={() => setPageEgreso(p => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 px-2 text-[10px] sm:text-xs"
+                      disabled={pageEgreso === Math.ceil(rowsEgreso.length / ITEMS_PER_PAGE)}
+                      onClick={() => setPageEgreso(p => Math.min(Math.ceil(rowsEgreso.length / ITEMS_PER_PAGE), p + 1))}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </div>

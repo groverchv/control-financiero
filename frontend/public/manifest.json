@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Asociación de Profesionales Financieros",
   "short_name": "APF",
-  "description": "Sistema institucional de la Asociación de Profesionales Financieros",
+  "description": "Sistema institucional de la Asociación de Profesionales Financieros para control financiero, académico y patrimonial.",
   "lang": "es",
   "dir": "ltr",
   "scope": "/",
@@ -37,6 +37,22 @@
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Panel de control financiero en escritorio"
+    },
+    {
+      "src": "/screenshots/mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Panel de control financiero en móvil"
     }
   ],
   "shortcuts": [

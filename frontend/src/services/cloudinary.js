@@ -1,3 +1,19 @@
+/**
+ * Servicio de gestión de imágenes con Cloudinary.
+ *
+ * Estándar: Fácil de Mantener — documentación de módulo.
+ *
+ * Responsabilidades:
+ *  1. Compresión de imágenes del lado del cliente (Canvas API)
+ *  2. Subida directa a Cloudinary (unsigned upload con preset)
+ *  3. Eliminación de imágenes por public_id
+ *
+ * Variables de entorno requeridas:
+ *  - VITE_CLOUDINARY_CLOUD_NAME: Nombre del cloud en Cloudinary
+ *  - VITE_CLOUDINARY_UPLOAD_PRESET: Preset de subida (default: 'ml_default')
+ *
+ * @module services/cloudinary
+ */
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
 

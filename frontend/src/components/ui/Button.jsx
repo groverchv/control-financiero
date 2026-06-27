@@ -1,3 +1,7 @@
+/**
+ * Componente base de botón reutilizable.
+ * Estándar: Fácil de Usar (Accesibilidad) — soporta aria-label y aria-disabled.
+ */
 export const Button = ({
   type = 'button',
   variant = 'primary',
@@ -5,6 +9,7 @@ export const Button = ({
   disabled = false,
   className = '',
   children,
+  'aria-label': ariaLabel,
   ...props
 }) => {
   const base = 'inline-flex items-center justify-center gap-2 rounded-md font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2';
@@ -24,6 +29,8 @@ export const Button = ({
     <button
       type={type}
       disabled={disabled}
+      aria-disabled={disabled || undefined}
+      aria-label={ariaLabel}
       className={`${base} ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`}
       {...props}
     >

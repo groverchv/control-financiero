@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, X, Smartphone } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 
 const STORAGE_KEY = 'pwa-install-dismissed';
 
@@ -67,9 +67,7 @@ export const InstallPWABanner = () => {
 
         <div className="flex items-start gap-4 relative">
           {/* Ícono de la app */}
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-blue-500/30 shrink-0">
-            <Smartphone className="h-7 w-7 text-white" />
-          </div>
+          <img src="/icon-192.png" alt="APF" className="h-14 w-14 rounded-2xl shadow-lg shadow-blue-500/30 shrink-0 object-cover" />
 
           <div className="flex-1 min-w-0">
             <p className="font-black text-white text-sm">Instalar APF</p>

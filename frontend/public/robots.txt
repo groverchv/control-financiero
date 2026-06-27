@@ -1,0 +1,8 @@
+# robots.txt — Asociación de Profesionales Financieros
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /login
+
+# Sitemap (agregar cuando esté disponible)
+# Sitemap: https://example.com/sitemap.xml

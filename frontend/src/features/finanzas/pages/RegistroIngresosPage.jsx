@@ -774,6 +774,13 @@ export const RegistroCuotasPage = () => {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => setDetalleModal({ open: true, cuota })}
+                                className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Detalle
+                              </button>
                               {(() => {
                                 const esRefundablePorCosto = cuota.estado !== 'devolucion' && 
                                                              cuota.tipo_ingreso_nombre?.toLowerCase().includes('actividad') && 
@@ -792,13 +799,6 @@ export const RegistroCuotasPage = () => {
                                 }
                                 return null;
                               })()}
-                              <button 
-                                onClick={() => setDetalleModal({ open: true, cuota })}
-                                className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                                Detalle
-                              </button>
                               {!cuota.blockchain_tx_id && cuota.estado !== 'devolucion' && (
                                 <button 
                                   onClick={() => handleSellar(cuota.id)}

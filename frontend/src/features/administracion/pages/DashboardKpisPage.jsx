@@ -4,7 +4,7 @@ import {
   UsersRound, UserCheck, UserX, GraduationCap, CalendarCheck, BookOpenCheck,
   Package, Warehouse, ClipboardList, ShieldCheck,
   Signal, Fingerprint, FileSpreadsheet,
-  CheckCircle, AlertTriangle, Cpu, Clock
+  CheckCircle, AlertTriangle, Cpu, Clock, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useKpiData } from '../hooks';
 import { useActivos } from '../../patrimonio/hooks';
@@ -65,15 +65,15 @@ const KpiCard = ({ icon: Icon, label, value, sub, color = 'blue', trend }) => {
 // ─── Section Header ──────────────────────────────────────────────────────────
 const SectionHeader = ({ icon: Icon, title, color = 'blue', desc }) => {
   const tc = { blue: 'text-blue-600', emerald: 'text-emerald-600', purple: 'text-purple-600', amber: 'text-amber-600', indigo: 'text-indigo-600' }[color] || 'text-blue-600';
-  const bgc = { blue: 'bg-blue-50/50 border-blue-100', emerald: 'bg-emerald-50/50 border-emerald-100', purple: 'bg-purple-50/50 border-purple-100', amber: 'bg-amber-50/50 border-amber-100', indigo: 'bg-indigo-50/50 border-indigo-100' }[color] || 'bg-blue-50/50 border-blue-100';
+  const bgc = { blue: 'bg-blue-50/50 border-blue-100 box-blue', emerald: 'bg-emerald-50/50 border-emerald-100 box-emerald', purple: 'bg-purple-50/50 border-purple-100 box-purple', amber: 'bg-amber-50/50 border-amber-100 box-amber', indigo: 'bg-indigo-50/50 border-indigo-100 box-indigo' }[color] || 'bg-blue-50/50 border-blue-100 box-blue';
   return (
     <div className={`p-3 sm:p-4 rounded-2xl border ${bgc} flex items-start gap-3`}>
-      <div className={`p-1.5 sm:p-2 rounded-xl bg-white shadow-sm shrink-0`}>
+      <div className={`p-1.5 sm:p-2 rounded-xl bg-white section-header-icon shadow-sm shrink-0`}>
         <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${tc}`} />
       </div>
       <div>
-        <h2 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">{title}</h2>
-        {desc && <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">{desc}</p>}
+        <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug">{title}</h2>
+        {desc && <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">{desc}</p>}
       </div>
     </div>
   );
@@ -94,6 +94,7 @@ export const DashboardKpisPage = () => {
   const [blockchainOnline, setBlockchainOnline] = useState(null);
   const [auditStats, setAuditStats] = useState(null);
   const [amortPendientes, setAmortPendientes] = useState(0);
+  const [currentPageBlockchain, setCurrentPageBlockchain] = useState(1);
 
   const [cuotasPendientesTotal, setCuotasPendientesTotal] = useState(0);
   const [cursosPendientesTotal, setCursosPendientesTotal] = useState(0);
@@ -324,8 +325,15 @@ export const DashboardKpisPage = () => {
         tx: a.blockchain_tx_id
       });
     });
-    return blocks.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 5);
+    return blocks.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   }, [allI, allE, activos]);
+
+  const itemsPerPageBlockchain = 10;
+  const totalPagesBlockchain = Math.ceil(blockchainBlocks.length / itemsPerPageBlockchain);
+  const paginatedBlockchainBlocks = useMemo(() => {
+    const start = (currentPageBlockchain - 1) * itemsPerPageBlockchain;
+    return blockchainBlocks.slice(start, start + itemsPerPageBlockchain);
+  }, [blockchainBlocks, currentPageBlockchain]);
 
   // dynamic professions calculation
   const professionsMap = useMemo(() => {
@@ -904,12 +912,12 @@ export const DashboardKpisPage = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-2">
-                {blockchainBlocks.map((block, index) => (
+                {paginatedBlockchainBlocks.map((block, index) => (
                   <div key={block.id} className="relative bg-slate-50 rounded-2xl p-4 border border-slate-200/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow group">
                     <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                     <div>
                       <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        <Clock className="h-3 w-3" /> Bloque #{blockchainBlocks.length - index}
+                        <Clock className="h-3 w-3" /> Bloque #{blockchainBlocks.length - ((currentPageBlockchain - 1) * itemsPerPageBlockchain + index)}
                       </div>
                       <p className="font-extrabold text-xs text-slate-800 mt-2 truncate group-hover:text-blue-600 transition-colors">
                         {block.concepto}
@@ -942,6 +950,50 @@ export const DashboardKpisPage = () => {
                   </div>
                 )}
               </div>
+
+              {/* Controles de paginación para Blockchain */}
+              {totalPagesBlockchain > 1 && (
+                <div className="flex items-center justify-between border-t border-slate-50 pt-4 mt-2">
+                  <p className="text-xs text-slate-500 font-semibold">
+                    Mostrando bloques <span className="font-bold">{(currentPageBlockchain - 1) * itemsPerPageBlockchain + 1}</span> a <span className="font-bold">{Math.min(currentPageBlockchain * itemsPerPageBlockchain, blockchainBlocks.length)}</span> de <span className="font-bold">{blockchainBlocks.length}</span>
+                  </p>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      disabled={currentPageBlockchain === 1}
+                      onClick={() => setCurrentPageBlockchain(p => Math.max(1, p - 1))}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-colors flex items-center gap-1"
+                    >
+                      <ChevronLeft className="h-4 w-4" /> Anterior
+                    </button>
+                    {Array.from({ length: totalPagesBlockchain }).map((_, idx) => {
+                      const page = idx + 1;
+                      return (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setCurrentPageBlockchain(page)}
+                          className={`h-8 w-8 rounded-lg border text-xs font-bold transition-colors ${
+                            currentPageBlockchain === page
+                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      disabled={currentPageBlockchain === totalPagesBlockchain}
+                      onClick={() => setCurrentPageBlockchain(p => Math.min(totalPagesBlockchain, p + 1))}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-colors flex items-center gap-1"
+                    >
+                      Siguiente <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

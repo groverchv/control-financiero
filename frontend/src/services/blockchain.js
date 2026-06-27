@@ -4,7 +4,13 @@ import { BLOCKCHAIN_API } from '../config/api';
 /**
  * Cliente HTTP para comunicarse con la API Gateway del blockchain.
  * Actua como proxy entre el frontend React y Hyperledger Fabric.
+ *
+ * Estándar: Fiable — reintentos automáticos con exponential backoff
+ * para manejar fallas transitorias de red o del servicio Fabric.
  */
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
 async function request(endpoint, options = {}) {
     // Manejo offline: si no hay red, simular respuesta offline sin arrojar error catastrófico
     if (!navigator.onLine) {
@@ -22,14 +28,31 @@ async function request(endpoint, options = {}) {
         ...options,
     };
 
-    const response = await fetch(url, config);
-    const data = await response.json();
+    let lastError;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            const response = await fetch(url, config);
+            const data = await response.json();
 
-    if (!response.ok) {
-        throw new Error(data.detalle || data.error || 'Error en la API del blockchain');
+            if (!response.ok) {
+                throw new Error(data.detalle || data.error || 'Error en la API del blockchain');
+            }
+
+            return data;
+        } catch (error) {
+            lastError = error;
+            // No reintentar si es un error de lógica (4xx), solo errores de red/servidor
+            if (error.message && !error.message.includes('fetch')) {
+                throw error;
+            }
+            if (attempt < MAX_RETRIES - 1) {
+                const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+                console.warn(`[Blockchain] Reintento ${attempt + 1}/${MAX_RETRIES} en ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
     }
-
-    return data;
+    throw lastError;
 }
 
 export const blockchainService = {

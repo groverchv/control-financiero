@@ -123,6 +123,7 @@ export const useAuth = () => {
           foto: null,
           created_at: sessionUser.created_at || '',
         };
+        console.info(`[Auth] Sesión recuperada desde caché offline: ${fallbackUser.email}`);
         setUser(fallbackUser);
         setLoading(false);
         return;
@@ -152,6 +153,8 @@ export const useAuth = () => {
 
       // Guardar en caché local para persistencia offline
       localStorage.setItem('control-financiero-auth-user', JSON.stringify(userData));
+
+      console.info(`[Auth] Sesión iniciada: ${userData.email} (rol: ${userData.rol})`);
 
       setUser(userData);
       setLoading(false);
@@ -286,19 +289,23 @@ export const useAuth = () => {
         (payload) => {
           const { titulo, descripcion } = payload.new;
 
-          // 1. Mostrar Toast en pantalla
-          toast.info(`${titulo}\n${descripcion}`, {
-            position: 'top-right',
-            autoClose: 6000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            style: { whiteSpace: 'pre-line' },
-          });
+          // Evitar doble notificación: mostrar Toast en pantalla
+          // O notificación nativa de escritorio, pero NO ambas.
+          // - Si la pestaña está en primer plano → Toast (más integrado con la UI)
+          // - Si la pestaña está en segundo plano → Push nativa del OS
+          const tabVisible = document.visibilityState === 'visible';
 
-          // 2. Mostrar Notificación PUSH Nativa de Escritorio
-          if ('Notification' in window && Notification.permission === 'granted') {
+          if (tabVisible) {
+            toast.info(`${titulo}\n${descripcion}`, {
+              position: 'top-right',
+              autoClose: 6000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+              style: { whiteSpace: 'pre-line' },
+            });
+          } else if ('Notification' in window && Notification.permission === 'granted') {
             try {
               new Notification(titulo, {
                 body: descripcion,

@@ -387,23 +387,35 @@ export const finanzasApi = {
             const cuotasNuevas = [];
             while (nextDue <= now) {
               const periodStr = getPeriodLabel(nextDue, configUltima.frecuencia);
-              cuotasNuevas.push({
-                miembro_id: m.id,
-                periodo: periodStr,
-                monto_esperado: configUltima.monto_cuota || 20,
-                estado: 'pendiente',
-                creacion: nextDue.toISOString()
-              });
+              
+              // Evitar duplicados revisando si la cuota ya existe en cuotasFisicas
+              const yaExiste = (cuotasFisicas || []).some(
+                cf => cf.miembro_id === m.id && cf.periodo === periodStr
+              );
+
+              if (!yaExiste) {
+                cuotasNuevas.push({
+                  miembro_id: m.id,
+                  periodo: periodStr,
+                  monto_esperado: configUltima.monto_cuota || 20,
+                  estado: 'pendiente',
+                  creacion: nextDue.toISOString()
+                });
+              }
               nextDue = new Date(nextDue.getTime() + msInterval);
+            }
+
+            if (nextDue.toISOString() !== m.fecha_proxima_cuota) {
+              huboCambios = true;
+              await supabase
+                .from('miembro')
+                .update({ fecha_proxima_cuota: nextDue.toISOString() })
+                .eq('id', m.id);
             }
 
             if (cuotasNuevas.length > 0) {
               huboCambios = true;
               await supabase.from('cuota_membresia').insert(cuotasNuevas);
-              await supabase
-                .from('miembro')
-                .update({ fecha_proxima_cuota: nextDue.toISOString() })
-                .eq('id', m.id);
             }
           }
         }
@@ -428,7 +440,7 @@ export const finanzasApi = {
     }
 
     const result = (miembrosFinales || []).map(m => {
-      const cronograma = (cuotasFisicasFinales || [])
+      const cronogramaRaw = (cuotasFisicasFinales || [])
         .filter(c => c.miembro_id === m.id)
         .map(c => ({
           id: c.id,
@@ -440,6 +452,13 @@ export const finanzasApi = {
           fechaVencimientoAjustada: c.creacion, // fallback para compatibilidad UI
         }))
         .sort((a, b) => new Date(a.creacion) - new Date(b.creacion));
+
+      const seenPeriods = new Set();
+      const cronograma = cronogramaRaw.filter(c => {
+        if (seenPeriods.has(c.mes)) return false;
+        seenPeriods.add(c.mes);
+        return true;
+      });
 
       const mesesDeuda = cronograma.filter(c => !c.pagado).length;
       const mesesPagados = cronograma.filter(c => c.pagado).length;
@@ -494,6 +513,14 @@ export const finanzasApi = {
           const cuotasPreviasPendientes = (cronograma || [])
             .filter(c => !c.pagado && c.mes !== proximaPendiente.mes)
             .map(c => ({ mes: c.mes, monto: montoCuota }));
+
+          // Guardar notificación en BD para que el usuario la vea en la web
+          await supabase.from('notificacion').insert([{
+            miembro_id: miembro.id,
+            titulo: tituloEsperado,
+            descripcion: `Se ha generado tu cuota de membresía para el período de ${proximaPendiente.mes}. Monto: Bs. ${montoCuota}. Por favor, cancele este monto en secretaría.`,
+            estado: 'pendiente'
+          }]);
 
           await brevoService.notificarPagoPendiente({
             email: miembro.correoElectronico || 'no-reply@control.com',
@@ -1041,7 +1068,7 @@ export const finanzasApi = {
           actividad_costo: Number(i.actividad?.costo || 0),
           actividad_fecha: i.actividad?.fecha,
           actividad_hora: i.actividad?.hora,
-          actividad_tipo: i.actividad?.tipo_actividad?.nombre || 'General',
+          actividad_tipo: i.actividad?.tipo_actividad?.nombre || null,
           total_pagado: totalPaid
         };
       });
@@ -1077,7 +1104,7 @@ export const finanzasApi = {
           })
           .map(i => {
             let tituloExtraido = 'Actividad general';
-            const match = i.descripcion?.match(/actividad:\s*([^\[\n]+)/i);
+            const match = i.descripcion?.match(/actividad:\s*([^[\n]+)/i);
             if (match) {
               tituloExtraido = match[1].trim();
             } else if (i.descripcion) {
@@ -1096,7 +1123,7 @@ export const finanzasApi = {
               actividad_costo: Number(i.monto),
               actividad_fecha: i.creacion ? i.creacion.split('T')[0] : null,
               actividad_hora: i.creacion && i.creacion.includes('T') ? i.creacion.split('T')[1].substring(0, 8) : null,
-              actividad_tipo: i.tipo?.nombre || 'Pago de Actividad',
+              actividad_tipo: null,
               total_pagado: Number(i.monto)
             };
           });

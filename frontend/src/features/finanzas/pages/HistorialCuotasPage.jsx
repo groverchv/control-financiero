@@ -225,8 +225,8 @@ const MiembroRow = ({ registro }) => {
                       title={`Pendiente — Generada: ${fechaGenStr}`}
                       className={`flex flex-col items-center justify-center min-w-[125px] h-28 px-3 py-2 rounded-xl border-2 transition-all text-center relative group ${
                         idx === 0
-                          ? 'bg-red-50 border-red-400 text-red-800 ring-2 ring-red-300 ring-offset-1 shadow-sm hover:shadow-md'
-                          : 'bg-orange-50 border-orange-200 text-orange-800 shadow-sm hover:shadow-md'
+                          ? 'bg-red-50 border-red-400 text-red-800 ring-2 ring-red-300 ring-offset-1 shadow-sm hover:shadow-md box-red-ring'
+                          : 'bg-orange-50 border-orange-200 text-orange-800 shadow-sm hover:shadow-md box-orange'
                       }`}
                     >
                       <span className="text-[10px] font-bold uppercase truncate max-w-full">{labelPrincipal}</span>
@@ -674,7 +674,7 @@ export const HistorialCuotasPage = () => {
           </div>
 
           {/* Advertencia o Nota informativa */}
-          <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-700 leading-relaxed">
+          <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-700 leading-relaxed box-blue">
             <strong>✓ Conteo de fechas robusto:</strong> Al cambiar la frecuencia, los vencimientos se calcularán dinámicamente desde la fecha de registro original del socio. No se perderá ningún dato histórico ni pagos existentes.
           </div>
 
@@ -703,7 +703,7 @@ export const HistorialCuotasPage = () => {
         width="max-w-md"
       >
         <div className="space-y-4">
-          <div className={`p-4 rounded-xl border ${config?.pausado ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+          <div className={`p-4 rounded-xl border ${config?.pausado ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:text-emerald-400 box-emerald' : 'bg-amber-50 border-amber-200 text-amber-800 dark:text-amber-400 box-amber'}`}>
             <div className="flex gap-3">
               <div className="mt-0.5 shrink-0">
                 {config?.pausado ? <PlayCircle className="h-6 w-6" /> : <PauseCircle className="h-6 w-6" />}

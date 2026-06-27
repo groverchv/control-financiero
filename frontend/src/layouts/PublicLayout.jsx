@@ -542,7 +542,7 @@ export const PublicLayout = () => {
 
       <footer className="border-t bg-white py-8 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 text-center">
-          <p className="text-sm text-slate-500">© 2026 Asociación de Profesionales Financieros. Todos los derechos reservados.</p>
+          <p className="text-sm text-slate-500">© {new Date().getFullYear()} Asociación de Profesionales Financieros. Todos los derechos reservados.</p>
         </div>
       </footer>
 

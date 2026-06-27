@@ -247,21 +247,6 @@ export const MiembroDetailModal = ({
               <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Biografía / Habilidades</span>
               <span className="text-slate-800 font-medium leading-relaxed">{detailModal.miembro?.biografia || '-'}</span>
             </div>
-            <div className="sm:col-span-2 border-t border-slate-200/60 pt-3 flex items-center gap-2">
-              <span className="font-semibold text-slate-500">Contraseña:</span>
-              <span className="font-mono text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded shadow-sm">
-                {showDetailPassword ? detailModal.miembro?.contrasena || 'No registrada' : '••••••••'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowDetailPassword(!showDetailPassword)}
-                className="text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
-                title={showDetailPassword ? 'Ocultar Contraseña' : 'Ver Contraseña'}
-                aria-label={showDetailPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
-              >
-                {showDetailPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
           </div>
         </div>
 
@@ -322,15 +307,15 @@ export const MiembroDetailModal = ({
             {detailModal.notificaciones.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-6">No tiene notificaciones registradas.</p>
             ) : detailModal.notificaciones.map((notif, i) => (
-              <div key={i} className={`rounded-lg px-4 py-3 text-sm border ${notif.estado !== 'leida' ? 'bg-blue-50/50 border-blue-200' : 'bg-slate-50 border-slate-100'}`}>
+              <div key={i} className={`rounded-lg px-4 py-3 text-sm border ${notif.estado !== 'leida' ? 'notif-unread bg-blue-50/50 border-blue-200 dark:border-slate-700' : 'notif-read bg-slate-50 border-slate-100 dark:border-slate-800'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {notif.estado !== 'leida' && <span className="h-2 w-2 rounded-full bg-blue-600"></span>}
-                    <p className={`font-semibold ${notif.estado !== 'leida' ? 'text-slate-900' : 'text-slate-800'}`}>{notif.titulo}</p>
+                    <p className={`font-semibold ${notif.estado !== 'leida' ? 'text-slate-900 dark:text-white' : 'text-slate-850 dark:text-slate-250'}`}>{notif.titulo}</p>
                   </div>
-                  <span className="text-[10px] text-slate-400">{notif.creacion ? new Date(notif.creacion).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{notif.creacion ? new Date(notif.creacion).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">{notif.descripcion}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{notif.descripcion}</p>
               </div>
             ))}
           </div>

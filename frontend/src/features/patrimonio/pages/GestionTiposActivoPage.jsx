@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -17,6 +17,8 @@ export const GestionTiposActivoPage = () => {
   const [tiposEnUso, setTiposEnUso] = useState({});
   const [confirmDeleteModal, setConfirmDeleteModal] = useState({ open: false, id: null, nombre: '' });
   const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const isSubmitDisabled = !formData.nombre.trim();
 
@@ -36,6 +38,7 @@ export const GestionTiposActivoPage = () => {
         }
       }
       setTiposEnUso(uso);
+      setCurrentPage(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar tipos');
     } finally {
@@ -187,26 +190,28 @@ export const GestionTiposActivoPage = () => {
           <button 
             onClick={() => handleOpenEdit(tipo)}
             disabled={inUse}
-            className={`rounded p-1 transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
               inUse 
-                ? 'text-slate-300 cursor-not-allowed opacity-50' 
-                : 'text-amber-600 hover:bg-amber-50'
+                ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500' 
+                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
             }`}
             title={inUse ? 'No se puede editar porque está en uso' : 'Editar'}
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-3.5 w-3.5" />
+            <span>Editar</span>
           </button>
           <button 
             onClick={() => handleDeleteClick(tipo)}
             disabled={inUse}
-            className={`rounded p-1 transition-all ${
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors ${
               inUse 
-                ? 'text-slate-300 cursor-not-allowed opacity-50' 
-                : 'text-red-600 hover:bg-red-50'
+                ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500' 
+                : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
             }`}
             title={inUse ? 'No se puede eliminar porque está en uso' : 'Eliminar'}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Eliminar</span>
           </button>
         </div>
       )
@@ -285,7 +290,52 @@ export const GestionTiposActivoPage = () => {
         ) : error ? (
           <Toast title="Error" message={error} variant="error" />
         ) : (
-          <Table columns={columns} rows={rows} emptyMessage="No hay tipos de activos registrados." />
+          <>
+            <Table 
+              columns={columns} 
+              rows={rows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)} 
+              emptyMessage="No hay tipos de activos registrados." 
+            />
+            {Math.ceil(rows.length / ITEMS_PER_PAGE) > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-100 pt-4 mt-4 gap-4">
+                <p className="text-[10px] sm:text-xs text-slate-500">
+                  Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, rows.length)} de {rows.length} categorías
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    className="h-8 px-2 text-[10px] sm:text-xs"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Anterior
+                  </Button>
+                  <div className="flex items-center gap-1 mx-1">
+                    {Array.from({ length: Math.ceil(rows.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? 'primary' : 'outline'}
+                        className={`h-7 w-7 sm:h-8 sm:w-8 p-0 text-[10px] sm:text-xs ${currentPage === page ? 'bg-blue-600 text-white' : ''}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="h-8 px-2 text-[10px] sm:text-xs"
+                    disabled={currentPage === Math.ceil(rows.length / ITEMS_PER_PAGE)}
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(rows.length / ITEMS_PER_PAGE), p + 1))}
+                  >
+                    Siguiente
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </section>
 

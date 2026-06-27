@@ -1,11 +1,10 @@
 import { useEffect, lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from "react-router-dom";
 import { supabase } from "@/services/supabase";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { ProtectedRoute } from "@/routes/ProtectedRoute";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Spinner } from "@/components/ui";
 
 // Carga diferida (Lazy Loading) de páginas con exportaciones nombradas
 const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage").then(m => ({ default: m.LoginPage })));
@@ -45,10 +44,12 @@ const DetalleActividadPage = lazy(() => import("@/features/academico/pages/Detal
 
 
 const SuspenseLoader = () => (
-  <div className="flex h-screen w-screen items-center justify-center bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-sm">
-    <div className="flex flex-col items-center space-y-4">
-      <Spinner size="lg" />
-      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest animate-pulse">Cargando Módulo Institucional...</p>
+  <div className="flex h-screen w-screen items-center justify-center bg-slate-50/50 dark:bg-slate-900/50">
+    <div className="w-full max-w-md px-8 space-y-4 animate-pulse">
+      <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded-lg w-3/4" />
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded-lg w-full" />
+      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded-lg w-5/6" />
+      <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded-xl w-1/3 mt-6" />
     </div>
   </div>
 );
@@ -66,6 +67,24 @@ const AdminIndex = () => {
 
   return <Navigate to="/" replace />;
 };
+
+const NotFoundPage = () => (
+  <div className="min-h-screen flex items-center justify-center bg-slate-900 p-6">
+    <div className="bg-slate-800 border border-slate-700 rounded-3xl p-10 max-w-md w-full text-center shadow-2xl">
+      <div className="text-6xl mb-6">🔍</div>
+      <h1 className="text-2xl font-bold text-white mb-2">Página no encontrada</h1>
+      <p className="text-slate-400 mb-8 text-sm">
+        Lo sentimos, la ruta que intentas buscar no existe o ha sido movida.
+      </p>
+      <Link
+        to="/"
+        className="inline-block bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl transition-colors"
+      >
+        Volver al inicio
+      </Link>
+    </div>
+  </div>
+);
 
 export const AppRouter = () => {
   useEffect(() => {
@@ -312,7 +331,7 @@ export const AppRouter = () => {
             />
           </Route>
 
-          <Route path="*" element={<>Pagina no encontrada</>} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </Router>

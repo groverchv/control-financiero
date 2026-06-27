@@ -547,11 +547,11 @@ export const BackupPage = () => {
 
         {data && !loading && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="flex items-start gap-3 p-3.5 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-xs sm:text-sm leading-relaxed">
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />
+            <div className="flex items-start gap-3 p-3.5 bg-emerald-50 border border-emerald-100 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs sm:text-sm leading-relaxed box-emerald">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
               <div>
-                <p className="font-bold text-emerald-900">Extracción de 17 Tablas Completa</p>
-                <p className="text-emerald-700">
+                <p className="font-bold text-emerald-900 dark:text-white">Extracción de 17 Tablas Completa</p>
+                <p className="text-emerald-700 dark:text-emerald-300">
                   Se ha generado la copia en memoria de la base de datos de manera íntegra. Todo está listo para ser descargado a tu computador.
                 </p>
               </div>

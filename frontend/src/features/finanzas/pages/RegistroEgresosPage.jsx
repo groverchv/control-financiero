@@ -663,7 +663,7 @@ export const RegistroEgresosPage = () => {
           <div className="space-y-5 text-sm">
 
             {/* Registrado por */}
-            <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
+            <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 box-blue">
               <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-3">Registrado por</p>
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -692,7 +692,7 @@ export const RegistroEgresosPage = () => {
 
             {/* Activo Asociado (Si aplica) */}
             {detalleModal.egreso.activo_id && (
-              <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 animate-in fade-in duration-200">
+              <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 animate-in fade-in duration-200 box-amber">
                 <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-3">Activo Físico Asociado</p>
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -717,7 +717,7 @@ export const RegistroEgresosPage = () => {
                 <p className="font-bold text-lg text-red-600">
                   Bs. {detalleModal.egreso.monto}
                   {detalleModal.egreso.blockchain_tx_id && (
-                    <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                    <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 box-blue">
                       <ShieldCheck className="h-3 w-3" /> SELLADO
                     </span>
                   )}
@@ -747,12 +747,12 @@ export const RegistroEgresosPage = () => {
               {detalleModal.egreso.blockchain_tx_id && (
                 <div className="col-span-2">
                   <p className="text-[10px] text-slate-400 font-medium mb-1">Blockchain TX ID</p>
-                  <p className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg break-all">{detalleModal.egreso.blockchain_tx_id}</p>
+                  <p className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg break-all box-blue">{detalleModal.egreso.blockchain_tx_id}</p>
                 </div>
               )}
               <div className="col-span-2">
                 <p className="text-[10px] text-slate-400 font-medium mb-1">Descripción</p>
-                <p className="text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200">{detalleModal.egreso.descripcion || 'Sin descripción adicional'}</p>
+                <p className="text-slate-700 bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">{detalleModal.egreso.descripcion || 'Sin descripción adicional'}</p>
               </div>
             </div>
 

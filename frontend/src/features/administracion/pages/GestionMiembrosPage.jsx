@@ -390,16 +390,16 @@ export const GestionMiembrosPage = () => {
     ),
     rol: (
       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${
-        miembro.rol === 'admin' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-        miembro.rol === 'secretario' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
-        'bg-slate-50 text-slate-700 border-slate-100'
+        miembro.rol === 'admin' ? 'badge-admin bg-blue-50 text-blue-700 border-blue-100' :
+        miembro.rol === 'secretario' ? 'badge-secretario bg-indigo-50 text-indigo-700 border-indigo-100' :
+        'badge-socio bg-slate-50 text-slate-700 border-slate-100'
       }`}>
         <HighlightMatch text={miembro.rol} query={searchTerm} />
       </span>
     ),
     estado: (
       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider border ${
-        miembro.estado === 'activo' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200'
+        miembro.estado === 'activo' ? 'badge-activo bg-emerald-50 text-emerald-700 border-emerald-100' : 'badge-inactivo bg-slate-100 text-slate-600 border-slate-200'
       }`}>
         <HighlightMatch text={miembro.estado} query={searchTerm} />
       </span>
@@ -408,37 +408,41 @@ export const GestionMiembrosPage = () => {
       <div className="flex gap-2">
         <button 
           onClick={() => handleOpenDetail(miembro)}
-          className="rounded p-1 text-blue-600 hover:bg-blue-50 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
           title="Ver detalle"
           aria-label={`Ver detalle de ${miembro.nombre || 'miembro'}`}
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-3.5 w-3.5" />
+          <span>Detalle</span>
         </button>
         <button 
           onClick={() => handleOpenEdit(miembro)}
-          className="rounded p-1 text-amber-600 hover:bg-amber-50 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors"
           title="Editar"
           aria-label={`Editar a ${miembro.nombre || 'miembro'}`}
         >
-          <Edit className="h-4 w-4" />
+          <Edit className="h-3.5 w-3.5" />
+          <span>Editar</span>
         </button>
         {miembro.estado === 'activo' ? (
           <button 
             onClick={() => handleToggleEstado(miembro)}
-            className="rounded p-1 text-red-600 hover:bg-red-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 border border-red-200 transition-colors"
             title="Desactivar miembro"
             aria-label={`Desactivar a ${miembro.nombre || 'miembro'}`}
           >
-            <UserX className="h-4 w-4" />
+            <UserX className="h-3.5 w-3.5" />
+            <span>Desactivar</span>
           </button>
         ) : (
           <button 
             onClick={() => handleToggleEstado(miembro)}
-            className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
             title="Activar miembro"
             aria-label={`Activar a ${miembro.nombre || 'miembro'}`}
           >
-            <UserCheck className="h-4 w-4" />
+            <UserCheck className="h-3.5 w-3.5" />
+            <span>Activar</span>
           </button>
         )}
       </div>
@@ -557,15 +561,6 @@ export const GestionMiembrosPage = () => {
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTalentSearchModal({ open: true, queryProf: '', queryDesc: '', results: [] })}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors shadow-sm"
-              title="Buscar talentos por profesión o habilidades"
-            >
-              <Lightbulb className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Talentos</span>
-            </button>
             <button
               type="button"
               onClick={refetch}

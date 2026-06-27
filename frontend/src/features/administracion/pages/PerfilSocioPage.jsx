@@ -564,7 +564,7 @@ export const PerfilSocioPage = () => {
                   </p>
                 </div>
                 <div className="sm:ml-auto">
-                  <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-1 rounded-lg">
+                  <span className="text-[10px] font-bold bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 px-2 py-1 rounded-lg badge-read-only">
                     Solo lectura
                   </span>
                 </div>

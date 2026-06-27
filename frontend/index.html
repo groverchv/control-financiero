@@ -23,8 +23,21 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
 
+    <!-- ── Open Graph (Facebook, WhatsApp, LinkedIn) ── -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Asociación de Profesionales Financieros" />
+    <meta property="og:description" content="Sistema institucional para control financiero, académico y patrimonial con blockchain y gestión de socios." />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta property="og:locale" content="es_BO" />
+
+    <!-- ── Twitter Card ── -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Asociación de Profesionales Financieros" />
+    <meta name="twitter:description" content="Sistema institucional para control financiero, académico y patrimonial." />
+    <meta name="twitter:image" content="/icon-512.png" />
+
     <!-- ── Icons ── -->
-    <link rel="icon" type="image/png" href="/logo-ap.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
     <link rel="manifest" href="/manifest.json" />
@@ -37,7 +50,49 @@
     <title>Asociación de Profesionales Financieros</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <style>
+        body { margin: 0; background-color: #0f172a; }
+        .splash-screen {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          width: 100vw;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          color: #f8fafc;
+        }
+        .splash-spinner {
+          width: 48px;
+          height: 48px;
+          border: 4px solid rgba(255, 255, 255, 0.1);
+          border-left-color: #3b82f6;
+          border-radius: 50%;
+          animation: splash-spin 1s linear infinite;
+          margin-bottom: 24px;
+        }
+        @keyframes splash-spin {
+          to { transform: rotate(360deg); }
+        }
+        .splash-text {
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: #94a3b8;
+          animation: splash-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes splash-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: .5; }
+        }
+      </style>
+      <div class="splash-screen">
+        <div class="splash-spinner"></div>
+        <div class="splash-text">Cargando APF...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

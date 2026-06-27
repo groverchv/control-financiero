@@ -52,13 +52,14 @@ export const EstadoCuentaSocioPage = () => {
   const [loadingCuotas, setLoadingCuotas] = useState(true);
   const [searchCuotas, setSearchCuotas] = useState('');
   const [pageCuotas, setPageCuotas] = useState(1);
-  const [filtroEstado, setFiltroEstado] = useState('todas'); // 'todas', 'pendientes', 'pagadas'
+  const [filtroEstadoCuotas, setFiltroEstadoCuotas] = useState('todas'); // 'todas', 'pendientes', 'pagadas'
 
   // ─── Actividades state ──────────────────────────────────────────
   const [inscripciones, setInscripciones] = useState([]);
   const [loadingActs, setLoadingActs] = useState(true);
   const [searchActs, setSearchActs] = useState('');
   const [pageActs, setPageActs] = useState(1);
+  const [filtroEstadoActs, setFiltroEstadoActs] = useState('todas'); // 'todas', 'pendientes', 'pagadas'
 
   // ─── Carga de cuotas del usuario ────────────────────────────────
   useEffect(() => {
@@ -129,17 +130,14 @@ export const EstadoCuentaSocioPage = () => {
   // ─── Cronograma filtrado de cuotas ──────────────────────────────
   const cronograma = useMemo(() => {
     const raw = cuotasData?.cronograma || [];
-    return [...raw].sort((a, b) => {
-      if (a.pagado === b.pagado) return 0;
-      return a.pagado ? 1 : -1; // Deuda de primero, pagadas al final
-    });
+    return [...raw].sort((a, b) => new Date(b.creacion) - new Date(a.creacion));
   }, [cuotasData?.cronograma]);
 
   const filteredCuotas = useMemo(() => {
     let list = cronograma;
-    if (filtroEstado === 'pendientes') {
+    if (filtroEstadoCuotas === 'pendientes') {
       list = list.filter(c => !c.pagado);
-    } else if (filtroEstado === 'pagadas') {
+    } else if (filtroEstadoCuotas === 'pagadas') {
       list = list.filter(c => c.pagado);
     }
 
@@ -154,22 +152,28 @@ export const EstadoCuentaSocioPage = () => {
         monto.toLowerCase().includes(q)
       );
     });
-  }, [cronograma, filtroEstado, searchCuotas]);
+  }, [cronograma, filtroEstadoCuotas, searchCuotas]);
 
   const totalPagesCuotas = Math.ceil(filteredCuotas.length / ITEMS_PER_PAGE);
   const paginatedCuotas = filteredCuotas.slice((pageCuotas - 1) * ITEMS_PER_PAGE, pageCuotas * ITEMS_PER_PAGE);
 
   // ─── Inscripciones filtradas ────────────────────────────────────
   const filteredActs = useMemo(() => {
-    if (!searchActs.trim()) return inscripciones;
+    let list = inscripciones;
+    if (filtroEstadoActs === 'pendientes') {
+      list = list.filter(i => i.estado !== 'pagado' && (i.actividad?.costo || 0) > 0);
+    } else if (filtroEstadoActs === 'pagadas') {
+      list = list.filter(i => i.estado === 'pagado' || (i.actividad?.costo || 0) === 0);
+    }
+
+    if (!searchActs.trim()) return list;
     const q = searchActs.toLowerCase();
-    return inscripciones.filter(i => {
+    return list.filter(i => {
       const titulo = (i.actividad?.titulo || '').toLowerCase();
-      const tipo = (i.actividad?.tipo_actividad?.nombre || 'general').toLowerCase();
-      const estado = (i.estado || '').toLowerCase();
-      return titulo.includes(q) || tipo.includes(q) || estado.includes(q);
+      const estado = i.estado === 'pagado' || (i.actividad?.costo || 0) === 0 ? 'pagado' : 'pendiente';
+      return titulo.includes(q) || estado.includes(q);
     });
-  }, [inscripciones, searchActs]);
+  }, [inscripciones, searchActs, filtroEstadoActs]);
 
   const totalPagesActs = Math.ceil(filteredActs.length / ITEMS_PER_PAGE);
   const paginatedActs = filteredActs.slice((pageActs - 1) * ITEMS_PER_PAGE, pageActs * ITEMS_PER_PAGE);
@@ -198,7 +202,6 @@ export const EstadoCuentaSocioPage = () => {
   // ─── Columns cuotas ─────────────────────────────────────────────
   const cuotasColumns = [
     { key: 'periodo', label: 'Periodo' },
-    { key: 'fecha_generacion', label: 'Fecha Generación' },
     { key: 'monto_display', label: 'Monto' },
     { key: 'estado_display', label: 'Estado' },
   ];
@@ -207,9 +210,6 @@ export const EstadoCuentaSocioPage = () => {
     id: c.mes + '-' + ((pageCuotas - 1) * ITEMS_PER_PAGE + idx),
     periodo: (
       <span className="font-semibold text-slate-800 text-sm">{c.mes}</span>
-    ),
-    fecha_generacion: (
-      <span className="text-sm text-slate-600">{formatDate(c.fechaGeneracion)}</span>
     ),
     monto_display: (
       <span className={`font-bold text-sm ${c.pagado ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -230,7 +230,6 @@ export const EstadoCuentaSocioPage = () => {
   // ─── Columns actividades ────────────────────────────────────────
   const actsColumns = [
     { key: 'actividad', label: 'Actividad' },
-    { key: 'tipo', label: 'Tipo' },
     { key: 'fecha_inscripcion_display', label: 'Inscripción' },
     { key: 'costo_display', label: 'Costo' },
     { key: 'estado_display', label: 'Estado' },
@@ -246,11 +245,6 @@ export const EstadoCuentaSocioPage = () => {
           {ins.actividad?.hora ? ` · ${ins.actividad.hora.substring(0, 5)}` : ''}
         </span>
       </div>
-    ),
-    tipo: (
-      <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
-        {ins.actividad?.tipo_actividad?.nombre || 'General'}
-      </span>
     ),
     fecha_inscripcion_display: (
       <span className="text-sm text-slate-600">{formatDate(ins.fecha_inscripcion)}</span>
@@ -327,7 +321,6 @@ export const EstadoCuentaSocioPage = () => {
   // ─── Export data ────────────────────────────────────────────────
   const exportCuotas = filteredCuotas.map(c => ({
     Periodo: c.mes,
-    'Fecha Generación': c.fechaGeneracion,
     Monto: c.pagado ? c.monto_pagado : c.monto_esperado,
     Estado: c.pagado ? 'Pagada' : 'Pendiente'
   }));
@@ -336,8 +329,7 @@ export const EstadoCuentaSocioPage = () => {
     const actualPaid = i.estado === 'pagado' && i.ingreso && i.ingreso.length > 0 ? i.ingreso[0].monto : i.actividad?.costo;
     return {
       Actividad: i.actividad?.titulo || 'Sin nombre',
-      Tipo: i.actividad?.tipo_actividad?.nombre || 'General',
-      'Fecha Inscripción': i.fecha_inscripcion,
+      Inscripción: i.fecha_inscripcion ? new Date(i.fecha_inscripcion).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
       Costo: actualPaid || 0,
       Estado: i.estado === 'pagado' ? 'Pagado' : 'Pendiente'
     };
@@ -355,11 +347,20 @@ export const EstadoCuentaSocioPage = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Estado de Cuenta</h1>
           <p className="text-sm sm:text-base text-slate-500 mt-1">Historial completo de tus cuotas, actividades y deudas pendientes.</p>
         </div>
-        <ExportButtons 
-          data={[...exportCuotas.map(e => ({ ...e, Tipo: 'Cuota' })), ...exportActs.map(e => ({ ...e, Origen: 'Actividad' }))]} 
-          filename="estado_de_cuenta" 
-          title={`Estado de Cuenta - ${user?.nombre || 'Socio'}`} 
-        />
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <ExportButtons 
+            data={exportCuotas} 
+            filename="estado_de_cuenta_cuotas" 
+            title={`Reporte de Cuotas - ${user?.nombre || 'Socio'}`} 
+            customLabel="Reporte de Cuotas"
+          />
+          <ExportButtons 
+            data={exportActs} 
+            filename="estado_de_cuenta_actividades" 
+            title={`Reporte de Actividades - ${user?.nombre || 'Socio'}`} 
+            customLabel="Reporte de Actividades"
+          />
+        </div>
       </header>
 
       {/* ── KPI Summary Cards ────────────────────────────────────── */}
@@ -425,22 +426,22 @@ export const EstadoCuentaSocioPage = () => {
               <div className="flex bg-slate-100 p-0.5 rounded-xl text-xs font-semibold shrink-0 shadow-sm border border-slate-200/50">
                 <button
                   type="button"
-                  onClick={() => { setFiltroEstado('todas'); setPageCuotas(1); }}
-                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstado === 'todas' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  onClick={() => { setFiltroEstadoCuotas('todas'); setPageCuotas(1); }}
+                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstadoCuotas === 'todas' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                   Todas
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setFiltroEstado('pendientes'); setPageCuotas(1); }}
-                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstado === 'pendientes' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-red-500'}`}
+                  onClick={() => { setFiltroEstadoCuotas('pendientes'); setPageCuotas(1); }}
+                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstadoCuotas === 'pendientes' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-red-500'}`}
                 >
                   Deudas
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setFiltroEstado('pagadas'); setPageCuotas(1); }}
-                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstado === 'pagadas' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-emerald-500'}`}
+                  onClick={() => { setFiltroEstadoCuotas('pagadas'); setPageCuotas(1); }}
+                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstadoCuotas === 'pagadas' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-emerald-500'}`}
                 >
                   Pagadas
                 </button>
@@ -483,20 +484,44 @@ export const EstadoCuentaSocioPage = () => {
 
       {/* ── Sección 2: Historial de Actividades ────────────────── */}
       <section className="rounded-2xl bg-white p-5 sm:p-6 shadow-sm border border-slate-100 space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-slate-900">Historial de Actividades</h2>
-            <span className="ml-2 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              {inscripciones.length} inscripciones
-            </span>
+        <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-indigo-600" />
+              <h2 className="text-lg font-bold text-slate-900">Historial de Actividades</h2>
+            </div>
+            {!loadingActs && inscripciones.length > 0 && (
+              <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-semibold shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => { setFiltroEstadoActs('todas'); setPageActs(1); }}
+                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstadoActs === 'todas' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  Todas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFiltroEstadoActs('pendientes'); setPageActs(1); }}
+                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstadoActs === 'pendientes' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-red-500'}`}
+                >
+                  Deudas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFiltroEstadoActs('pagadas'); setPageActs(1); }}
+                  className={`px-3.5 py-1.5 rounded-lg transition-all ${filtroEstadoActs === 'pagadas' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-emerald-500'}`}
+                >
+                  Pagadas
+                </button>
+              </div>
+            )}
           </div>
 
           {!loadingActs && inscripciones.length > 0 && (
             <div className="relative w-full sm:max-w-xs">
               <input
                 type="text"
-                placeholder="Buscar por actividad, tipo, estado..."
+                placeholder="Buscar por actividad, estado..."
                 value={searchActs}
                 onChange={(e) => { setSearchActs(e.target.value); setPageActs(1); }}
                 className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"

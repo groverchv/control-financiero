@@ -18,6 +18,7 @@ export const HistorialActividadesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos'); // 'todos' | 'pagados' | 'pendientes'
   const [filtroActividad, setFiltroActividad] = useState('todos');
+  const [filtroTipoActividad, setFiltroTipoActividad] = useState('todos');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
@@ -52,11 +53,22 @@ export const HistorialActividadesPage = () => {
     new Set(inscripciones.map(i => i.actividad_titulo))
   ).sort();
 
+  // Obtener lista de tipos de actividades únicas para el filtro
+  const tiposUnicos = Array.from(
+    new Set(inscripciones.map(i => i.actividad_tipo))
+  ).filter(Boolean).sort();
+
   // Filtrado de la lista
   const filtrado = inscripciones.filter(i => {
     const nombreCompleto = (i.socio_nombre || '').toLowerCase();
     const email = (i.socio_email || '').toLowerCase();
-    const matchSearch = nombreCompleto.includes(searchTerm.toLowerCase()) || email.includes(searchTerm.toLowerCase());
+    const titulo = (i.actividad_titulo || '').toLowerCase();
+    const tipo = (i.actividad_tipo || '').toLowerCase();
+    const fecha = i.actividad_fecha ? new Date(i.actividad_fecha + 'T00:00:00').toLocaleDateString('es-ES').toLowerCase() : '';
+    const costo = String(i.actividad_costo || '');
+    
+    const textToSearch = `${nombreCompleto} ${email} ${titulo} ${tipo} ${fecha} Bs. ${costo}`.toLowerCase();
+    const matchSearch = textToSearch.includes(searchTerm.toLowerCase());
     
     const matchEstado = filtroEstado === 'todos' 
       ? true 
@@ -68,7 +80,11 @@ export const HistorialActividadesPage = () => {
       ? true
       : i.actividad_titulo === filtroActividad;
 
-    return matchSearch && matchEstado && matchActividad;
+    const matchTipo = filtroTipoActividad === 'todos'
+      ? true
+      : i.actividad_tipo === filtroTipoActividad;
+
+    return matchSearch && matchEstado && matchActividad && matchTipo;
   });
 
   const totalPages = Math.ceil(filtrado.length / ITEMS_PER_PAGE);
@@ -111,6 +127,22 @@ export const HistorialActividadesPage = () => {
           <p className="text-sm text-slate-500">
             Seguimiento de inscripciones a cursos, talleres y actividades de pago. Control de deudas y facturación.
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <ExportButtons 
+            data={filtrado.map(i => ({
+              Estudiante: i.socio_nombre,
+              Correo: i.socio_email,
+              Actividad: i.actividad_titulo,
+              'Tipo Actividad': i.actividad_tipo,
+              Costo: i.actividad_costo,
+              Fecha: i.actividad_fecha ? new Date(i.actividad_fecha + 'T00:00:00').toLocaleDateString('es-ES') : '—',
+              Hora: i.actividad_hora ? i.actividad_hora.substring(0, 5) : '—',
+              Estado: i.estado === 'pagado' ? 'PAGADO' : 'PENDIENTE DE PAGO'
+            }))}
+            filename="historial_inscripciones_actividades"
+            title="Historial Financiero de Actividades"
+          />
         </div>
       </header>
 
@@ -168,40 +200,40 @@ export const HistorialActividadesPage = () => {
         </div>
 
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3 flex-1 w-full max-w-3xl">
-              <ExportButtons 
-                data={filtrado.map(i => ({
-                  Estudiante: i.socio_nombre,
-                  Correo: i.socio_email,
-                  Actividad: i.actividad_titulo,
-                  'Tipo Actividad': i.actividad_tipo,
-                  Costo: i.actividad_costo,
-                  Fecha: i.actividad_fecha ? new Date(i.actividad_fecha + 'T00:00:00').toLocaleDateString('es-ES') : '—',
-                  Hora: i.actividad_hora ? i.actividad_hora.substring(0, 5) : '—',
-                  Estado: i.estado === 'pagado' ? 'PAGADO' : 'PENDIENTE DE PAGO'
-                }))}
-                filename="historial_inscripciones_actividades"
-                title="Historial Financiero de Actividades"
-              />
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 w-full">
               {/* Buscador */}
-              <div className="relative flex-1 min-w-[240px]">
+              <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Buscar por estudiante o correo..."
+                  placeholder="Buscar por estudiante, correo, actividad o fecha..."
                   value={searchTerm}
                   onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                  className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors bg-white"
+                  className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 />
               </div>
 
+              {/* Selector de Tipo de Actividad */}
+              <div className="relative">
+                <select
+                  value={filtroTipoActividad}
+                  onChange={e => { setFiltroTipoActividad(e.target.value); setCurrentPage(1); }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+                >
+                  <option value="todos">Todos los tipos</option>
+                  {tiposUnicos.map(tipo => (
+                    <option key={tipo} value={tipo}>{tipo}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Selector de Actividad */}
-              <div className="relative min-w-[200px]">
+              <div className="relative">
                 <select
                   value={filtroActividad}
                   onChange={e => { setFiltroActividad(e.target.value); setCurrentPage(1); }}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors bg-white"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
                 >
                   <option value="todos">Todas las actividades</option>
                   {actividadesUnicas.map(act => (
@@ -210,7 +242,7 @@ export const HistorialActividadesPage = () => {
                 </select>
               </div>
             </div>
-            <span className="text-sm text-slate-500 whitespace-nowrap">{filtrado.length} registros</span>
+            <span className="text-sm text-slate-500 whitespace-nowrap md:self-center self-end">{filtrado.length} registros</span>
           </div>
 
           {/* Filtros de estado rápido */}
@@ -326,6 +358,11 @@ export const HistorialActividadesPage = () => {
                                   <CheckCircle2 className="h-3 w-3" />
                                   Pagado
                                 </span>
+                              ) : insc.actividad_costo <= 0 ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Gratuito
+                                </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 text-red-700 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                                   <AlertCircle className="h-3 w-3" />
@@ -335,7 +372,7 @@ export const HistorialActividadesPage = () => {
                             </div>
                           </div>
 
-                          {insc.estado !== 'pagado' && (
+                          {insc.estado !== 'pagado' && insc.actividad_costo > 0 && (
                             <button
                               type="button"
                               onClick={() => handlePagarAhora(insc)}

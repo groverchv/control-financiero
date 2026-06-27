@@ -115,7 +115,7 @@ export const academicoApi = {
           await supabase.from('notificacion').insert([{
             miembro_id: ins.miembro_id,
             titulo: 'Actividad Cancelada - Reembolso Pendiente',
-            descripcion: `La actividad "${actividad.titulo}" fue cancelada. Reembolso disponible: Bs. ${actividad.costo}.`,
+            descripcion: `La actividad "${actividad.titulo}" fue cancelada. Reembolso disponible: Bs. ${actividad.costo}. Por favor, pase por secretaría para cobrar su reembolso.`,
             estado: 'pendiente'
           }]);
         }
@@ -422,7 +422,7 @@ export const academicoApi = {
                   await supabase.from('notificacion').insert([{
                     miembro_id: ins.miembro_id,
                     titulo: 'Inscripción Anulada - Reembolso Pendiente',
-                    descripcion: `Inscripción anulada para "${currentAct.titulo}" por cambios críticos. Reembolso disponible: Bs. ${currentAct.costo}.`,
+                    descripcion: `Inscripción anulada para "${currentAct.titulo}" por cambios críticos. Reembolso disponible: Bs. ${currentAct.costo}. Por favor, pase por secretaría para cobrar su reembolso.`,
                     estado: 'pendiente'
                   }]);
                 }
@@ -784,7 +784,7 @@ export const academicoApi = {
       await supabase.from('notificacion').insert([{
         miembro_id: miembroId,
         titulo: `Inscripción confirmada: ${itemInfo?.titulo || 'Actividad'}`,
-        descripcion: `Inscripción a "${itemInfo?.titulo || 'Actividad'}" confirmada. Inicio: ${fechaInsc} a las ${itemInfo?.hora ? itemInfo.hora.substring(0, 5) : '—'} Hrs.${itemInfo?.costo > 0 ? ` Costo: Bs. ${itemInfo.costo}.` : ''}`,
+        descripcion: `Inscripción a "${itemInfo?.titulo || 'Actividad'}" confirmada. Inicio: ${fechaInsc} a las ${itemInfo?.hora ? itemInfo.hora.substring(0, 5) : '—'} Hrs.${itemInfo?.costo > 0 ? ` Costo: Bs. ${itemInfo.costo}. Por favor, cancele este monto en secretaría.` : ''}`,
         estado: 'pendiente'
       }]);
     } catch (emailErr) {

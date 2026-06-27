@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   CalendarPlus,
   ClipboardList,
@@ -12,6 +12,7 @@ import {
   Tags,
   ChevronLeft,
   ChevronRight,
+  Filter,
   Eye,
   EyeOff,
   FileType,
@@ -203,21 +204,56 @@ export const GestionActividadesPage = () => {
     columns: {
       nro: true,
       nombre: true,
-      email: true,
-      telefono: true,
-      firma: true,
+      email: false,
+      telefono: false,
       fecha: false,
       estado: false,
     },
+    customCol1Enabled: true,
+    customCol1Name: "Firma",
+    customCol2Enabled: false,
+    customCol2Name: "Observaciones",
+    customCol3Enabled: false,
+    customCol3Name: "Nota",
+    sortColumn: "nombre",
+    sortOrder: "asc",
     loading: false,
     inscritos: [],
   });
 
+  const sortedPreviewInscritos = useMemo(() => {
+    let list = [...asistenciaModal.inscritos];
+    if (asistenciaModal.sortColumn) {
+      list.sort((a, b) => {
+        let valA = "", valB = "";
+        if (asistenciaModal.sortColumn === "nombre") {
+          valA = `${a.nombre} ${a.apellidoPaterno || ""} ${a.apellidoMaterno || ""}`.trim().toLowerCase();
+          valB = `${b.nombre} ${b.apellidoPaterno || ""} ${b.apellidoMaterno || ""}`.trim().toLowerCase();
+        } else if (asistenciaModal.sortColumn === "email") {
+          valA = (a.email || "").toLowerCase();
+          valB = (b.email || "").toLowerCase();
+        } else if (asistenciaModal.sortColumn === "telefono") {
+          valA = (a.telefono || "").toLowerCase();
+          valB = (b.telefono || "").toLowerCase();
+        } else if (asistenciaModal.sortColumn === "fecha") {
+          valA = a.fechaInscripcion ? new Date(a.fechaInscripcion).getTime() : 0;
+          valB = b.fechaInscripcion ? new Date(b.fechaInscripcion).getTime() : 0;
+        } else if (asistenciaModal.sortColumn === "estado") {
+          valA = (a.estado || "").toLowerCase();
+          valB = (b.estado || "").toLowerCase();
+        }
+        
+        if (valA < valB) return asistenciaModal.sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return asistenciaModal.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return list;
+  }, [asistenciaModal.inscritos, asistenciaModal.sortColumn, asistenciaModal.sortOrder]);
+
   // Search and dropdown states for Member Selection (Manual Enrollment) and Activity Selection (Asistencia Report)
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
-  const [actividadSearchQuery, setActividadSearchQuery] = useState("");
-  const [isActividadDropdownOpen, setIsActividadDropdownOpen] = useState(false);
 
   // ── Blockchain sealing state ────────────────────────────────────────────────
   // Tracks which activity IDs are currently being sealed (to show spinner)
@@ -291,6 +327,7 @@ export const GestionActividadesPage = () => {
           text: "¡Actividad sellada en Blockchain!",
           details: `La actividad "${act.nombre}" ha sido registrada de forma inmutable en Hyperledger Fabric. TX: ${txId}`,
         });
+        return txId;
       } else {
         setResultModal({
           open: true,
@@ -325,9 +362,7 @@ export const GestionActividadesPage = () => {
     { key: "nombre", label: "Actividad" },
     { key: "tipo_nombre", label: "Tipo" },
     { key: "fecha_hora", label: "Fecha/Hora" },
-    { key: "ubicacion_display", label: "Ubicación" },
     { key: "cupos", label: "Cupos" },
-    { key: "blockchain_display", label: "Blockchain" },
     { key: "acciones", label: "Acciones" },
   ];
 
@@ -764,8 +799,36 @@ export const GestionActividadesPage = () => {
       return;
     }
 
+    // Sort inscritos
+    let sortedInscritos = [...inscritos];
+    if (asistenciaModal.sortColumn) {
+      sortedInscritos.sort((a, b) => {
+        let valA = "", valB = "";
+        if (asistenciaModal.sortColumn === "nombre") {
+          valA = `${a.nombre} ${a.apellidoPaterno || ""} ${a.apellidoMaterno || ""}`.trim().toLowerCase();
+          valB = `${b.nombre} ${b.apellidoPaterno || ""} ${b.apellidoMaterno || ""}`.trim().toLowerCase();
+        } else if (asistenciaModal.sortColumn === "email") {
+          valA = (a.email || "").toLowerCase();
+          valB = (b.email || "").toLowerCase();
+        } else if (asistenciaModal.sortColumn === "telefono") {
+          valA = (a.telefono || "").toLowerCase();
+          valB = (b.telefono || "").toLowerCase();
+        } else if (asistenciaModal.sortColumn === "fecha") {
+          valA = a.fechaInscripcion ? new Date(a.fechaInscripcion).getTime() : 0;
+          valB = b.fechaInscripcion ? new Date(b.fechaInscripcion).getTime() : 0;
+        } else if (asistenciaModal.sortColumn === "estado") {
+          valA = (a.estado || "").toLowerCase();
+          valB = (b.estado || "").toLowerCase();
+        }
+        
+        if (valA < valB) return asistenciaModal.sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return asistenciaModal.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
     // Prepare data based on selected columns
-    const reportData = inscritos.map((ins, index) => {
+    const reportData = sortedInscritos.map((ins, index) => {
       const row = {};
       if (columns.nro) row["Nº"] = index + 1;
       if (columns.nombre)
@@ -778,7 +841,17 @@ export const GestionActividadesPage = () => {
           ? new Date(ins.fechaInscripcion).toLocaleDateString()
           : "Sin registro";
       if (columns.estado) row["Estado"] = ins.estado || "Activo";
-      if (columns.firma) row["Firma / Asistencia"] = "___________________";
+      
+      // Columnas vacías personalizadas
+      if (asistenciaModal.customCol1Enabled && asistenciaModal.customCol1Name.trim()) {
+        row[asistenciaModal.customCol1Name.trim()] = "___________________";
+      }
+      if (asistenciaModal.customCol2Enabled && asistenciaModal.customCol2Name.trim()) {
+        row[asistenciaModal.customCol2Name.trim()] = "___________________";
+      }
+      if (asistenciaModal.customCol3Enabled && asistenciaModal.customCol3Name.trim()) {
+        row[asistenciaModal.customCol3Name.trim()] = "___________________";
+      }
       return row;
     });
 
@@ -1152,6 +1225,8 @@ export const GestionActividadesPage = () => {
       const esCancelado = act.estado === "cancelado";
       const esFinalizado =
         !esCancelado && getDynamicEstado(act.fecha, act.hora) === "finalizado";
+      const esSellado = !!act.blockchain_tx_id;
+      const debeMostrarOculto = act.publicado === false || esFinalizado || esSellado;
       return (
         <div className="flex gap-1.5 sm:gap-2 items-center">
           <button
@@ -1163,66 +1238,91 @@ export const GestionActividadesPage = () => {
           </button>
           <button
             onClick={() => handleVerInscritos(act)}
-            className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+            className="relative inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
             title="Ver inscritos"
           >
-            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <Users className="h-3.5 w-3.5" />
+            <span>Inscritos</span>
+            <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-emerald-600 dark:bg-emerald-500 text-[9px] font-bold text-white px-1">
+              {act.inscritos_count || 0}
+            </span>
           </button>
           <button
             onClick={() => {
-              if (esFinalizado) return;
+              handleReportActividadChange(act.id);
+              setAsistenciaModal((prev) => ({
+                ...prev,
+                open: true,
+              }));
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
+            title="Generar Reporte de Asistencia"
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            <span>Asistencia</span>
+          </button>
+          <button
+            onClick={() => {
+              if (esFinalizado || esSellado) return;
               handleTogglePublicado(act);
             }}
-            disabled={esFinalizado}
-            className={`rounded p-1 transition-all ${
-              esFinalizado
-                ? "text-slate-300 opacity-50 cursor-not-allowed"
+            disabled={esFinalizado || esSellado}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+              (esFinalizado || esSellado)
+                ? "bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
                 : act.publicado === false
-                  ? "text-violet-400 hover:bg-violet-50"
-                  : "text-violet-600 hover:bg-violet-50"
+                  ? "bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-950/20 dark:text-violet-400"
+                  : "bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-950/20 dark:text-violet-400"
             }`}
             title={
-              esFinalizado
-                ? "No se puede publicar/ocultar una actividad finalizada"
+              (esFinalizado || esSellado)
+                ? "No se puede publicar/ocultar una actividad finalizada o sellada en Blockchain"
                 : act.publicado === false
                   ? "Publicar actividad"
                   : "Ocultar actividad"
             }
           >
-            {act.publicado === false ? (
-              <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            {debeMostrarOculto ? (
+              <>
+                <EyeOff className="h-3.5 w-3.5" />
+                <span>Oculto</span>
+              </>
             ) : (
-              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <>
+                <Eye className="h-3.5 w-3.5" />
+                <span>Público</span>
+              </>
             )}
           </button>
           <button
             onClick={() => {
-              if (esFinalizado) return;
+              if (esFinalizado || esSellado) return;
               handleOpenEdit(act);
             }}
-            disabled={esFinalizado}
-            className={`rounded p-1 transition-all ${
-              esFinalizado
-                ? "text-slate-300 opacity-50 cursor-not-allowed"
-                : "text-amber-600 hover:bg-amber-50"
+            disabled={esFinalizado || esSellado}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+              (esFinalizado || esSellado)
+                ? "bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
+                : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
             }`}
             title={
-              esFinalizado ? "No se puede editar un curso finalizado" : "Editar"
+              (esFinalizado || esSellado) ? "No se puede editar un curso finalizado o sellado en Blockchain" : "Editar"
             }
           >
-            <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <Edit className="h-3.5 w-3.5" />
+            <span>Editar</span>
           </button>
-          {(!act.inscritos_count || act.inscritos_count === 0) && (
+          {(!act.inscritos_count || act.inscritos_count === 0) && !esSellado && (
             <button
               onClick={() => {
                 if (esFinalizado) return;
                 handleDelete(act.id);
               }}
               disabled={esFinalizado}
-              className={`rounded p-1 transition-all ${
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors ${
                 esFinalizado
-                  ? "text-slate-300 opacity-50 cursor-not-allowed"
-                  : "text-red-400 hover:bg-red-50"
+                  ? "bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
+                  : "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
               }`}
               title={
                 esFinalizado
@@ -1230,19 +1330,20 @@ export const GestionActividadesPage = () => {
                   : "Eliminar permanentemente"
               }
             >
-              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Eliminar</span>
             </button>
           )}
-
           {act.estado !== "cancelado" &&
             !esFinalizado &&
             act.inscritos_count > 0 && (
               <button
                 onClick={() => handleCancelar(act)}
-                className="rounded p-1 text-red-600 hover:bg-red-50"
+                className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 border border-red-200 transition-colors"
                 title="Cancelar Actividad (Devolución)"
               >
-                <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <XCircle className="h-3.5 w-3.5" />
+                <span>Cancelar</span>
               </button>
             )}
         </div>
@@ -1282,25 +1383,7 @@ export const GestionActividadesPage = () => {
             filename="lista_actividades"
             title="Cronograma de Actividades"
           />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setAsistenciaModal((prev) => ({
-                ...prev,
-                open: true,
-                selectedActividadId: "",
-                inscritos: [],
-              }))
-            }
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-9 font-bold px-3"
-          >
-            <ClipboardList className="h-4 w-4 shrink-0" />
-            <span className="sm:hidden text-xs">Asistencia</span>
-            <span className="hidden sm:inline text-sm">
-              Reporte de Asistencia
-            </span>
-          </Button>
+
           <Button
             type="button"
             onClick={handleOpenCreate}
@@ -1458,13 +1541,13 @@ export const GestionActividadesPage = () => {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* R20: Banner informativo sobre campos opcionales */}
-          <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 flex gap-3 text-sm text-amber-800 backdrop-blur-sm animate-in fade-in duration-300">
-            <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 flex gap-3 text-sm text-amber-800 dark:text-amber-400 backdrop-blur-sm animate-in fade-in duration-300 box-orange">
+            <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-bold text-amber-900">
+              <p className="font-bold text-amber-900 dark:text-white">
                 Recordatorio de Registro Completo
               </p>
-              <p className="text-xs text-amber-700 leading-relaxed">
+              <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
                 Por favor, asegúrese de completar la{" "}
                 <strong>Descripción</strong> de la actividad, el{" "}
                 <strong>Costo (Bs)</strong> y los <strong>Requisitos</strong>.
@@ -1922,9 +2005,9 @@ export const GestionActividadesPage = () => {
                 return (
                   <form
                     onSubmit={handleManualInscribir}
-                    className={`mt-4 p-4 rounded-xl bg-blue-50/50 border border-blue-100 space-y-3 transition-all ${isMemberDropdownOpen ? "pb-48" : ""}`}
+                    className={`mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 space-y-3 transition-all ${isMemberDropdownOpen ? "pb-48" : ""}`}
                   >
-                    <h4 className="text-xs font-black text-blue-700 uppercase tracking-widest flex items-center gap-1.5">
+                    <h4 className="text-xs font-black text-slate-700 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
                       <Users className="h-4 w-4" /> Inscribir Socio Manualmente
                     </h4>
                     <div className="flex gap-2 relative">
@@ -2161,6 +2244,44 @@ export const GestionActividadesPage = () => {
                     : "✗ No incluye certificación"}
                 </span>
               </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">
+                  Estado Blockchain
+                </p>
+                {detalleModal.actividad.blockchain_tx_id ? (
+                  <div className="flex flex-col gap-1 mt-0.5">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-250 dark:border-emerald-900 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-450 w-fit uppercase">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Sellado
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono select-all truncate max-w-[200px]" title={detalleModal.actividad.blockchain_tx_id}>
+                      TX: {detalleModal.actividad.blockchain_tx_id}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-750 px-2 py-0.5 text-xs font-bold text-slate-600 dark:text-slate-405 w-fit uppercase">
+                      <Shield className="h-3.5 w-3.5" /> Pendiente
+                    </span>
+                    {detalleModal.actividad.estado === "finalizado" && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const txId = await handleSellarBlockchain(detalleModal.actividad);
+                          if (txId) {
+                            setDetalleModal(prev => ({
+                              ...prev,
+                              actividad: { ...prev.actividad, blockchain_tx_id: txId }
+                            }));
+                          }
+                        }}
+                        className="text-[10px] text-blue-600 dark:text-emerald-450 hover:underline font-black"
+                      >
+                        Sellar ahora
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               {detalleModal.actividad.requisitos && (
                 <div className="col-span-1 md:col-span-2">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">
@@ -2224,214 +2345,275 @@ export const GestionActividadesPage = () => {
       >
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Selector de Actividad y Selección de Columnas */}
-            <div className="space-y-4">
-              <div
-                className={`bg-slate-50 p-4 rounded-xl border border-slate-200 relative transition-all ${isActividadDropdownOpen ? "pb-48" : ""}`}
-              >
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
-                  Seleccionar Actividad (Curso)
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Buscar actividad por nombre o tipo..."
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none pr-10"
-                    value={actividadSearchQuery}
-                    onChange={(e) => {
-                      setActividadSearchQuery(e.target.value);
-                      setIsActividadDropdownOpen(true);
-                      if (!e.target.value) {
-                        setAsistenciaModal((prev) => ({
-                          ...prev,
-                          selectedActividadId: "",
-                          inscritos: [],
-                        }));
-                      }
-                    }}
-                    onFocus={() => setIsActividadDropdownOpen(true)}
-                    required
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Search className="h-4 w-4 text-slate-400" />
+            
+            <div className="space-y-6">
+              {/* Selección de Columnas */}
+              <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+                    <FileText className="h-4 w-4 text-blue-600" /> Atributos a exportar
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAsistenciaModal(prev => ({
+                        ...prev,
+                        columns: { ...prev.columns, email: true, telefono: true, fecha: true, estado: true }
+                      }))}
+                      className="text-[10px] text-blue-600 dark:text-emerald-400 font-bold hover:underline"
+                    >
+                      Todos
+                    </button>
+                    <span className="text-[10px] text-slate-350">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setAsistenciaModal(prev => ({
+                        ...prev,
+                        columns: { ...prev.columns, email: false, telefono: false, fecha: false, estado: false }
+                      }))}
+                      className="text-[10px] text-blue-600 dark:text-emerald-400 font-bold hover:underline"
+                    >
+                      Ninguno
+                    </button>
                   </div>
                 </div>
-
-                {isActividadDropdownOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setIsActividadDropdownOpen(false)}
-                    />
-                    <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg z-20">
-                      {actividades
-                        .filter((act) => {
-                          const name = act.nombre.toLowerCase();
-                          const type = (act.tipo_nombre || "").toLowerCase();
-                          const query = actividadSearchQuery.toLowerCase();
-                          return name.includes(query) || type.includes(query);
-                        })
-                        .slice(0, 10)
-                        .map((act) => (
-                          <button
-                            key={act.id}
-                            type="button"
-                            className="w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-950 flex flex-col border-b border-slate-100 last:border-0"
-                            onClick={() => {
-                              handleReportActividadChange(act.id);
-                              setActividadSearchQuery(
-                                `${act.nombre} (${new Date(act.fecha + "T00:00:00").toLocaleDateString()})`,
-                              );
-                              setIsActividadDropdownOpen(false);
-                            }}
-                          >
-                            <span className="font-semibold text-slate-800">
-                              {act.nombre}
-                            </span>
-                            <span className="text-[10px] text-slate-500">
-                              Categoría: {act.tipo_nombre} | Fecha:{" "}
-                              {new Date(
-                                act.fecha + "T00:00:00",
-                              ).toLocaleDateString()}
-                            </span>
-                          </button>
-                        ))}
-
-                      {actividades.filter((act) => {
-                        const name = act.nombre.toLowerCase();
-                        const type = (act.tipo_nombre || "").toLowerCase();
-                        const query = actividadSearchQuery.toLowerCase();
-                        return name.includes(query) || type.includes(query);
-                      }).length === 0 && (
-                        <div className="px-3 py-3 text-xs text-slate-400 text-center">
-                          No se encontraron actividades
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-                  <ClipboardList className="h-4 w-4 text-blue-600" /> Atributos
-                  de Miembro a incluir
-                </h3>
+                
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 text-sm cursor-not-allowed p-1.5 rounded opacity-75">
+                  <label className="flex items-center gap-2 text-sm cursor-not-allowed p-1.5 rounded opacity-75 text-slate-700 dark:text-slate-350">
                     <input
                       type="checkbox"
                       checked
                       disabled
-                      className="rounded text-blue-600"
+                      className="rounded text-blue-600 focus:ring-blue-500"
                     />
                     <span>Nº (Secuencial)</span>
                   </label>
-                  <label className="flex items-center gap-2 text-sm cursor-not-allowed p-1.5 rounded opacity-75">
+                  <label className="flex items-center gap-2 text-sm cursor-not-allowed p-1.5 rounded opacity-75 text-slate-700 dark:text-slate-350">
                     <input
                       type="checkbox"
                       checked
                       disabled
-                      className="rounded text-blue-600"
+                      className="rounded text-blue-600 focus:ring-blue-500"
                     />
                     <span>Nombre completo</span>
                   </label>
-                  {Object.keys(asistenciaModal.columns)
-                    .filter((k) => k !== "nro" && k !== "nombre")
-                    .map((key) => (
-                      <label
-                        key={key}
-                        className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-100 p-1.5 rounded"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={asistenciaModal.columns[key]}
-                          onChange={() =>
-                            setAsistenciaModal((prev) => ({
-                              ...prev,
-                              columns: {
-                                ...prev.columns,
-                                [key]: !prev.columns[key],
-                              },
-                            }))
-                          }
-                          className="rounded text-blue-600 focus:ring-blue-500"
-                        />
-                        <span>
-                          {key === "email"
-                            ? "Correo Electrónico"
-                            : key === "telefono"
-                              ? "Teléfono"
-                              : key === "firma"
-                                ? "Casilla de Firma"
-                                : key === "fecha"
-                                  ? "Fecha Inscripción"
-                                  : key === "estado"
-                                    ? "Estado inscripción"
-                                    : key}
-                        </span>
-                      </label>
-                    ))}
+                  
+                  <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={asistenciaModal.columns.email}
+                      onChange={() => setAsistenciaModal(prev => ({ ...prev, columns: { ...prev.columns, email: !prev.columns.email } }))}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Correo Electrónico</span>
+                  </label>
+                  
+                  <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={asistenciaModal.columns.telefono}
+                      onChange={() => setAsistenciaModal(prev => ({ ...prev, columns: { ...prev.columns, telefono: !prev.columns.telefono } }))}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Teléfono</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={asistenciaModal.columns.fecha}
+                      onChange={() => setAsistenciaModal(prev => ({ ...prev, columns: { ...prev.columns, fecha: !prev.columns.fecha } }))}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Fecha Inscripción</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={asistenciaModal.columns.estado}
+                      onChange={() => setAsistenciaModal(prev => ({ ...prev, columns: { ...prev.columns, estado: !prev.columns.estado } }))}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Estado inscripción</span>
+                  </label>
                 </div>
               </div>
             </div>
 
-            {/* Vista previa / Resumen de inscritos */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col h-full min-h-[220px]">
-              <h3 className="text-sm font-bold text-slate-800 mb-3">
-                Previsualización de Reporte
-              </h3>
-              {asistenciaModal.loading ? (
-                <div className="flex-1 flex items-center justify-center gap-2 text-sm text-slate-500">
-                  <Spinner size="sm" /> Cargando inscripciones...
-                </div>
-              ) : !asistenciaModal.selectedActividadId ? (
-                <div className="flex-1 flex items-center justify-center text-sm text-slate-400 italic text-center">
-                  Seleccione una actividad de la lista de la izquierda para ver
-                  los inscritos y habilitar la exportación.
-                </div>
-              ) : asistenciaModal.inscritos.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-sm text-amber-600 text-center gap-2">
-                  <Info className="h-8 w-8 text-amber-500" />
-                  <span>
-                    No hay socios inscritos en esta actividad. Inscriba socios
-                    primero en la lista de actividades para poder generar el
-                    reporte de asistencia.
-                  </span>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-                      Inscritos para esta actividad:
-                    </p>
-                    <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
-                      {asistenciaModal.inscritos.map((ins, idx) => (
-                        <div
-                          key={idx}
-                          className="text-xs bg-white p-2 rounded border border-slate-100 flex items-center gap-2"
-                        >
-                          <span className="font-bold text-slate-400">
-                            {idx + 1}.
-                          </span>
-                          <span className="font-semibold text-slate-700">
-                            {ins.nombre} {ins.apellidoPaterno || ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+            {/* Columna Derecha: Columnas vacías adicionales + Ordenamiento */}
+            <div className="space-y-6">
+              {/* Columnas Vacías Personalizadas */}
+              <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+                <span className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+                  <FileText className="h-4 w-4 text-blue-600" /> Columnas vacías adicionales (máx. 3)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <input 
+                      type="checkbox" 
+                      checked={asistenciaModal.customCol1Enabled}
+                      onChange={(e) => setAsistenciaModal(prev => ({ ...prev, customCol1Enabled: e.target.checked }))}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Columna 1"
+                      value={asistenciaModal.customCol1Name}
+                      onChange={(e) => setAsistenciaModal(prev => ({ ...prev, customCol1Name: e.target.value }))}
+                      disabled={!asistenciaModal.customCol1Enabled}
+                      className="w-full bg-transparent border-0 p-0 text-xs text-slate-700 dark:text-slate-200 focus:ring-0 disabled:opacity-50 focus:outline-none"
+                    />
                   </div>
-                  <div className="bg-emerald-50 p-3 rounded-lg text-emerald-800 border border-emerald-100 text-xs font-semibold mt-4">
-                    ✓ Se generará una lista numerada con{" "}
-                    {asistenciaModal.inscritos.length} alumnos inscritos listos
-                    para tomar asistencia.
+
+                  <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <input 
+                      type="checkbox" 
+                      checked={asistenciaModal.customCol2Enabled}
+                      onChange={(e) => setAsistenciaModal(prev => ({ ...prev, customCol2Enabled: e.target.checked }))}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Columna 2"
+                      value={asistenciaModal.customCol2Name}
+                      onChange={(e) => setAsistenciaModal(prev => ({ ...prev, customCol2Name: e.target.value }))}
+                      disabled={!asistenciaModal.customCol2Enabled}
+                      className="w-full bg-transparent border-0 p-0 text-xs text-slate-700 dark:text-slate-200 focus:ring-0 disabled:opacity-50 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <input 
+                      type="checkbox" 
+                      checked={asistenciaModal.customCol3Enabled}
+                      onChange={(e) => setAsistenciaModal(prev => ({ ...prev, customCol3Enabled: e.target.checked }))}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Columna 3"
+                      value={asistenciaModal.customCol3Name}
+                      onChange={(e) => setAsistenciaModal(prev => ({ ...prev, customCol3Name: e.target.value }))}
+                      disabled={!asistenciaModal.customCol3Enabled}
+                      className="w-full bg-transparent border-0 p-0 text-xs text-slate-700 dark:text-slate-200 focus:ring-0 disabled:opacity-50 focus:outline-none"
+                    />
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* Ordenamiento */}
+              <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-orange-600" /> Ordenar datos
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Ordenar por</label>
+                    <select
+                      value={asistenciaModal.sortColumn}
+                      onChange={(e) => setAsistenciaModal(prev => ({ ...prev, sortColumn: e.target.value }))}
+                      className="w-full rounded-md border border-slate-350 dark:border-slate-850 px-2 py-1.5 text-xs focus:border-blue-500 focus:outline-none bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200"
+                    >
+                      <option value="">(Sin orden específico)</option>
+                      <option value="nombre">Nombre completo</option>
+                      <option value="email">Correo Electrónico</option>
+                      <option value="telefono">Teléfono</option>
+                      <option value="fecha">Fecha Inscripción</option>
+                      <option value="estado">Estado inscripción</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Dirección</label>
+                    <select
+                      value={asistenciaModal.sortOrder}
+                      onChange={(e) => setAsistenciaModal(prev => ({ ...prev, sortOrder: e.target.value }))}
+                      disabled={!asistenciaModal.sortColumn}
+                      className="w-full rounded-md border border-slate-350 dark:border-slate-850 px-2 py-1.5 text-xs focus:border-blue-500 focus:outline-none bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 disabled:opacity-50"
+                    >
+                      <option value="asc">Ascendente (A-Z, Menor-Mayor)</option>
+                      <option value="desc">Descendente (Z-A, Mayor-Menor)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Botones de acción */}
+          {/* Vista previa / Resumen de inscritos (abajo, ancho completo) */}
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+            <h4 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              Vista previa (primeros 3 registros)
+            </h4>
+            {asistenciaModal.loading ? (
+              <div className="py-8 flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> Cargando inscripciones...
+              </div>
+            ) : !asistenciaModal.selectedActividadId ? (
+              <div className="py-8 flex items-center justify-center text-sm text-slate-400 dark:text-slate-500 italic text-center">
+                Seleccione una actividad de la lista de la izquierda para ver los inscritos y habilitar la exportación.
+              </div>
+            ) : sortedPreviewInscritos.length === 0 ? (
+              <div className="py-8 flex flex-col items-center justify-center text-sm text-amber-600 dark:text-amber-400 text-center gap-2">
+                <Info className="h-6 w-6 text-amber-500" />
+                <span>
+                  No hay socios inscritos en esta actividad. Inscriba socios primero en la lista de actividades para poder generar el reporte de asistencia.
+                </span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-955">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+                  <thead className="bg-slate-100 dark:bg-slate-900/80">
+                    <tr>
+                      {(() => {
+                        const headers = ["Nº", "Nombre completo"];
+                        if (asistenciaModal.columns.email) headers.push("Correo Electrónico");
+                        if (asistenciaModal.columns.telefono) headers.push("Teléfono");
+                        if (asistenciaModal.columns.fecha) headers.push("Fecha Inscripción");
+                        if (asistenciaModal.columns.estado) headers.push("Estado inscripción");
+                        if (asistenciaModal.customCol1Enabled && asistenciaModal.customCol1Name.trim()) headers.push(asistenciaModal.customCol1Name.trim());
+                        if (asistenciaModal.customCol2Enabled && asistenciaModal.customCol2Name.trim()) headers.push(asistenciaModal.customCol2Name.trim());
+                        if (asistenciaModal.customCol3Enabled && asistenciaModal.customCol3Name.trim()) headers.push(asistenciaModal.customCol3Name.trim());
+                        return headers.map(h => (
+                          <th key={h} className="px-4 py-2.5 text-left font-bold text-slate-700 dark:text-slate-350 capitalize tracking-wider border-b border-slate-200 dark:border-slate-800">{h}</th>
+                        ));
+                      })()}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-850 bg-white dark:bg-slate-950 text-slate-750 dark:text-slate-350">
+                    {sortedPreviewInscritos.slice(0, 3).map((ins, idx) => {
+                      const cells = [];
+                      cells.push(idx + 1);
+                      cells.push(`${ins.nombre} ${ins.apellidoPaterno || ""} ${ins.apellidoMaterno || ""}`);
+                      if (asistenciaModal.columns.email) cells.push(ins.email || "—");
+                      if (asistenciaModal.columns.telefono) cells.push(ins.telefono || "—");
+                      if (asistenciaModal.columns.fecha) cells.push(ins.fechaInscripcion ? new Date(ins.fechaInscripcion).toLocaleDateString() : "—");
+                      if (asistenciaModal.columns.estado) cells.push(ins.estado || "Activo");
+                      if (asistenciaModal.customCol1Enabled && asistenciaModal.customCol1Name.trim()) cells.push("");
+                      if (asistenciaModal.customCol2Enabled && asistenciaModal.customCol2Name.trim()) cells.push("");
+                      if (asistenciaModal.customCol3Enabled && asistenciaModal.customCol3Name.trim()) cells.push("");
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                          {cells.map((cell, cIdx) => (
+                            <td key={cIdx} className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-900 truncate max-w-[200px]">{cell}</td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Banner */}
+          {asistenciaModal.selectedActividadId && !asistenciaModal.loading && (
+            <div className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold rounded-lg text-slate-700 dark:text-slate-200 text-center">
+              Se exportarán <strong>{sortedPreviewInscritos.length}</strong> registros de <strong>{asistenciaModal.inscritos.length}</strong> en total.
+            </div>
+          )}
+
+        {/* Botones de acción */}
           <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t">
             <Button
               variant="outline"

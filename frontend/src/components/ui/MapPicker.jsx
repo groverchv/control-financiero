@@ -85,8 +85,8 @@ export const MapPicker = ({ lat, lng, onChange, color = 'blue' }) => {
         onClick={() => setIsOpen(true)}
         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all w-full justify-center font-black text-[10px] uppercase tracking-widest ${
           lat && lng 
-            ? `bg-${color}-50 border-${color}-200 text-${color}-600 hover:bg-${color}-100` 
-            : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:border-slate-300'
+            ? `bg-${color}-50 border-${color}-200 text-${color}-600 hover:bg-${color}-100 box-${color} dark:text-${color}-400` 
+            : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-450 dark:hover:bg-slate-750'
         }`}
       >
         <MapIcon className="h-4 w-4" />

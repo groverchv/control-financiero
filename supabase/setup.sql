@@ -1,10 +1,37 @@
+-- =====================================================================
+-- SCRIPT UNIFICADO: REINICIO, ESQUEMA Y POBLACIÓN DE DATOS
+-- =====================================================================
+
+-- =====================================================================
+-- SCRIPT DE REINICIO DE BASE DE DATOS LOCAL
+-- ADVERTENCIA: Este script ELIMINA todo el esquema público y todos sus
+-- datos. No lo use en entornos de producción.
+-- =====================================================================
+
+-- 1. Eliminar el esquema público y todo su contenido
+DROP SCHEMA IF EXISTS public CASCADE;
+
+-- 2. Volver a crear el esquema público
+CREATE SCHEMA public;
+
+-- 3. Restablecer permisos básicos para el correcto funcionamiento de Supabase/PostgREST
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role, authenticator;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role, authenticator;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role, authenticator;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role, authenticator;
+
+-- 4. Habilitar extensiones necesarias
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pg_trgm" SCHEMA public;
+
+-- Mensaje de finalización
+SELECT 'Esquema público reiniciado exitosamente. Ahora proceda a ejecutar setup.sql y dataseed.sql.' AS status;
+
+
 -- ==========================================
 -- 1. PREPARACIÓN DEL ESQUEMA (PRODUCCIÓN)
 -- ==========================================
--- ADVERTENCIA: Este archivo NO realiza DROP SCHEMA en producción para evitar pérdida de datos accidental.
--- Si se ejecuta localmente por primera vez, asegúrese de que el esquema "public" esté creado y limpio.
--- Para reinicios completos locales, use el script "reset_local.sql".
-
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role, authenticator;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role, authenticator;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role, authenticator;
@@ -729,6 +756,7 @@ CREATE INDEX IF NOT EXISTS idx_plan_amortizacion_activo ON public.plan_amortizac
 CREATE TABLE IF NOT EXISTS public.cuota_membresia (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
+    configuracion_id uuid REFERENCES public.configuracion_cuotas(id) ON DELETE SET NULL,
     periodo text NOT NULL,
     monto_esperado numeric(12,2) NOT NULL DEFAULT 150,
     estado text DEFAULT 'pendiente', -- 'pendiente', 'pagado'
@@ -854,3 +882,58 @@ BEGIN
 END $$;
 
 NOTIFY pgrst, 'reload schema';
+
+-- ==============================================================
+-- OPTIMIZACIONES SUPABASE & LIMPIEZA DE DATOS EFÍMEROS
+-- ==============================================================
+-- Este script automatiza la limpieza de registros antiguos (basura)
+-- en la tabla "notificacion" para mantener el uso de la Base de Datos 
+-- optimizado por debajo de los 500 MB (límite del plan gratuito).
+-- ==============================================================
+
+-- ==============================================================
+-- 1. LIMPIEZA AUTOMÁTICA DE NOTIFICACIONES MAYORES A 100 DÍAS
+-- ==============================================================
+
+-- Función que realiza el borrado de notificaciones antiguas (basura)
+CREATE OR REPLACE FUNCTION public.limpiar_notificaciones_antiguas()
+RETURNS trigger AS $$
+BEGIN
+    -- Elimina todas las notificaciones que tengan más de 100 días de antigüedad
+    DELETE FROM public.notificacion
+    WHERE creacion < NOW() - INTERVAL '100 days';
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger que se dispara después de insertar una nueva notificación
+DROP TRIGGER IF EXISTS tr_limpiar_notificaciones_excedentes ON public.notificacion;
+CREATE TRIGGER tr_limpiar_notificaciones_excedentes
+    AFTER INSERT ON public.notificacion
+    FOR EACH ROW
+    EXECUTE FUNCTION public.limpiar_notificaciones_antiguas();
+
+-- Ejecutar una limpieza inicial inmediata de cualquier registro huérfano o antiguo
+DELETE FROM public.notificacion
+WHERE creacion < NOW() - INTERVAL '100 days';
+
+-- ==============================================================
+-- 2. CREACIÓN DE ÍNDICES PARA BÚSQUEDAS RÁPIDAS (Optimiza CPU/Memoria)
+-- ==============================================================
+-- Estos índices mejoran dramáticamente la velocidad de las consultas 
+-- frecuentes en el sistema financiero y evitan escaneos secuenciales costosos.
+
+-- Índices para la tabla ingreso (búsquedas por miembro y estado)
+CREATE INDEX IF NOT EXISTS idx_ingreso_miembro_id ON public.ingreso(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_ingreso_estado ON public.ingreso(estado);
+
+-- Índices para la tabla egreso
+CREATE INDEX IF NOT EXISTS idx_egreso_miembro_id ON public.egreso(miembro_id);
+
+-- Índices para la tabla archivo (búsqueda de urls y relaciones polimórficas)
+CREATE INDEX IF NOT EXISTS idx_archivo_relaciones ON public.archivo(egreso_id, ingreso_id, activo_id);
+
+-- Índices para notificaciones (búsquedas activas en realtime por miembro)
+CREATE INDEX IF NOT EXISTS idx_notificacion_miembro_pendiente ON public.notificacion(miembro_id, estado);
+

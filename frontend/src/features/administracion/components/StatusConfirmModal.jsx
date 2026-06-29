@@ -1,5 +1,5 @@
-import { AlertTriangle, CheckCircle2, UserCheck } from 'lucide-react';
-import { Button, Spinner, Modal } from '../../../components/ui';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Button, Modal } from '../../../components/ui';
 
 /**
  * Modal de confirmación de cambio de estado (activar/desactivar miembro).

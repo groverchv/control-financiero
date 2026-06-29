@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, UserCircle, FileText, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { UserCircle, FileText, Upload, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
 import { administracionApi } from '../api';
@@ -9,7 +9,7 @@ const ITEMS_PER_PAGE = 10;
 const renderFormattedResumen = (text) => {
   if (!text) return "-";
   
-  const sections = text.split(/(?=\b[A-Z\u00C0-\u00DC][a-zA-Z\u00C0-\u00DC\s\u00f1\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa\u00c1\u00c9\u00cd\u00d3\u00da\-]+:)/g);
+  const sections = text.split(/(?=\b[A-Z\u00C0-\u00DC][a-zA-Z\u00C0-\u00DC\s\u00f1\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa\u00c1\u00c9\u00cd\u00d3\u00da-]+:)/g);
   
   if (sections.length > 1) {
     return (
@@ -93,7 +93,6 @@ export const MiembroDetailModal = ({
   globalConfig,
   onImageClick
 }) => {
-  const [showDetailPassword, setShowDetailPassword] = useState(false);
   const [pageDetailCuotas, setPageDetailCuotas] = useState(1);
   const [pageDetailActs, setPageDetailActs] = useState(1);
 

@@ -4,7 +4,6 @@ import { useOfflineSync } from './hooks/useOfflineSync';
 import { ToastContainer } from 'react-toastify';
 import { IdleTimeoutHandler, ErrorBoundary } from './components/feedback';
 import { OfflineSyncBanner } from './components/ui';
-import { InstallPWABanner } from './components/pwa/InstallPWABanner';
 import 'react-toastify/dist/ReactToastify.css';
 
 function App() {

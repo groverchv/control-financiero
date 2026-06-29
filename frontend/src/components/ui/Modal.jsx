@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useId } from 'react';
 import { X } from 'lucide-react';
 
 export const Modal = ({ isOpen, onClose, title, children, width = 'max-w-4xl', id }) => {
-  const modalId = id || 'modal-' + Math.random().toString(36).substr(2, 9);
+  const defaultId = useId();
+  const modalId = id || defaultId;
   const titleId = `${modalId}-title`;
   const modalRef = useRef(null);
 

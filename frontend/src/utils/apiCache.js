@@ -26,7 +26,7 @@ export const withCache = (cacheKey, asyncFn, maxAgeMs = 5 * 60 * 1000) => {
             return parsed.data;
           }
         }
-      } catch (e) {
+      } catch {
         // Si falla la lectura de caché, continuar con la petición normal
       }
 

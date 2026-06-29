@@ -642,22 +642,10 @@ export const GestionActividadesPage = () => {
               "El socio ha sido inscrito manualmente en la actividad de manera correcta.",
           });
 
-          // Notificar inscripción interna y por correo Brevo
+          // Notificar inscripción por correo Brevo
           if (miembro) {
             try {
-              // 1. Notificación interna
-              await supabase.from('notificacion').insert([{
-                miembro_id: miembro.id,
-                titulo: 'Inscripción Exitosa',
-                descripcion: `Has sido inscrito/a en la actividad "${inscritosModal.actividad.nombre}".`,
-                estado: 'pendiente'
-              }]);
-            } catch (notifErr) {
-              console.error('[Notif] Error guardando notificación interna de inscripción:', notifErr);
-            }
-
-            try {
-              // 2. Notificación por correo Brevo
+              // Notificación por correo Brevo
               await brevoService.notificarInscripcionActividad({
                 email: miembro.correoElectronico,
                 nombre: `${miembro.nombre} ${miembro.apellidoPaterno || ''}`.trim(),
@@ -687,6 +675,123 @@ export const GestionActividadesPage = () => {
         }
       },
     });
+  };
+
+  const handleProcesarReembolso = (miembro) => {
+    if (!inscritosModal.actividad) return;
+
+    if (miembro.totalPaid > 0 && miembro.ingresoId) {
+      setGeneralConfirmModal({
+        open: true,
+        title: "Habilitar y Procesar Reembolso",
+        message: `El socio "${miembro.nombre} ${miembro.apellidoPaterno || ""}" ya pagó por esta actividad (Bs. ${miembro.totalPaid.toFixed(2)}). ¿Estás seguro de procesar su reembolso completo? Esto anulará su inscripción de forma segura y liberará el cupo en la actividad.`,
+        confirmText: "Sí, procesar reembolso",
+        actionType: "danger",
+        onConfirm: async () => {
+          setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
+          setLoadingModal({ open: true, text: "Procesando reembolso y anulando inscripción..." });
+          try {
+            const { finanzasApi } = await import("../../finanzas/api");
+            await finanzasApi.devolverIngreso(miembro.ingresoId, user?.id);
+
+            const nuevosInscritos =
+              await administracionApi.obtenerInscritosActividad(
+                inscritosModal.actividad.id,
+              );
+            setInscritosModal((prev) => ({
+              ...prev,
+              inscritos: nuevosInscritos,
+            }));
+
+            setActividades((prev) =>
+              prev.map((a) =>
+                a.id === inscritosModal.actividad.id
+                  ? {
+                      ...a,
+                      cupos: (a.cupos || 0) + 1,
+                      inscritos_count: Math.max(0, (a.inscritos_count || 1) - 1),
+                    }
+                  : a,
+              ),
+            );
+
+            setLoadingModal({ open: false, text: "" });
+            setResultModal({
+              open: true,
+              type: "success",
+              text: "¡Reembolso procesado con éxito!",
+              details: "El pago del socio ha sido reembolsado y su inscripción ha sido anulada.",
+            });
+          } catch (err) {
+            console.error(err);
+            setLoadingModal({ open: false, text: "" });
+            setResultModal({
+              open: true,
+              type: "error",
+              text: "Error al procesar reembolso",
+              details: err.message || "No se pudo completar el reembolso.",
+            });
+          }
+        },
+      });
+    } else {
+      // No ha pagado, simplemente anular
+      setGeneralConfirmModal({
+        open: true,
+        title: "Anular Inscripción",
+        message: `El socio "${miembro.nombre} ${miembro.apellidoPaterno || ""}" no registra pagos para esta actividad. ¿Estás seguro de anular su inscripción?`,
+        confirmText: "Sí, anular inscripción",
+        actionType: "danger",
+        onConfirm: async () => {
+          setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
+          setLoadingModal({ open: true, text: "Anulando inscripción del socio..." });
+          try {
+            await academicoApi.desinscribirSocio(
+              miembro.id,
+              inscritosModal.actividad.id,
+            );
+
+            const nuevosInscritos =
+              await administracionApi.obtenerInscritosActividad(
+                inscritosModal.actividad.id,
+              );
+            setInscritosModal((prev) => ({
+              ...prev,
+              inscritos: nuevosInscritos,
+            }));
+
+            setActividades((prev) =>
+              prev.map((a) =>
+                a.id === inscritosModal.actividad.id
+                  ? {
+                      ...a,
+                      cupos: (a.cupos || 0) + 1,
+                      inscritos_count: Math.max(0, (a.inscritos_count || 1) - 1),
+                    }
+                  : a,
+              ),
+            );
+
+            setLoadingModal({ open: false, text: "" });
+            setResultModal({
+              open: true,
+              type: "success",
+              text: "¡Inscripción anulada!",
+              details: "El socio ha sido desinscrito de la actividad con éxito.",
+            });
+          } catch (err) {
+            console.error(err);
+            setLoadingModal({ open: false, text: "" });
+            setResultModal({
+              open: true,
+              type: "error",
+              text: "Error al anular inscripción",
+              details: err.message || "No se pudo eliminar la inscripción.",
+            });
+          }
+        },
+      });
+    }
   };
 
   const handleManualDesinscribir = (miembro) => {
@@ -1742,6 +1847,8 @@ export const GestionActividadesPage = () => {
                 }
                 error={formErrors.costo}
                 required
+                disabled={!!editingAct}
+                className={editingAct ? "bg-slate-50 cursor-not-allowed opacity-80" : ""}
               />
 
               {editingAct ? (
@@ -1950,11 +2057,16 @@ export const GestionActividadesPage = () => {
                             {!inscritosModal.actividad?.blockchain_tx_id && (
                               <button
                                 type="button"
-                                onClick={() => handleManualDesinscribir(u)}
-                                className="p-1 text-red-500 hover:bg-rose-50 hover:text-red-700 rounded-lg transition-colors mr-1 shrink-0"
-                                title="Eliminar inscripción"
+                                onClick={() => handleProcesarReembolso(u)}
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors mr-2 shrink-0 text-xs font-semibold ${
+                                  u.totalPaid > 0 
+                                    ? "bg-amber-50 text-amber-600 hover:bg-amber-100" 
+                                    : "bg-rose-50 text-red-600 hover:bg-rose-100"
+                                }`}
+                                title={u.totalPaid > 0 ? "Procesar Reembolso (El socio ya pagó)" : "Anular Inscripción"}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                <span>{u.totalPaid > 0 ? "Reembolsar" : "Anular"}</span>
                               </button>
                             )}
                             <span className="font-mono font-black text-slate-400 bg-slate-200/50 rounded-full h-6 w-6 flex items-center justify-center text-xs shrink-0">

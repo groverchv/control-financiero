@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, RefreshCw, BookOpen } from 'lucide-react';
 import { finanzasApi } from '../api';
@@ -131,6 +131,7 @@ export const RegistroCuotasPage = () => {
     };
   }, []);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [message, setMessage] = useState(null);
   const [miembros, setMiembros] = useState([]);
   const [tiposIngreso, setTiposIngreso] = useState([]);
@@ -387,7 +388,7 @@ export const RegistroCuotasPage = () => {
         let desc = '';
         if (isEnrollment) {
           const cleanPeriodo = parseMesToNombre(cleanMes.replace(/Inscripci[oó]n\s*/i, '').trim());
-          desc = `Pago de inscripción${cleanPeriodo ? ` - ${cleanPeriodo}` : ''}`;
+          desc = `Pago de inscripción - Asociación de Profesionales Financieros (APF)${cleanPeriodo ? ` (${cleanPeriodo})` : ''}`;
         } else {
           desc = `Cuota de membresía - ${periodoNombre}`;
         }
@@ -413,7 +414,7 @@ export const RegistroCuotasPage = () => {
         let desc = '';
         if (isEnrollment) {
           const cleanPeriodo = parseMesToNombre(cleanMes.replace(/Inscripci[oó]n\s*/i, '').trim());
-          desc = `Pago de inscripción APF${cleanPeriodo ? ` - ${cleanPeriodo}` : ''}`;
+          desc = `Pago de inscripción - Asociación de Profesionales Financieros (APF)${cleanPeriodo ? ` (${cleanPeriodo})` : ''}`;
         } else {
           desc = `Cuota de membresía APF - ${periodoNombre}`;
         }
@@ -477,6 +478,8 @@ export const RegistroCuotasPage = () => {
   };
 
   const executeSubmit = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setConfirmModal(false);
     setSubmitting(true);
 
@@ -508,7 +511,7 @@ export const RegistroCuotasPage = () => {
         open: true,
         type: 'success',
         text: '¡Ingreso registrado correctamente!',
-        details: 'El ingreso ha sido sellado con éxito en la Blockchain e integrado en el flujo de caja de la institución.'
+        details: ''
       });
       setForm({ miembroBuscador: '', tipo_ingreso_id: '', monto: '', descripcion: '', fecha: '', estado: 'pagada', comprobante: null });
       setIsCreateModalOpen(false);
@@ -522,6 +525,7 @@ export const RegistroCuotasPage = () => {
       });
     } finally {
       setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -983,7 +987,7 @@ export const RegistroCuotasPage = () => {
                       <div className="space-y-1.5">
                         <p className="flex items-center gap-2">
                           <Calendar className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                          Generación: <strong>{formatPeriodoLabel(registroSocio.proximaPendiente, form.descripcion)}</strong>
+                          Detalle: <strong>{formatPeriodoLabel(registroSocio.proximaPendiente, form.descripcion)}</strong>
                         </p>
                         <p className="flex items-center gap-2">
                           <BadgeDollarSign className="h-3.5 w-3.5 shrink-0 text-amber-600" />

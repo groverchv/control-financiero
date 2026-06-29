@@ -20,7 +20,6 @@ function App() {
         {/* PWA: Banner premium de estado offline y sincronización de cola */}
         <OfflineSyncBanner />
         {/* PWA: Banner de instalación personalizado */}
-        <InstallPWABanner />
       </div>
     </ErrorBoundary>
   );

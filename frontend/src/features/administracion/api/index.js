@@ -93,17 +93,7 @@ export const administracionApi = {
 
     if (error) throw error;
 
-    // Guardar notificación de bienvenida en el sistema interno
-    try {
-      await supabase.from('notificacion').insert([{
-        miembro_id: data?.id,
-        titulo: '¡Bienvenido!',
-        descripcion: 'Tu cuenta ha sido creada. ¡Te damos una cordial bienvenida a la institución!',
-        estado: 'pendiente'
-      }]);
-    } catch (err) {
-      console.error('[Notif] Error guardando notificación de bienvenida:', err);
-    }
+
 
     // Enviar correo de bienvenida por Brevo
     if (data?.correoElectronico) {
@@ -406,16 +396,25 @@ export const administracionApi = {
   obtenerInscritosActividad: async (actividadId) => {
     const { data, error } = await supabase
       .from('inscripcion')
-      .select('fecha_inscripcion, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado)')
+      .select('id, estado, fecha_inscripcion, miembro:miembro_id(id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado), ingreso(id, monto, estado)')
       .eq('actividad_id', actividadId)
       .order('fecha_inscripcion', { ascending: false });
 
     if (error) throw error;
-    return (data || []).map(d => ({
-      ...d.miembro,
-      email: d.miembro?.correoElectronico,
-      fechaInscripcion: d.fecha_inscripcion,
-    }));
+    return (data || []).map(d => {
+      const ingresoValido = d.ingreso && d.ingreso.find(ing => ing.estado !== 'devolucion');
+      const totalPaid = ingresoValido ? Number(ingresoValido.monto || 0) : 0;
+      const ingresoId = ingresoValido ? ingresoValido.id : null;
+      return {
+        ...d.miembro,
+        inscripcionId: d.id,
+        estadoInscripcion: d.estado,
+        email: d.miembro?.correoElectronico,
+        fechaInscripcion: d.fecha_inscripcion,
+        totalPaid,
+        ingresoId
+      };
+    });
   },
 
   actualizarContrasena: async (userId, newPassword) => {

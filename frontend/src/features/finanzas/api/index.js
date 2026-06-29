@@ -161,6 +161,7 @@ export const finanzasApi = {
 
   devolverIngreso: async (id, usuarioId) => {
     apiCache.invalidate('finanzas');
+    apiCache.invalidate('academico:actividades');
     // 1. Obtener el ingreso y verificar si está ligado a una inscripción
     const { data: currentIngreso, error: fetchErr } = await supabase
       .from('ingreso')
@@ -211,9 +212,15 @@ export const finanzasApi = {
       ? `${currentIngreso?.descripcion || ''} [Reembolso de excedente de Bs. ${refundDiff.toFixed(2)} por cambio de costo procesado por: ${infoRefund}]`.trim()
       : `${currentIngreso?.descripcion || ''} [Devuelto por: ${infoRefund}]`.trim();
 
+    const updatePayload = { monto: nuevoMonto, estado: nuevoEstado, descripcion: nuevaDesc };
+    if (!esRefundablePorCosto) {
+      // Unlink the inscription so it can be deleted without foreign key constraint errors
+      updatePayload.inscripcion_id = null;
+    }
+
     const { data, error } = await supabase
       .from('ingreso')
-      .update({ monto: nuevoMonto, estado: nuevoEstado, descripcion: nuevaDesc })
+      .update(updatePayload)
       .eq('id', id)
       .select();
 
@@ -235,8 +242,8 @@ export const finanzasApi = {
       console.error('[Notif] Error guardando notificación de devolución:', notifErr);
     }
 
-    // Si tiene una inscripción ligada, eliminarla y regresar el cupo
-    if (currentIngreso?.inscripcion_id) {
+    // Si tiene una inscripción ligada y es un reembolso total, eliminarla y regresar el cupo
+    if (currentIngreso?.inscripcion_id && !esRefundablePorCosto) {
       // Obtener la actividad_id asociada a la inscripción
       const { data: inscripcion, error: insErr } = await supabase
         .from('inscripcion')
@@ -246,10 +253,14 @@ export const finanzasApi = {
 
       if (!insErr && inscripcion?.actividad_id) {
         // Eliminar inscripción
-        await supabase
+        const { error: delErr } = await supabase
           .from('inscripcion')
           .delete()
           .eq('id', currentIngreso.inscripcion_id);
+        
+        if (delErr) {
+          console.error("Error al eliminar la inscripcion:", delErr);
+        }
 
         // Devolver el cupo a la actividad
         const { data: actNow } = await supabase
@@ -398,8 +409,7 @@ export const finanzasApi = {
                   miembro_id: m.id,
                   periodo: periodStr,
                   monto_esperado: configUltima.monto_cuota || 20,
-                  estado: 'pendiente',
-                  creacion: nextDue.toISOString()
+                  estado: 'pendiente'
                 });
               }
               nextDue = new Date(nextDue.getTime() + msInterval);
@@ -512,23 +522,28 @@ export const finanzasApi = {
           // Calcular cuotas pendientes anteriores (deudas acumuladas, excluye la más próxima)
           const cuotasPreviasPendientes = (cronograma || [])
             .filter(c => !c.pagado && c.mes !== proximaPendiente.mes)
-            .map(c => ({ mes: c.mes, monto: montoCuota }));
+            .map(c => ({ mes: c.mes, monto: c.monto_esperado || montoCuota }));
+
+          const esInscripcion = proximaPendiente.mes.startsWith('Inscripción');
+          const conceptoText = esInscripcion ? 'cuota de inscripción' : 'cuota de membresía';
+          const montoDeuda = proximaPendiente.monto_esperado || montoCuota;
 
           // Guardar notificación en BD para que el usuario la vea en la web
           await supabase.from('notificacion').insert([{
             miembro_id: miembro.id,
             titulo: tituloEsperado,
-            descripcion: `Se ha generado tu cuota de membresía para el período de ${proximaPendiente.mes}. Monto: Bs. ${montoCuota}. Por favor, cancele este monto en secretaría.`,
+            descripcion: `Se ha generado tu ${conceptoText} para el período de ${proximaPendiente.mes}. Monto: Bs. ${montoDeuda}. Por favor, cancele este monto en secretaría.`,
             estado: 'pendiente'
           }]);
 
           await brevoService.notificarPagoPendiente({
             email: miembro.correoElectronico || 'no-reply@control.com',
             nombre: `${miembro.nombre} ${miembro.apellidoPaterno || ''}`.trim(),
-            monto: montoCuota,
+            monto: montoDeuda,
             periodoKey: proximaPendiente.mes,
             miembroId: miembro.id,
             deudasExtra: cuotasPreviasPendientes,
+            concepto: esInscripcion ? 'Cuota de inscripción' : 'Cuota de membresía'
           });
         }
       }
@@ -689,7 +704,6 @@ export const finanzasApi = {
                     periodo: `Día ${dateStr}`,
                     monto_esperado: payload.monto_cuota || 20,
                     estado: 'pendiente',
-                    creacion: dayDate.toISOString(),
                   });
                 }
                 if (cuotasNuevas.length > 0) {
@@ -1098,8 +1112,24 @@ export const finanzasApi = {
       if (!ingErr && orphanIngresos) {
         mappedOrphans = orphanIngresos
           .filter(i => {
+            // Excluir si el monto es 0 o menor, o si el estado es devolución (reembolso total)
+            if (Number(i.monto || 0) <= 0 || i.estado === 'devolucion') return false;
+
             const esTipoActividad = i.tipo?.nombre?.toLowerCase().includes('actividad');
+            // Excluir si el tipo es de membresía/mensualidad
+            const esMembresia = i.tipo?.nombre?.toLowerCase().includes('membresía') || 
+                                i.tipo?.nombre?.toLowerCase().includes('membresia') || 
+                                i.tipo?.nombre?.toLowerCase().includes('mensual');
+            if (esMembresia) return false;
+
             const esDescActividad = i.descripcion?.toLowerCase().includes('actividad') || i.descripcion?.toLowerCase().includes('inscrip');
+            
+            // Excluir si la descripción es sobre la inscripción a la asociación
+            const esAsociacion = i.descripcion?.toLowerCase().includes('asociación') || 
+                                 i.descripcion?.toLowerCase().includes('asociacion') || 
+                                 i.descripcion?.includes('APF');
+            if (esAsociacion) return false;
+
             return esTipoActividad || esDescActividad;
           })
           .map(i => {

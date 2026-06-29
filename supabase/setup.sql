@@ -427,7 +427,7 @@ BEGIN
   VALUES (
     new.id,
     '¡Bienvenido!',
-    'Te damos la bienvenida.'
+    'Tu cuenta ha sido creada. ¡Te damos una cordial bienvenida a la institución!'
   );
   
   RETURN new;

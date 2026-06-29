@@ -193,8 +193,11 @@ export const brevoService = {
    * @param {string} params.miembroId     ID del miembro
    * @param {Array}  params.deudasExtra   Cuotas anteriores pendientes [{mes, monto}]
    */
-  notificarPagoPendiente: async ({ email, nombre, monto, periodoKey, miembroId, deudasExtra = [] }) => {
+  notificarPagoPendiente: async ({ email, nombre, monto, periodoKey, miembroId, deudasExtra = [], concepto }) => {
     if (!await miembroActivo(miembroId)) return { success: false, error: 'Miembro inactivo' };
+
+    const esInscripcion = periodoKey?.startsWith('Inscripción');
+    const conceptoLimpio = concepto || (esInscripcion ? 'Cuota de inscripción' : 'Cuota de membresía');
 
     // Formatear periodoKey para el asunto de forma amigable (ej: "Min 1/6/2026 14:27" -> "Junio 2026")
     const parsePeriodoToNombre = (periodoStr) => {
@@ -230,7 +233,7 @@ export const brevoService = {
       <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Aviso de cobro generado automáticamente</p>
 
       <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>, te informamos que se ha generado tu cuota de membresía correspondiente al período de <strong>${periodoLimpio}</strong>.
+        Estimado/a <strong>${nombre}</strong>, te informamos que se ha generado tu ${conceptoLimpio.toLowerCase()} correspondiente al período de <strong>${periodoLimpio}</strong>.
       </p>
 
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;margin-bottom:${hayDeudasExtra ? '16px' : '24px'};">
@@ -239,7 +242,7 @@ export const brevoService = {
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Concepto</td>
-                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">Cuota de membresía</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${conceptoLimpio}</td>
               </tr>
               <tr style="border-top:1px solid #fde68a;">
                 <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Período</td>
@@ -283,7 +286,7 @@ export const brevoService = {
 
     return enviarEmail({
       to: { email, name: nombre },
-      subject: `[APF] Aviso de Cobro — Cuota de Membresía de ${periodoLimpio}`,
+      subject: `[APF] Aviso de Cobro — ${conceptoLimpio} de ${periodoLimpio}`,
       htmlContent: baseTemplate('Factura de Cuota', content, '#d97706'),
     });
   },

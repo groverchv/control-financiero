@@ -729,6 +729,7 @@ export const academicoApi = {
   },
 
   inscribirSocio: withWriteQueue('inscripcion', 'inscribirSocio', async (miembroId, actividadId) => {
+    apiCache.invalidate('academico');
     // Primero, verificamos si hay cupos y la fecha/hora
     const { data: itemData, error: itemError } = await supabase
       .from('actividad')
@@ -795,6 +796,7 @@ export const academicoApi = {
   }),
 
   desinscribirSocio: withWriteQueue('inscripcion', 'desinscribirSocio', async (miembroId, actividadId) => {
+    apiCache.invalidate('academico');
     const { error: deleteError } = await supabase
       .from('inscripcion')
       .delete()
@@ -802,6 +804,20 @@ export const academicoApi = {
       .eq('actividad_id', actividadId);
 
     if (deleteError) throw deleteError;
+
+    // Limpiar notificaciones de inscripción previas para evitar duplicados visuales si se vuelve a inscribir
+    try {
+      const { data: actInfo } = await supabase.from('actividad').select('titulo').eq('id', actividadId).maybeSingle();
+      if (actInfo?.titulo) {
+        await supabase
+          .from('notificacion')
+          .delete()
+          .eq('miembro_id', miembroId)
+          .like('titulo', `Inscripción confirmada: ${actInfo.titulo}%`);
+      }
+    } catch (e) {
+      console.error('[Notif] Error limpiando notificaciones previas:', e);
+    }
 
     const { data: act } = await supabase
       .from('actividad')

@@ -1,0 +1,74 @@
+[
+  {
+    "txId": "c669b0f0672222837766b8d4cee9fbab2110b39ed66aa16c55e5261576fae53a",
+    "tipoTabla": "ingreso",
+    "idRegistro": "389d6612-9607-4358-9cfa-b132f227d16f",
+    "hashCalculado": "43351e00430ce81c6d61a4d7c8b96cd34b075916cf47a7458a3df5680b9e2aa0",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:31:42.263Z"
+  },
+  {
+    "txId": "3b4b5f6f2b381239a110f328db1a027d8a53ecd2e4baa679aef7c1bc07d5160c",
+    "tipoTabla": "ingreso",
+    "idRegistro": "389d6612-9607-4358-9cfa-b132f227d16f",
+    "hashCalculado": "43351e00430ce81c6d61a4d7c8b96cd34b075916cf47a7458a3df5680b9e2aa0",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:31:45.408Z"
+  },
+  {
+    "txId": "a35a67bf5cf66bddd4a53a3c760b4a053550a6d6d0c18fdf67332eb204cfec69",
+    "tipoTabla": "ingreso",
+    "idRegistro": "389d6612-9607-4358-9cfa-b132f227d16f",
+    "hashCalculado": "43351e00430ce81c6d61a4d7c8b96cd34b075916cf47a7458a3df5680b9e2aa0",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:31:48.544Z"
+  },
+  {
+    "txId": "bf8c9b1013cb182ffc8e319cfdbe4dee1b133e59edd5cd7caf72682054198a09",
+    "tipoTabla": "ingreso",
+    "idRegistro": "389d6612-9607-4358-9cfa-b132f227d16f",
+    "hashCalculado": "43351e00430ce81c6d61a4d7c8b96cd34b075916cf47a7458a3df5680b9e2aa0",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:34:06.976Z"
+  },
+  {
+    "txId": "fa9aa40c448f0e6cdaa48b6db91e9496210cf7e343a7163efc13e8b2b6045248",
+    "tipoTabla": "ingreso",
+    "idRegistro": "389d6612-9607-4358-9cfa-b132f227d16f",
+    "hashCalculado": "43351e00430ce81c6d61a4d7c8b96cd34b075916cf47a7458a3df5680b9e2aa0",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:35:10.414Z"
+  },
+  {
+    "txId": "314d958985e7fbc99ea009b78849fab11afb151262f5a20635ab3e29f8e6ec42",
+    "tipoTabla": "ingreso",
+    "idRegistro": "389d6612-9607-4358-9cfa-b132f227d16f",
+    "hashCalculado": "43351e00430ce81c6d61a4d7c8b96cd34b075916cf47a7458a3df5680b9e2aa0",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:36:34.481Z"
+  },
+  {
+    "txId": "a4f43157a4a7c2f7f5eca43f57569a7e279a2a46f08f87e9e524d9853964d1af",
+    "tipoTabla": "ingreso",
+    "idRegistro": "389d6612-9607-4358-9cfa-b132f227d16f",
+    "hashCalculado": "43351e00430ce81c6d61a4d7c8b96cd34b075916cf47a7458a3df5680b9e2aa0",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:36:36.437Z"
+  },
+  {
+    "txId": "f253ca910f9ec00b60b588a4febdd683a87e1d794d748221ce75da47e802fae6",
+    "tipoTabla": "ingreso",
+    "idRegistro": "389d6612-9607-4358-9cfa-b132f227d16f",
+    "hashCalculado": "43351e00430ce81c6d61a4d7c8b96cd34b075916cf47a7458a3df5680b9e2aa0",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:36:48.950Z"
+  },
+  {
+    "txId": "24843a7d528b621cbc4210e3442c2c2611a5a1e3820dfd3e4361a707470fc793",
+    "tipoTabla": "ingreso",
+    "idRegistro": "34f21dd4-adb8-49c0-8486-e981bfada3ac",
+    "hashCalculado": "24433fd7fe9a5fb85a7027b32dd90b9a2631e82c50845f68ab67a5af7a8dd4fa",
+    "idUsuario": "56631348-cede-4ef4-b9b3-82a4f5662dcf",
+    "timestamp": "2026-07-14T01:36:57.908Z"
+  }
+]

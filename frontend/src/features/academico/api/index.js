@@ -4,6 +4,8 @@ import { cloudinaryService } from '../../../services/cloudinary';
 import { apiCache, withCache } from '../../../utils/apiCache';
 import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
 
+const wrapWrite = (type, name, fn) => (...args) => withWriteQueue(type, name, fn)(...args);
+
 export const academicoApi = {
   obtenerTiposActividad: async () => {
     const cacheKey = 'academico:tipos_actividad';
@@ -136,7 +138,7 @@ export const academicoApi = {
     return true;
   },
 
-  crearActividad: withWriteQueue('actividad', 'crearActividad', async (actividad, imagenFile = null) => {
+  crearActividad: wrapWrite('actividad', 'crearActividad', async (actividad, imagenFile = null) => {
     apiCache.invalidate('academico');
     const parsedCosto = (actividad.costo === '' || actividad.costo === null || actividad.costo === undefined) ? 0 : Number(actividad.costo);
     const { data, error } = await supabase
@@ -728,7 +730,7 @@ export const academicoApi = {
     return !!data;
   },
 
-  inscribirSocio: withWriteQueue('inscripcion', 'inscribirSocio', async (miembroId, actividadId) => {
+  inscribirSocio: wrapWrite('inscripcion', 'inscribirSocio', async (miembroId, actividadId) => {
     apiCache.invalidate('academico');
     // Primero, verificamos si hay cupos y la fecha/hora
     const { data: itemData, error: itemError } = await supabase
@@ -795,7 +797,7 @@ export const academicoApi = {
     return true;
   }),
 
-  desinscribirSocio: withWriteQueue('inscripcion', 'desinscribirSocio', async (miembroId, actividadId) => {
+  desinscribirSocio: wrapWrite('inscripcion', 'desinscribirSocio', async (miembroId, actividadId) => {
     apiCache.invalidate('academico');
     const { error: deleteError } = await supabase
       .from('inscripcion')

@@ -3,8 +3,10 @@ import { blockchainService } from '../../../services/blockchain';
 import { withCache } from '../../../utils/apiCache';
 import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
 
+const wrapWrite = (type, name, fn) => (...args) => withWriteQueue(type, name, fn)(...args);
+
 export const patrimonioApi = {
-  registrarActivo: withWriteQueue('activo', 'registrarActivo', async (activo) => {
+  registrarActivo: wrapWrite('activo', 'registrarActivo', async (activo) => {
     // eslint-disable-next-line no-unused-vars
     const { imagen_url, ...activoData } = activo;
     const { data, error } = await supabase
@@ -85,7 +87,7 @@ export const patrimonioApi = {
     
     return txId;
   },
-  registrarAdquisicion: withWriteQueue('adquisicion', 'registrarAdquisicion', async (adquisicion) => {
+  registrarAdquisicion: wrapWrite('adquisicion', 'registrarAdquisicion', async (adquisicion) => {
     const { data, error } = await supabase
       .from('adquisiciones')
       .insert([adquisicion])

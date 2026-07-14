@@ -7,6 +7,8 @@ import { withCache } from '../../../utils/apiCache';
 import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
 import { BLOCKCHAIN_API } from '../../../config/api';
 
+const wrapWrite = (type, name, fn) => (...args) => withWriteQueue(type, name, fn)(...args);
+
 export const administracionApi = {
   obtenerMiembros: (() => {
     const cachedFn = withCache('obtenerMiembros', async () => {
@@ -47,7 +49,7 @@ export const administracionApi = {
     };
   })(),
 
-  crearMiembro: withWriteQueue('miembro', 'crearMiembro', async (miembro) => {
+  crearMiembro: wrapWrite('miembro', 'crearMiembro', async (miembro) => {
     const emailToUse = miembro.email || miembro.correoElectronico;
 
     // 1. Crear usuario en Auth llamando a la API del backend
@@ -113,7 +115,7 @@ export const administracionApi = {
     };
   }),
 
-  actualizarMiembro: withWriteQueue('miembro', 'actualizarMiembro', async (id, updates) => {
+  actualizarMiembro: wrapWrite('miembro', 'actualizarMiembro', async (id, updates) => {
     // 1. Si hay email o rol o nombre en los updates, también actualizamos en Auth a través de la API del backend
     const authUpdates = {};
     if (updates.email) {
@@ -168,7 +170,7 @@ export const administracionApi = {
     throw new Error('La eliminación directa de miembros está deshabilitada por motivos de integridad histórica de datos financieros. Utilice el cambio de estado a Inactivo en su lugar.');
   },
 
-  inactivarMiembro: withWriteQueue('miembro', 'inactivarMiembro', async (id) => {
+  inactivarMiembro: wrapWrite('miembro', 'inactivarMiembro', async (id) => {
     return administracionApi.actualizarMiembro(id, { estado: 'inactivo' });
   }),
 

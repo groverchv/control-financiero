@@ -4,9 +4,11 @@ import { blockchainService } from '../../../services/blockchain';
 import { apiCache, withCache } from '../../../utils/apiCache';
 import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
 
+const wrapWrite = (type, name, fn) => (...args) => withWriteQueue(type, name, fn)(...args);
+
 export const finanzasApi = {
   // Nota: 'cuotas' ya no existe en el esquema nuevo. Se mapea a 'ingreso' temporalmente o se marca como pendiente.
-  registrarPago: withWriteQueue('ingreso', 'registrarPago', async (pago) => {
+  registrarPago: wrapWrite('ingreso', 'registrarPago', async (pago) => {
     apiCache.invalidate('finanzas');
     const miembroId = pago.miembroId || pago.miembro_id || null;
     const { data, error } = await supabase
@@ -744,7 +746,7 @@ export const finanzasApi = {
     }
   },
 
-  registrarEgreso: withWriteQueue('egreso', 'registrarEgreso', async (egreso) => {
+  registrarEgreso: wrapWrite('egreso', 'registrarEgreso', async (egreso) => {
     apiCache.invalidate('finanzas');
     // Convertir strings vacíos a null para campos UUID (Supabase no acepta '' en UUID)
     const miembroId = egreso.miembro_id || egreso.registradoPor || null;

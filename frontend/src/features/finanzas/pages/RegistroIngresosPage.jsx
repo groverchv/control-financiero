@@ -447,11 +447,27 @@ export const RegistroCuotasPage = () => {
     event.preventDefault();
     setMessage(null);
 
+    let tipoFinal = form.tipo_ingreso_id;
+    if (modoIngreso === 'cuota' && !tipoFinal) {
+      const isInscripcion = form.descripcion.toLowerCase().includes('inscrip');
+      const cuotaTipo = tiposIngreso.find(t => {
+        const name = t.nombre.toLowerCase();
+        if (isInscripcion) return name.includes('inscrip');
+        return name === 'membresía ordinaria' || name === 'cuota mensual' || name.includes('cuota');
+      }) || tiposIngreso[0]; // Fallback al primero si no existe el nombre exacto
+      
+      if (cuotaTipo) {
+        tipoFinal = cuotaTipo.id;
+        setForm(prev => ({ ...prev, tipo_ingreso_id: cuotaTipo.id }));
+      }
+    }
+
     const errors = {};
     if (modoIngreso === 'cuota') {
       if (!form.miembroBuscador) errors.miembroBuscador = "Debe buscar y seleccionar un socio (Ej: Juan Pérez).";
       if (!form.monto) errors.monto = "El monto de la cuota es requerido (Ej: 150).";
       if (!form.fecha) errors.fecha = "La fecha de la cuota es requerida.";
+      if (!tipoFinal) errors.tipo_ingreso_id = "No se encontró el tipo de ingreso para cuota.";
     } else {
       if (!form.tipo_ingreso_id) errors.tipo_ingreso_id = "Debe seleccionar un tipo de ingreso.";
       if (!form.monto) errors.monto = "El monto del ingreso es requerido (Ej: 50).";
@@ -463,6 +479,9 @@ export const RegistroCuotasPage = () => {
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
+      // Mostrar el primer error como Toast para que no falle silenciosamente
+      const firstError = Object.values(errors)[0];
+      setMessage({ type: 'error', text: firstError });
       return;
     }
     setFormErrors({});
@@ -491,10 +510,22 @@ export const RegistroCuotasPage = () => {
         comprobanteUrl = await cloudinaryService.uploadFile(form.comprobante, 'ingresos');
       }
 
+      let tipoIngresoFinal = form.tipo_ingreso_id;
+      if (modoIngreso === 'cuota' && !tipoIngresoFinal) {
+        const isInscripcion = form.descripcion.toLowerCase().includes('inscrip');
+        const cuotaTipo = tiposIngreso.find(t => {
+          const name = t.nombre.toLowerCase();
+          if (isInscripcion) return name.includes('inscrip');
+          return name === 'membresía ordinaria' || name === 'cuota mensual' || name.includes('cuota');
+        }) || tiposIngreso[0];
+        
+        if (cuotaTipo) tipoIngresoFinal = cuotaTipo.id;
+      }
+
       await finanzasApi.registrarPago({
         miembroId: miembroFinalId,
         registradoPor: user?.id,
-        tipo_ingreso_id: form.tipo_ingreso_id,
+        tipo_ingreso_id: tipoIngresoFinal,
         monto: Number(form.monto),
         descripcion: form.descripcion,
         fecha: form.fecha,

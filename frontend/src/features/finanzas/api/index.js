@@ -990,13 +990,17 @@ export const finanzasApi = {
   sellarIngreso: async (id, registradoPor) => {
     const { data, error } = await supabase.from('ingreso').select('*').eq('id', id).single();
     if (error) throw error;
-    return await blockchainService.sellarYActualizar('ingreso', data, registradoPor);
+    const txId = await blockchainService.sellarYActualizar('ingreso', data, registradoPor);
+    if (!txId) throw new Error('El sellado falló o el registro no tiene un hash generado.');
+    return txId;
   },
 
   sellarEgreso: async (id, registradoPor) => {
     const { data, error } = await supabase.from('egreso').select('*').eq('id', id).single();
     if (error) throw error;
-    return await blockchainService.sellarYActualizar('egreso', data, registradoPor);
+    const txId = await blockchainService.sellarYActualizar('egreso', data, registradoPor);
+    if (!txId) throw new Error('El sellado falló o el registro no tiene un hash generado.');
+    return txId;
   },
 
   verificarTipoIngresoEnUso: async (tipoId) => {

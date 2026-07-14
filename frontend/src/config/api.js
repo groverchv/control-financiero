@@ -16,7 +16,7 @@
 export const BLOCKCHAIN_API = typeof window !== 'undefined' && 
   (window.location.protocol === 'https:' || !window.location.hostname.match(/^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)$/))
     ? '/api-blockchain'
-    : (import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://localhost:3001');
+    : (import.meta.env.VITE_BLOCKCHAIN_API_URL || 'http://127.0.0.1:3001');
 
 /**
  * URL base de Supabase (lectura directa desde variables de entorno).

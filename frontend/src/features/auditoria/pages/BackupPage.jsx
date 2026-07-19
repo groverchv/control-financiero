@@ -17,9 +17,9 @@ export const BackupPage = () => {
     setError(null);
     setData(null);
     try {
-      // 1. Miembros
+      // 1. Miembros (Excluyendo contrasena y otros datos hiper-sensibles)
       setFetchProgress('Descargando miembros...');
-      const { data: miembros, error: mErr } = await supabase.from('miembro').select('*').order('creacion', { ascending: false });
+      const { data: miembros, error: mErr } = await supabase.from('miembro').select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, creacion, profesion, fecha_pausa, tiempo_restante_cuota, fecha_proxima_cuota, monto_inscripcion').order('creacion', { ascending: false });
       if (mErr) throw mErr;
 
       // 2. Notificaciones
@@ -206,36 +206,7 @@ export const BackupPage = () => {
     XLSX.writeFile(wb, `Respaldo_Completo_Base_Datos_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const handleDownloadCsv = () => {
-    if (!data) return;
-    const todos = [
-      ...data.ingresos.map(i => ({ ...i, __tipo: 'INGRESO' })),
-      ...data.egresos.map(e => ({ ...e, __tipo: 'EGRESO' }))
-    ].sort((a, b) => new Date(b.creacion || 0) - new Date(a.creacion || 0));
 
-    const csvRows = [
-      'sep=,',
-      ['Fecha', 'Tipo de Movimiento', 'Concepto/Descripcion', 'Monto (Bs)'].join(',')
-    ];
-
-    todos.forEach(item => {
-      const fecha = item.creacion ? new Date(item.creacion).toLocaleString('es-ES').replace(/,/g, '') : '—';
-      const tipo = item.__tipo;
-      const concepto = (item.descripcion || item.concepto || 'Sin concepto').replace(/"/g, '""').replace(/,/g, ';');
-      const monto = item.monto || 0;
-      csvRows.push(`"${fecha}","${tipo}","${concepto}",${monto}`);
-    });
-
-    const csvContent = '\uFEFF' + csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Libro_Mayor_Consolidado_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const handleDownloadTxt = () => {
     if (!data) return;

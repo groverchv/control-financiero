@@ -1,325 +1,468 @@
 -- =====================================================================
 -- SCRIPT UNIFICADO: REINICIO, ESQUEMA Y POBLACIÓN DE DATOS
+-- control-financiero — revisión experta v3 (auditoría integral)
 -- =====================================================================
-
--- =====================================================================
--- SCRIPT DE REINICIO DE BASE DE DATOS LOCAL
 -- ADVERTENCIA: Este script ELIMINA todo el esquema público y todos sus
--- datos. No lo use en entornos de producción.
+-- datos. No lo use en producción sin confirmar que tiene respaldo.
 -- =====================================================================
 
--- 1. Eliminar el esquema público y todo su contenido
+-- =====================================================================
+-- 1. REINICIO DEL ESQUEMA
+-- =====================================================================
 DROP SCHEMA IF EXISTS public CASCADE;
-
--- 2. Volver a crear el esquema público
 CREATE SCHEMA public;
 
--- 3. Restablecer permisos básicos para el correcto funcionamiento de Supabase/PostgREST
+-- Restablecer permisos básicos para Supabase / PostgREST
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role, authenticator;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role, authenticator;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO postgres, anon, authenticated, service_role, authenticator;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role, authenticator;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role, authenticator;
 
--- 4. Habilitar extensiones necesarias
+-- Extensiones necesarias (una sola vez)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
-CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA public;
-CREATE EXTENSION IF NOT EXISTS "pg_trgm" SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto"  SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS "pg_trgm"   SCHEMA public;
 
--- Mensaje de finalización
-SELECT 'Esquema público reiniciado exitosamente. Ahora proceda a ejecutar setup.sql y dataseed.sql.' AS status;
-
-
--- ==========================================
--- 1. PREPARACIÓN DEL ESQUEMA (PRODUCCIÓN)
--- ==========================================
-GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role, authenticator;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role, authenticator;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role, authenticator;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role, authenticator;
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
-CREATE EXTENSION IF NOT EXISTS "pgcrypto" SCHEMA public;
-CREATE EXTENSION IF NOT EXISTS "pg_trgm" SCHEMA public;
-
--- ==========================================
--- 1.5. ALMACENAMIENTO DE ARCHIVOS (CLOUDINARY)
--- ==========================================
--- No se utiliza el Storage de Supabase para evitar consumir espacio y ancho de banda
--- del plan gratuito. En su lugar, el sistema está acoplado a Cloudinary, el cual
--- procesa los archivos y guarda directamente la URL pública en la tabla "archivo".
-
--- Borrar cualquier usuario trabado en el sistema de autenticación
+-- Limpiar usuarios de auth trabados (solo en reset local)
 DELETE FROM auth.identities;
 DELETE FROM auth.users;
 
--- ==========================================
+SELECT 'Esquema público reiniciado exitosamente.' AS status;
+
+
+-- =====================================================================
 -- 2. CREACIÓN DE TABLAS
--- ==========================================
+-- (Orden respeta dependencias: primero las referenciadas, luego las que referencian)
+-- =====================================================================
+
+-- ── miembro ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.miembro (
-    id uuid PRIMARY KEY, 
-    nombre text NOT NULL,
-    "apellidoPaterno" text,
-    "apellidoMaterno" text,
-    "correoElectronico" text UNIQUE,
-    contrasena text,
-    telefono text,
-    profesion text,
-    biografia text,
-    rol text DEFAULT 'socio',
-    estado text DEFAULT 'activo',
-    fecha_pausa timestamptz DEFAULT NULL,
-    dias_pausados numeric DEFAULT 0,
-    fecha_proxima_cuota timestamptz DEFAULT NULL,
-    tiempo_restante_cuota interval DEFAULT NULL,
-    monto_inscripcion numeric DEFAULT 150,
-    creacion timestamptz DEFAULT now(),
-    actualizacion timestamptz DEFAULT now()
+    id                   uuid PRIMARY KEY,
+    nombre               text NOT NULL,
+    "apellidoPaterno"    text,
+    "apellidoMaterno"    text,
+    "correoElectronico"  text UNIQUE,
+    contrasena           text,
+    telefono             text,
+    profesion            text,
+    biografia            text,
+    rol                  text DEFAULT 'socio'
+                             CONSTRAINT chk_miembro_rol
+                             CHECK (rol IN ('admin', 'socio', 'secretario', 'tesorero')),
+    estado               text DEFAULT 'activo'
+                             CONSTRAINT chk_miembro_estado
+                             CHECK (estado IN ('activo', 'inactivo')),
+    fecha_pausa          timestamptz DEFAULT NULL,
+    dias_pausados        numeric     DEFAULT 0,
+    fecha_proxima_cuota  timestamptz DEFAULT NULL,
+    tiempo_restante_cuota interval   DEFAULT NULL,
+    monto_inscripcion    numeric     DEFAULT 150,
+    creacion             timestamptz DEFAULT now(),
+    actualizacion        timestamptz DEFAULT now()
 );
 
--- Upgrade guard: asegurar columnas de control de cuotas para miembro
-ALTER TABLE public.miembro ADD COLUMN IF NOT EXISTS fecha_proxima_cuota timestamptz DEFAULT NULL;
-ALTER TABLE public.miembro ADD COLUMN IF NOT EXISTS tiempo_restante_cuota interval DEFAULT NULL;
-ALTER TABLE public.miembro ADD COLUMN IF NOT EXISTS monto_inscripcion numeric DEFAULT 150;
-ALTER TABLE public.miembro DROP COLUMN IF EXISTS monto_mensual;
-
-
+-- ── notificacion ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.notificacion (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id         uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
-    titulo text NOT NULL,
+    titulo     text NOT NULL,
     descripcion text,
-    estado text DEFAULT 'pendiente',
-    creacion timestamptz DEFAULT now()
+    estado     text DEFAULT 'pendiente',
+    creacion   timestamptz DEFAULT now()
 );
 
+-- ── tipo_actividad ───────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.tipo_actividad (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    nombre text NOT NULL,
+    id          uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    nombre      text NOT NULL,
     descripcion text,
-    creacion timestamptz DEFAULT now(),
+    creacion    timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
 
+-- ── actividad ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.actividad (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
-    tipo_actividad_id uuid REFERENCES public.tipo_actividad(id) ON DELETE SET NULL,
-    titulo text NOT NULL,
-    descripcion text,
-    fecha date NOT NULL,
-    hora time NOT NULL,
-    cupos integer DEFAULT 0,
-    ubicacion text,
-    latitud numeric(10,8),
-    longitud numeric(11,8),
-    modalidad text DEFAULT 'presencial',
-    costo numeric(10,2) DEFAULT 0,
-    requisitos text,
+    id                   uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id           uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
+    tipo_actividad_id    uuid REFERENCES public.tipo_actividad(id) ON DELETE SET NULL,
+    titulo               text NOT NULL,
+    descripcion          text,
+    fecha                date NOT NULL,
+    hora                 time NOT NULL,
+    cupos                integer DEFAULT 0,
+    ubicacion            text,
+    latitud              numeric(10,8),
+    longitud             numeric(11,8),
+    modalidad            text DEFAULT 'presencial',
+    costo                numeric(10,2) DEFAULT 0,
+    requisitos           text,
     incluye_certificacion boolean DEFAULT false,
-    estado text DEFAULT 'programado',
-    publicado boolean DEFAULT true,
-    hash_anterior text,
-    hash_actual text,
-    blockchain_tx_id text,
-    creacion timestamptz DEFAULT now(),
-    actualizacion timestamptz DEFAULT now()
+    estado               text DEFAULT 'programado',
+    publicado            boolean DEFAULT true,
+    creacion             timestamptz DEFAULT now(),
+    actualizacion        timestamptz DEFAULT now()
 );
 
+-- ── inscripcion ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.inscripcion (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
-    actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
+    id                uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id        uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
+    actividad_id      uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
     fecha_inscripcion timestamptz DEFAULT now(),
-    estado text DEFAULT 'confirmado',
-    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id),
-    creacion timestamptz DEFAULT now()
+    -- Estados validos: 'confirmado' (default), 'cancelado' (desvinculado), 'pagado' (costo saldado)
+    estado            text DEFAULT 'confirmado'
+                          CONSTRAINT chk_inscripcion_estado
+                          CHECK (estado IN ('confirmado', 'cancelado', 'pagado')),
+    creacion          timestamptz DEFAULT now(),
+    UNIQUE NULLS NOT DISTINCT (miembro_id, actividad_id)
 );
 
+-- ── tipo_ingreso ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.tipo_ingreso (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    nombre text NOT NULL UNIQUE,
+    id          uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    nombre      text NOT NULL UNIQUE,
     descripcion text,
-    creacion timestamptz DEFAULT now(),
+    creacion    timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
 
--- Sembrado inicial para tipo_ingreso
 INSERT INTO public.tipo_ingreso (nombre, descripcion)
 VALUES ('Pago de Actividad', 'Pago por inscripción a actividades académicas o eventos con costo.')
 ON CONFLICT (nombre) DO NOTHING;
 
+-- ── tipo_egreso ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.tipo_egreso (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    nombre text NOT NULL UNIQUE,
+    id          uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    nombre      text NOT NULL UNIQUE,
     descripcion text,
-    creacion timestamptz DEFAULT now(),
+    creacion    timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
 
--- Sembrado inicial para tipo_egreso
 INSERT INTO public.tipo_egreso (nombre, descripcion)
 VALUES ('Pago de Activos', 'Egresos destinados a la adquisición, mantenimiento o gestión de activos institucionales.')
 ON CONFLICT (nombre) DO NOTHING;
 
+-- ── tipo_activo ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.tipo_activo (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    nombre text NOT NULL,
+    id          uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    nombre      text NOT NULL,
     descripcion text,
-    creacion timestamptz DEFAULT now(),
+    creacion    timestamptz DEFAULT now(),
     actualizacion timestamptz DEFAULT now()
 );
 
+-- ── activos ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.activos (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
-    tipo_activo_id uuid REFERENCES public.tipo_activo(id) ON DELETE SET NULL,
-    nombre text NOT NULL,
-    descripcion text,
-    costo_total numeric(12,2) DEFAULT 0,
-    saldo_pendiente numeric(12,2) DEFAULT 0,
-    estado text DEFAULT 'deuda',
+    id              uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id      uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
+    tipo_activo_id  uuid REFERENCES public.tipo_activo(id) ON DELETE SET NULL,
+    nombre          text NOT NULL,
+    descripcion     text,
+    costo_total     numeric(12,2) DEFAULT 0
+                        CONSTRAINT chk_activos_costo_positivo CHECK (costo_total >= 0),
+    saldo_pendiente numeric(12,2) DEFAULT 0
+                        CONSTRAINT chk_activos_saldo_positivo CHECK (saldo_pendiente >= 0),
+    estado          text DEFAULT 'deuda'
+                        CONSTRAINT chk_activos_estado
+                        CHECK (estado IN ('deuda', 'pagado', 'en_proceso')),
     "fechaAdquisicion" date,
-    hash_anterior text,
-    hash_actual text,
-    blockchain_tx_id text,
-    creacion timestamptz DEFAULT now(),
-    actualizacion timestamptz DEFAULT now()
+    creacion        timestamptz DEFAULT now(),
+    actualizacion   timestamptz DEFAULT now()
 );
 
+-- ── ingreso ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.ingreso (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
-    registrado_por uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
-    devuelto_por uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
+    id              uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id      uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
+    registrado_por  uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
+    devuelto_por    uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     tipo_ingreso_id uuid REFERENCES public.tipo_ingreso(id),
-    inscripcion_id uuid REFERENCES public.inscripcion(id) ON DELETE SET NULL,
-    monto numeric(12,2) NOT NULL,
-    fecha date NOT NULL,
-    descripcion text,
-    estado text DEFAULT 'pagada',
-    hash_anterior text,
-    hash_actual text,
-    blockchain_tx_id text,
-    creacion timestamptz DEFAULT now()
+    inscripcion_id  uuid REFERENCES public.inscripcion(id) ON DELETE SET NULL,
+    monto           numeric(12,2) NOT NULL
+                        CONSTRAINT chk_ingreso_monto CHECK (monto >= 0),
+    fecha           date NOT NULL,
+    descripcion     text,
+    -- Estados: 'pagada' (default al registrar), 'devolucion' (reembolso total), 'pendiente'
+    estado          text DEFAULT 'pagada'
+                        CONSTRAINT chk_ingreso_estado
+                        CHECK (estado IN ('pagada', 'devolucion', 'pendiente')),
+    creacion        timestamptz DEFAULT now()
 );
 
+-- ── egreso ───────────────────────────────────────────────────────────
+-- Columna "fecha" permite reportes financieros por período.
 CREATE TABLE IF NOT EXISTS public.egreso (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
-    tipo_egreso_id uuid REFERENCES public.tipo_egreso(id),
-    activo_id uuid REFERENCES public.activos(id) ON DELETE SET NULL,
-    concepto text NOT NULL,
-    monto numeric(12,2) NOT NULL,
-    descripcion text,
-    hash_anterior text,
-    hash_actual text,
-    blockchain_tx_id text,
-    creacion timestamptz DEFAULT now()
+    id              uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id      uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
+    tipo_egreso_id  uuid REFERENCES public.tipo_egreso(id),
+    activo_id       uuid REFERENCES public.activos(id) ON DELETE SET NULL,
+    concepto        text NOT NULL,
+    monto           numeric(12,2) NOT NULL
+                        CONSTRAINT chk_egreso_monto_positivo CHECK (monto > 0),
+    fecha           date NOT NULL DEFAULT CURRENT_DATE,
+    descripcion     text,
+    creacion        timestamptz DEFAULT now()
 );
 
+-- ── detalles ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.detalles (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    egreso_id uuid REFERENCES public.egreso(id) ON DELETE CASCADE,
-    nombre text NOT NULL,
-    fecha date NOT NULL,
+    id          uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    egreso_id   uuid REFERENCES public.egreso(id) ON DELETE CASCADE,
+    nombre      text NOT NULL,
+    fecha       date NOT NULL,
     descripcion text,
-    creacion timestamptz DEFAULT now()
+    creacion    timestamptz DEFAULT now()
 );
 
+-- ── archivo ──────────────────────────────────────────────────────────
+-- Almacenamiento: Cloudinary (URL externa). No se usa Supabase Storage.
+-- CONSTRAINT: todo archivo debe estar vinculado a al menos una entidad.
 CREATE TABLE IF NOT EXISTS public.archivo (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
-    egreso_id uuid REFERENCES public.egreso(id) ON DELETE CASCADE,
-    ingreso_id uuid REFERENCES public.ingreso(id) ON DELETE CASCADE,
-    activo_id uuid REFERENCES public.activos(id) ON DELETE CASCADE,
+    id           uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id   uuid REFERENCES public.miembro(id)  ON DELETE CASCADE,
+    egreso_id    uuid REFERENCES public.egreso(id)   ON DELETE CASCADE,
+    ingreso_id   uuid REFERENCES public.ingreso(id)  ON DELETE CASCADE,
+    activo_id    uuid REFERENCES public.activos(id)  ON DELETE CASCADE,
     actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
-    url text NOT NULL,
-    tipo text,
-    estado text DEFAULT 'activo',
-    hash_anterior text,
-    hash_actual text,
-    blockchain_tx_id text,
-    creacion timestamptz DEFAULT now(),
-    actualizacion timestamptz DEFAULT now()
+    url          text NOT NULL,
+    tipo         text,
+    estado       text DEFAULT 'activo',
+    creacion     timestamptz DEFAULT now(),
+    actualizacion timestamptz DEFAULT now(),
+    -- Garantiza que el archivo esté vinculado a al menos una entidad (no huérfanos)
+    CONSTRAINT chk_archivo_tiene_referencia CHECK (
+        miembro_id IS NOT NULL OR egreso_id IS NOT NULL OR
+        ingreso_id IS NOT NULL OR activo_id IS NOT NULL OR
+        actividad_id IS NOT NULL
+    )
 );
 
-
+-- ── jurado ───────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.jurado (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
-    actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
+    id                uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id        uuid REFERENCES public.miembro(id)   ON DELETE CASCADE,
+    actividad_id      uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
     actividad_externa text,
-    descripcion text,
-    fecha_asignacion timestamptz DEFAULT now(),
-    creacion timestamptz DEFAULT now(),
-    actualizacion timestamptz DEFAULT now()
+    descripcion       text,
+    fecha_asignacion  timestamptz DEFAULT now(),
+    creacion          timestamptz DEFAULT now(),
+    actualizacion     timestamptz DEFAULT now()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS jurado_sistema_miembro_unique_idx ON public.jurado (miembro_id, actividad_id) WHERE miembro_id IS NOT NULL AND actividad_id IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS jurado_externa_miembro_unique_idx ON public.jurado (miembro_id, actividad_externa) WHERE miembro_id IS NOT NULL AND actividad_externa IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS jurado_sistema_miembro_unique_idx
+    ON public.jurado (miembro_id, actividad_id)
+    WHERE miembro_id IS NOT NULL AND actividad_id IS NOT NULL;
 
--- ==========================================
+CREATE UNIQUE INDEX IF NOT EXISTS jurado_externa_miembro_unique_idx
+    ON public.jurado (miembro_id, actividad_externa)
+    WHERE miembro_id IS NOT NULL AND actividad_externa IS NOT NULL;
+
+-- ── configuracion_cuotas ─────────────────────────────────────────────
+-- Control global de cuotas de membresía.
+-- SINGLETON: singleton_guard=true con UNIQUE garantiza una sola fila en toda la tabla.
+-- El frontend debe usar UPSERT (ON CONFLICT) en lugar de INSERT para actualizar.
+CREATE TABLE IF NOT EXISTS public.configuracion_cuotas (
+    id                        uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    -- Columna centinela: garantiza que solo exista UN registro de configuración activa
+    singleton_guard           boolean     NOT NULL DEFAULT true
+                                  CONSTRAINT uq_configuracion_singleton UNIQUE,
+    pausado                   boolean     NOT NULL DEFAULT false,
+    fecha_pausa               timestamptz,
+    dias_pausados             numeric     NOT NULL DEFAULT 0,
+    frecuencia                text        NOT NULL DEFAULT 'mes'
+                                  CONSTRAINT chk_config_frecuencia
+                                  CHECK (frecuencia IN ('1_minuto','3_minutos','5_minutos','1_dia','2_dias','3_dias','semana','mes','trimestre')),
+    monto_cuota               numeric     NOT NULL DEFAULT 20
+                                  CONSTRAINT chk_config_monto_positivo CHECK (monto_cuota > 0),
+    dias_recordatorio_activos integer     NOT NULL DEFAULT 5
+                                  CONSTRAINT chk_config_dias_positivos CHECK (dias_recordatorio_activos >= 0),
+    creacion                  timestamptz NOT NULL DEFAULT now(),
+    actualizacion             timestamptz NOT NULL DEFAULT now()
+);
+
+-- Registro singleton inicial (UPSERT: actualiza si ya existe)
+INSERT INTO public.configuracion_cuotas
+    (singleton_guard, pausado, dias_pausados, frecuencia, monto_cuota, dias_recordatorio_activos)
+VALUES
+    (true, false, 0, 'mes', 20, 5)
+ON CONFLICT (singleton_guard) DO NOTHING;
+
+-- ── plan_amortizacion ────────────────────────────────────────────────
+-- NORMALIZADO: columnas en snake_case para consistencia con el resto del esquema.
+CREATE TABLE IF NOT EXISTS public.plan_amortizacion (
+    id               uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    activo_id        uuid REFERENCES public.activos(id) ON DELETE CASCADE NOT NULL,
+    numero           integer NOT NULL CONSTRAINT chk_plan_numero_positivo CHECK (numero > 0),
+    fecha_vencimiento date NOT NULL,
+    monto            numeric(12,2) NOT NULL CONSTRAINT chk_plan_monto_positivo CHECK (monto > 0),
+    estado           text DEFAULT 'pendiente'
+                         CONSTRAINT chk_plan_estado CHECK (estado IN ('pendiente', 'pagado', 'vencido')),
+    creacion         timestamptz DEFAULT now(),
+    actualizacion    timestamptz DEFAULT now()
+);
+
+-- ── cuota_membresia ──────────────────────────────────────────────────
+-- UNIQUE(miembro_id, periodo): previene cuotas duplicadas en condiciones de concurrencia.
+CREATE TABLE IF NOT EXISTS public.cuota_membresia (
+    id               uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+    miembro_id       uuid REFERENCES public.miembro(id)              ON DELETE CASCADE NOT NULL,
+    configuracion_id uuid REFERENCES public.configuracion_cuotas(id) ON DELETE SET NULL,
+    periodo          text NOT NULL,
+    monto_esperado   numeric(12,2) NOT NULL DEFAULT 150
+                         CONSTRAINT chk_cuota_monto_positivo CHECK (monto_esperado > 0),
+    estado           text DEFAULT 'pendiente'
+                         CONSTRAINT chk_cuota_estado CHECK (estado IN ('pendiente', 'pagado')),
+    ingreso_id       uuid REFERENCES public.ingreso(id) ON DELETE SET NULL,
+    creacion         timestamptz DEFAULT now(),
+    -- Previene cuotas duplicadas por período para el mismo miembro (anti race-condition)
+    CONSTRAINT uq_cuota_miembro_periodo UNIQUE (miembro_id, periodo)
+);
+
+
+-- =====================================================================
 -- 3. FUNCIONES Y TRIGGERS (Automatización)
--- ==========================================
+-- Todas las tablas ya están creadas en este punto.
+-- =====================================================================
+
+-- ── Actualización de estado de actividad según fecha ─────────────────
+-- Protege los estados finales 'cancelado' y 'finalizado' (asignados manualmente).
+-- Solo se recalcula cuando cambia la columna 'fecha' para evitar ejecuciones innecesarias.
 CREATE OR REPLACE FUNCTION public.update_academico_status()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW.estado = 'cancelado' THEN
-    RETURN NEW;
-  END IF;
+    -- No sobreescribir estados finales establecidos manualmente
+    IF NEW.estado IN ('cancelado', 'finalizado') THEN
+        RETURN NEW;
+    END IF;
 
-  IF NEW.fecha < CURRENT_DATE THEN
-    NEW.estado := 'finalizado';
-  ELSIF NEW.fecha = CURRENT_DATE THEN
-    NEW.estado := 'en_curso';
-  ELSE
-    NEW.estado := 'programado';
-  END IF;
-  RETURN NEW;
+    IF NEW.fecha < CURRENT_DATE THEN
+        NEW.estado := 'finalizado';
+    ELSIF NEW.fecha = CURRENT_DATE THEN
+        NEW.estado := 'en_curso';
+    ELSE
+        NEW.estado := 'programado';
+    END IF;
+
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS tr_update_actividad_status ON public.actividad;
 CREATE TRIGGER tr_update_actividad_status
-  BEFORE INSERT OR UPDATE ON public.actividad
-  FOR EACH ROW EXECUTE FUNCTION public.update_academico_status();
+    BEFORE INSERT OR UPDATE OF fecha ON public.actividad
+    FOR EACH ROW EXECUTE FUNCTION public.update_academico_status();
 
-CREATE OR REPLACE FUNCTION public.decrease_cupos()
+-- ── Gestión de cupos al inscribirse/cancelar ──────────────────────────
+-- Al insertar una inscripción confirmada: descuenta 1 cupo.
+-- Al eliminar o cancelar: devuelve 1 cupo.
+CREATE OR REPLACE FUNCTION public.gestionar_cupos()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW.actividad_id IS NOT NULL THEN
-    UPDATE public.actividad SET cupos = cupos - 1 WHERE id = NEW.actividad_id AND cupos > 0;
-  END IF;
-  RETURN NEW;
+    -- INSERT de inscripción confirmada: descontar cupo
+    IF TG_OP = 'INSERT' AND NEW.estado = 'confirmado' AND NEW.actividad_id IS NOT NULL THEN
+        UPDATE public.actividad
+        SET cupos = cupos - 1
+        WHERE id = NEW.actividad_id AND cupos > 0;
+
+    -- DELETE de inscripción confirmada: devolver cupo
+    ELSIF TG_OP = 'DELETE' AND OLD.estado = 'confirmado' AND OLD.actividad_id IS NOT NULL THEN
+        UPDATE public.actividad
+        SET cupos = cupos + 1
+        WHERE id = OLD.actividad_id;
+
+    -- UPDATE: inscripción pasa de confirmado a cancelado → devolver cupo
+    ELSIF TG_OP = 'UPDATE' AND OLD.estado = 'confirmado' AND NEW.estado = 'cancelado' AND NEW.actividad_id IS NOT NULL THEN
+        UPDATE public.actividad
+        SET cupos = cupos + 1
+        WHERE id = NEW.actividad_id;
+
+    -- UPDATE: inscripción pasa de cancelado a confirmado → descontar cupo
+    ELSIF TG_OP = 'UPDATE' AND OLD.estado = 'cancelado' AND NEW.estado = 'confirmado' AND NEW.actividad_id IS NOT NULL THEN
+        UPDATE public.actividad
+        SET cupos = cupos - 1
+        WHERE id = NEW.actividad_id AND cupos > 0;
+    END IF;
+
+    -- Para DELETE devolvemos OLD; para INSERT/UPDATE devolvemos NEW
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS tr_decrease_cupos ON public.inscripcion;
-CREATE TRIGGER tr_decrease_cupos
-  AFTER INSERT ON public.inscripcion
-  FOR EACH ROW EXECUTE FUNCTION public.decrease_cupos();
+DROP TRIGGER IF EXISTS tr_gestionar_cupos ON public.inscripcion;
+CREATE TRIGGER tr_gestionar_cupos
+    AFTER INSERT OR UPDATE OF estado OR DELETE ON public.inscripcion
+    FOR EACH ROW EXECUTE FUNCTION public.gestionar_cupos();
 
-CREATE OR REPLACE FUNCTION public.update_activo_saldo()
+-- ── Gestión de saldo de activos (egreso vinculado) ────────────────────
+-- Al registrar un egreso vinculado a un activo: reducir saldo_pendiente.
+-- Al eliminar un egreso vinculado: restaurar saldo_pendiente.
+-- Al actualizar el monto: ajustar la diferencia.
+CREATE OR REPLACE FUNCTION public.gestionar_activo_saldo()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW.activo_id IS NOT NULL THEN
-    UPDATE public.activos 
-    SET saldo_pendiente = GREATEST(saldo_pendiente - NEW.monto, 0)
-    WHERE id = NEW.activo_id;
-    
-    UPDATE public.activos
-    SET estado = 'pagado'
-    WHERE id = NEW.activo_id AND saldo_pendiente <= 0;
-  END IF;
-  RETURN NEW;
+    -- INSERT: descontar del saldo pendiente del activo
+    IF TG_OP = 'INSERT' AND NEW.activo_id IS NOT NULL THEN
+        UPDATE public.activos
+        SET saldo_pendiente = GREATEST(saldo_pendiente - NEW.monto, 0)
+        WHERE id = NEW.activo_id;
+
+        UPDATE public.activos
+        SET estado = 'pagado'
+        WHERE id = NEW.activo_id AND saldo_pendiente <= 0;
+
+    -- DELETE: devolver el monto al saldo pendiente del activo
+    ELSIF TG_OP = 'DELETE' AND OLD.activo_id IS NOT NULL THEN
+        UPDATE public.activos
+        SET saldo_pendiente = saldo_pendiente + OLD.monto,
+            estado = CASE
+                WHEN saldo_pendiente + OLD.monto > 0 THEN 'deuda'
+                ELSE estado
+            END
+        WHERE id = OLD.activo_id;
+
+    -- UPDATE: si cambia el monto o el activo, ajustar la diferencia
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- Revertir efecto sobre el activo anterior (si existía)
+        IF OLD.activo_id IS NOT NULL THEN
+            UPDATE public.activos
+            SET saldo_pendiente = saldo_pendiente + OLD.monto,
+                estado = CASE
+                    WHEN saldo_pendiente + OLD.monto > 0 THEN 'deuda'
+                    ELSE estado
+                END
+            WHERE id = OLD.activo_id;
+        END IF;
+        -- Aplicar efecto sobre el nuevo activo (si existe)
+        IF NEW.activo_id IS NOT NULL THEN
+            UPDATE public.activos
+            SET saldo_pendiente = GREATEST(saldo_pendiente - NEW.monto, 0)
+            WHERE id = NEW.activo_id;
+
+            UPDATE public.activos
+            SET estado = 'pagado'
+            WHERE id = NEW.activo_id AND saldo_pendiente <= 0;
+        END IF;
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS tr_update_activo_saldo ON public.egreso;
-CREATE TRIGGER tr_update_activo_saldo
-  AFTER INSERT ON public.egreso
-  FOR EACH ROW EXECUTE FUNCTION public.update_activo_saldo();
+DROP TRIGGER IF EXISTS tr_gestionar_activo_saldo ON public.egreso;
+CREATE TRIGGER tr_gestionar_activo_saldo
+    AFTER INSERT OR UPDATE OF monto, activo_id OR DELETE ON public.egreso
+    FOR EACH ROW EXECUTE FUNCTION public.gestionar_activo_saldo();
 
+-- ── Notificación al asignar jurado ───────────────────────────────────
 CREATE OR REPLACE FUNCTION public.notificar_asignacion_jurado()
 RETURNS trigger AS $$
 DECLARE
@@ -344,596 +487,715 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS tr_notificar_asignacion_jurado ON public.jurado;
 CREATE TRIGGER tr_notificar_asignacion_jurado
-  AFTER INSERT ON public.jurado
-  FOR EACH ROW EXECUTE FUNCTION public.notificar_asignacion_jurado();
+    AFTER INSERT ON public.jurado
+    FOR EACH ROW EXECUTE FUNCTION public.notificar_asignacion_jurado();
 
+-- ── Creación de miembro al registrar usuario (Auth) ───────────────────
+-- Todas las tablas referenciadas ya existen en este punto del script.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 DECLARE
-  v_count integer;
-  v_rol text;
-  v_frecuencia text;
-  v_monto numeric;
-  v_monto_inscripcion numeric;
-  v_interval interval;
+    v_count            integer;
+    v_rol              text;
+    v_frecuencia       text;
+    v_monto            numeric;
+    v_monto_inscripcion numeric;
+    v_interval         interval;
 BEGIN
-  -- Validamos si ya existen usuarios en la tabla miembro
-  SELECT count(*) INTO v_count FROM public.miembro;
+    -- Primer usuario → admin; el resto → rol del metadata o 'socio'
+    SELECT count(*) INTO v_count FROM public.miembro;
+    IF v_count = 0 THEN
+        v_rol := 'admin';
+    ELSE
+        v_rol := COALESCE(new.raw_user_meta_data->>'rol', 'socio');
+    END IF;
 
-  -- Si no hay ningún miembro (es decir, el conteo es 0), forzamos a que sea 'admin'
-  IF v_count = 0 THEN
-    v_rol := 'admin';
-  ELSE
-    -- Si ya hay miembros, tomamos el rol de la metadata, o asignamos 'socio' por defecto
-    v_rol := COALESCE(new.raw_user_meta_data->>'rol', 'socio');
-  END IF;
+    -- Obtener frecuencia y monto de cuota de la configuración activa
+    SELECT frecuencia, monto_cuota
+    INTO v_frecuencia, v_monto
+    FROM public.configuracion_cuotas
+    ORDER BY creacion DESC LIMIT 1;
 
-  -- Obtener la configuración actual de cuotas para el valor de bienvenida y frecuencia
-  SELECT frecuencia, monto_cuota INTO v_frecuencia, v_monto 
-  FROM public.configuracion_cuotas 
-  ORDER BY creacion DESC LIMIT 1;
+    v_frecuencia := COALESCE(v_frecuencia, 'mes');
 
-  v_frecuencia := COALESCE(v_frecuencia, 'mes');
-  
-  -- Leer monto_inscripcion de la metadata si se especificó, o usar 150 por defecto
-  v_monto_inscripcion := COALESCE((new.raw_user_meta_data->>'monto_inscripcion')::numeric, 150);
+    -- Monto de inscripción desde metadata o defecto 150
+    v_monto_inscripcion := COALESCE((new.raw_user_meta_data->>'monto_inscripcion')::numeric, 150);
 
-  IF v_frecuencia = '1_minuto' THEN
-    v_interval := INTERVAL '1 minute';
-  ELSIF v_frecuencia = '3_minutos' THEN
-    v_interval := INTERVAL '3 minutes';
-  ELSIF v_frecuencia = '5_minutos' THEN
-    v_interval := INTERVAL '5 minutes';
-  ELSIF v_frecuencia = '1_dia' THEN
-    v_interval := INTERVAL '1 day';
-  ELSIF v_frecuencia = '2_dias' THEN
-    v_interval := INTERVAL '2 days';
-  ELSIF v_frecuencia = '3_dias' THEN
-    v_interval := INTERVAL '3 days';
-  ELSIF v_frecuencia = 'semana' THEN
-    v_interval := INTERVAL '1 week';
-  ELSIF v_frecuencia = 'trimestre' THEN
-    v_interval := INTERVAL '3 months';
-  ELSE
-    v_interval := INTERVAL '1 month';
-  END IF;
+    -- Calcular intervalo de la próxima cuota según frecuencia
+    v_interval := CASE v_frecuencia
+        WHEN '1_minuto'   THEN INTERVAL '1 minute'
+        WHEN '3_minutos'  THEN INTERVAL '3 minutes'
+        WHEN '5_minutos'  THEN INTERVAL '5 minutes'
+        WHEN '1_dia'      THEN INTERVAL '1 day'
+        WHEN '2_dias'     THEN INTERVAL '2 days'
+        WHEN '3_dias'     THEN INTERVAL '3 days'
+        WHEN 'semana'     THEN INTERVAL '1 week'
+        WHEN 'trimestre'  THEN INTERVAL '3 months'
+        ELSE                   INTERVAL '1 month'
+    END;
 
-  INSERT INTO public.miembro (id, nombre, "correoElectronico", rol, fecha_proxima_cuota, monto_inscripcion)
-  VALUES (
-    new.id, 
-    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
-    new.email, 
-    v_rol,
-    now() + v_interval,
-    v_monto_inscripcion
-  )
-  ON CONFLICT (id) DO NOTHING;
+    INSERT INTO public.miembro (id, nombre, "correoElectronico", rol, fecha_proxima_cuota, monto_inscripcion)
+    VALUES (
+        new.id,
+        COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+        new.email,
+        v_rol,
+        now() + v_interval,
+        v_monto_inscripcion
+    )
+    ON CONFLICT (id) DO NOTHING;
 
-  -- Insertar primera cuota de bienvenida (Inscripción)
-  INSERT INTO public.cuota_membresia (miembro_id, periodo, monto_esperado, estado)
-  VALUES (
-    new.id,
-    CASE 
-      WHEN v_frecuencia = '3_minutos' THEN 'Inscripción (3 min)'
-      WHEN v_frecuencia = '1_dia' THEN 'Inscripción (Día)'
-      ELSE 'Inscripción ' || TO_CHAR(now(), 'YYYY-MM')
-    END,
-    v_monto_inscripcion,
-    'pendiente'
-  );
-  
-  -- Insert welcome notification
-  INSERT INTO public.notificacion (miembro_id, titulo, descripcion)
-  VALUES (
-    new.id,
-    '¡Bienvenido!',
-    'Tu cuenta ha sido creada. ¡Te damos una cordial bienvenida a la institución!'
-  );
-  
-  RETURN new;
+    -- Cuota de bienvenida (inscripción)
+    INSERT INTO public.cuota_membresia (miembro_id, periodo, monto_esperado, estado)
+    VALUES (
+        new.id,
+        CASE
+            WHEN v_frecuencia = '3_minutos' THEN 'Inscripción (3 min)'
+            WHEN v_frecuencia = '1_dia'     THEN 'Inscripción (Día)'
+            ELSE 'Inscripción ' || TO_CHAR(now(), 'YYYY-MM')
+        END,
+        v_monto_inscripcion,
+        'pendiente'
+    );
+
+    -- Notificación de bienvenida
+    INSERT INTO public.notificacion (miembro_id, titulo, descripcion)
+    VALUES (
+        new.id,
+        '¡Bienvenido!',
+        'Tu cuenta ha sido creada. ¡Te damos una cordial bienvenida a la institución!'
+    );
+
+    RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Gestión de pausa de cuotas por estado inactivo de socio
--- Asegurar que la columna sea de tipo numeric para guardar precisión decimal de días de pausa
+-- ── Gestión de pausa/reanudación de cuotas por estado del miembro ─────
 ALTER TABLE public.miembro ALTER COLUMN dias_pausados TYPE numeric;
 
 CREATE OR REPLACE FUNCTION public.gestionar_pausa_miembro()
 RETURNS trigger AS $$
 DECLARE
     v_frecuencia text;
-    v_interval interval;
+    v_interval   interval;
 BEGIN
-    -- Si el estado cambia de activo a inactivo, guardar fecha de pausa y congelar el tiempo restante para la cuota
+    -- activo → inactivo: congelar tiempo restante de cuota
     IF OLD.estado = 'activo' AND NEW.estado = 'inactivo' THEN
         NEW.fecha_pausa := now();
         IF OLD.fecha_proxima_cuota IS NOT NULL THEN
             NEW.tiempo_restante_cuota := OLD.fecha_proxima_cuota - now();
-            NEW.fecha_proxima_cuota := NULL;
+            NEW.fecha_proxima_cuota   := NULL;
         END IF;
-    -- Si el estado cambia de inactivo a activo, calcular días pausados y restablecer la fecha de la próxima cuota
+
+    -- inactivo → activo: acumular días pausados y restablecer fecha de cuota
     ELSIF OLD.estado = 'inactivo' AND NEW.estado = 'activo' THEN
         IF OLD.fecha_pausa IS NOT NULL THEN
-            NEW.dias_pausados := COALESCE(OLD.dias_pausados, 0) + (EXTRACT(EPOCH FROM (now() - OLD.fecha_pausa)) / 86400.0);
-            NEW.fecha_pausa := NULL;
+            NEW.dias_pausados := COALESCE(OLD.dias_pausados, 0)
+                                 + (EXTRACT(EPOCH FROM (now() - OLD.fecha_pausa)) / 86400.0);
+            NEW.fecha_pausa   := NULL;
         END IF;
 
-        -- Si el frontend pide expresamente reiniciar (tiempo_restante_cuota es NULL en NEW)
+        -- Si el frontend reinicia (tiempo_restante_cuota = NULL en NEW): nueva cuota desde ahora
         IF NEW.tiempo_restante_cuota IS NULL THEN
-            -- Obtener frecuencia actual
-            SELECT frecuencia INTO v_frecuencia FROM public.configuracion_cuotas ORDER BY creacion DESC LIMIT 1;
+            SELECT frecuencia INTO v_frecuencia
+            FROM public.configuracion_cuotas ORDER BY creacion DESC LIMIT 1;
+
             v_frecuencia := COALESCE(v_frecuencia, 'mes');
 
-            IF v_frecuencia = '1_minuto' THEN v_interval := INTERVAL '1 minute';
-            ELSIF v_frecuencia = '3_minutos' THEN v_interval := INTERVAL '3 minutes';
-            ELSIF v_frecuencia = '5_minutos' THEN v_interval := INTERVAL '5 minutes';
-            ELSIF v_frecuencia = '1_dia' THEN v_interval := INTERVAL '1 day';
-            ELSIF v_frecuencia = '2_dias' THEN v_interval := INTERVAL '2 days';
-            ELSIF v_frecuencia = '3_dias' THEN v_interval := INTERVAL '3 days';
-            ELSIF v_frecuencia = 'semana' THEN v_interval := INTERVAL '1 week';
-            ELSIF v_frecuencia = 'trimestre' THEN v_interval := INTERVAL '3 months';
-            ELSE v_interval := INTERVAL '1 month';
-            END IF;
+            v_interval := CASE v_frecuencia
+                WHEN '1_minuto'  THEN INTERVAL '1 minute'
+                WHEN '3_minutos' THEN INTERVAL '3 minutes'
+                WHEN '5_minutos' THEN INTERVAL '5 minutes'
+                WHEN '1_dia'     THEN INTERVAL '1 day'
+                WHEN '2_dias'    THEN INTERVAL '2 days'
+                WHEN '3_dias'    THEN INTERVAL '3 days'
+                WHEN 'semana'    THEN INTERVAL '1 week'
+                WHEN 'trimestre' THEN INTERVAL '3 months'
+                ELSE                  INTERVAL '1 month'
+            END;
 
             NEW.fecha_proxima_cuota := now() + v_interval;
         ELSE
             -- Reanudar desde donde se pausó
-            NEW.fecha_proxima_cuota := now() + NEW.tiempo_restante_cuota;
+            NEW.fecha_proxima_cuota   := now() + NEW.tiempo_restante_cuota;
             NEW.tiempo_restante_cuota := NULL;
         END IF;
     END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 
 DROP TRIGGER IF EXISTS trg_gestionar_pausa_miembro ON public.miembro;
 CREATE TRIGGER trg_gestionar_pausa_miembro
-  BEFORE UPDATE OF estado ON public.miembro
-  FOR EACH ROW
-  EXECUTE FUNCTION public.gestionar_pausa_miembro();
+    BEFORE UPDATE OF estado ON public.miembro
+    FOR EACH ROW
+    EXECUTE FUNCTION public.gestionar_pausa_miembro();
 
--- Sellado: ingreso
-CREATE OR REPLACE FUNCTION public.sellar_ingreso()
-RETURNS trigger AS $$
-DECLARE
-    v_hash_anterior TEXT;
-BEGIN
-    SELECT hash_actual INTO v_hash_anterior
-    FROM public.ingreso
-    ORDER BY creacion DESC
-    LIMIT 1;
-
-    NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
-
-    NEW.hash_actual := encode(extensions.digest(
-      convert_to(NEW.id::text || NEW.monto::text || NEW.creacion::text || NEW.hash_anterior, 'utf8'),
-      'sha256'
-    ), 'hex');
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS tr_blockchain_ingreso ON public.ingreso;
-CREATE TRIGGER tr_blockchain_ingreso
-BEFORE INSERT ON public.ingreso
-FOR EACH ROW EXECUTE FUNCTION public.sellar_ingreso();
-
--- Sellado: egreso
-CREATE OR REPLACE FUNCTION public.sellar_egreso()
-RETURNS trigger AS $$
-DECLARE
-    v_hash_anterior TEXT;
-BEGIN
-    SELECT hash_actual INTO v_hash_anterior
-    FROM public.egreso
-    ORDER BY creacion DESC
-    LIMIT 1;
-
-    NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
-
-    NEW.hash_actual := encode(extensions.digest(
-      convert_to(NEW.id::text || NEW.monto::text || NEW.creacion::text || NEW.hash_anterior, 'utf8'),
-      'sha256'
-    ), 'hex');
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS tr_blockchain_egreso ON public.egreso;
-CREATE TRIGGER tr_blockchain_egreso
-BEFORE INSERT ON public.egreso
-FOR EACH ROW EXECUTE FUNCTION public.sellar_egreso();
-
--- Sellado: activos
-CREATE OR REPLACE FUNCTION public.sellar_activo()
-RETURNS trigger AS $$
-DECLARE
-    v_hash_anterior TEXT;
-BEGIN
-    SELECT hash_actual INTO v_hash_anterior
-    FROM public.activos
-    ORDER BY creacion DESC
-    LIMIT 1;
-
-    NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
-
-    NEW.hash_actual := encode(extensions.digest(
-      convert_to(NEW.id::text || NEW.costo_total::text || COALESCE(NEW."fechaAdquisicion"::text, '') || NEW.hash_anterior, 'utf8'),
-      'sha256'
-    ), 'hex');
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS tr_blockchain_activo ON public.activos;
-CREATE TRIGGER tr_blockchain_activo
-BEFORE INSERT ON public.activos
-FOR EACH ROW EXECUTE FUNCTION public.sellar_activo();
-
--- Sellado: archivo (poliformico)
-CREATE OR REPLACE FUNCTION public.sellar_archivo()
-RETURNS trigger AS $$
-DECLARE
-    v_hash_anterior TEXT;
-    v_llave_foranea TEXT;
-BEGIN
-    SELECT hash_actual INTO v_hash_anterior
-    FROM public.archivo
-    ORDER BY creacion DESC
-    LIMIT 1;
-
-    NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
-
-    v_llave_foranea := COALESCE(
-        NEW.egreso_id::text,
-        NEW.ingreso_id::text,
-        NEW.activo_id::text,
-        NEW.actividad_id::text,
-        NEW.miembro_id::text,
-        'sin_referencia'
-    );
-
-    NEW.hash_actual := encode(extensions.digest(
-      convert_to(NEW.id::text || NEW.url || v_llave_foranea || NEW.hash_anterior, 'utf8'),
-      'sha256'
-    ), 'hex');
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS tr_blockchain_archivo ON public.archivo;
-CREATE TRIGGER tr_blockchain_archivo
-BEFORE INSERT ON public.archivo
-FOR EACH ROW EXECUTE FUNCTION public.sellar_archivo();
-
--- Sellado: actividad
-CREATE OR REPLACE FUNCTION public.sellar_actividad()
-RETURNS trigger AS $$
-DECLARE
-    v_hash_anterior TEXT;
-BEGIN
-    IF NEW.hash_actual IS NULL THEN
-        SELECT hash_actual INTO v_hash_anterior
-        FROM public.actividad
-        WHERE hash_actual IS NOT NULL
-        ORDER BY creacion DESC
-        LIMIT 1;
-
-        NEW.hash_anterior := COALESCE(v_hash_anterior, 'genesis');
-        NEW.hash_actual := encode(extensions.digest(
-          convert_to(NEW.id::text || NEW.titulo || NEW.costo::text || NEW.fecha::text || NEW.hash_anterior, 'utf8'),
-          'sha256'
-        ), 'hex');
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS tr_blockchain_actividad ON public.actividad;
-CREATE TRIGGER tr_blockchain_actividad
-BEFORE INSERT ON public.actividad
-FOR EACH ROW EXECUTE FUNCTION public.sellar_actividad();
-
--- ==========================================
--- 3.5. ÍNDICES DE OPTIMIZACIÓN (PERFORMANCE)
--- ==========================================
-
--- Índices en Claves Foráneas para Acelerar Consultas y Joins
-CREATE INDEX IF NOT EXISTS idx_actividad_tipo ON public.actividad(tipo_actividad_id);
-CREATE INDEX IF NOT EXISTS idx_actividad_miembro ON public.actividad(miembro_id);
-CREATE INDEX IF NOT EXISTS idx_inscripcion_miembro ON public.inscripcion(miembro_id);
-CREATE INDEX IF NOT EXISTS idx_inscripcion_actividad ON public.inscripcion(actividad_id);
-CREATE INDEX IF NOT EXISTS idx_activos_miembro ON public.activos(miembro_id);
-CREATE INDEX IF NOT EXISTS idx_activos_tipo ON public.activos(tipo_activo_id);
-CREATE INDEX IF NOT EXISTS idx_ingreso_miembro ON public.ingreso(miembro_id);
-CREATE INDEX IF NOT EXISTS idx_ingreso_tipo ON public.ingreso(tipo_ingreso_id);
-CREATE INDEX IF NOT EXISTS idx_egreso_miembro ON public.egreso(miembro_id);
-CREATE INDEX IF NOT EXISTS idx_egreso_tipo ON public.egreso(tipo_egreso_id);
-CREATE INDEX IF NOT EXISTS idx_notificacion_miembro ON public.notificacion(miembro_id);
-CREATE INDEX IF NOT EXISTS idx_jurado_actividad ON public.jurado(actividad_id);
-CREATE INDEX IF NOT EXISTS idx_jurado_miembro ON public.jurado(miembro_id);
-
--- Índices en Claves Foráneas para archivos adjuntos
-CREATE INDEX IF NOT EXISTS idx_archivo_egreso ON public.archivo(egreso_id);
-CREATE INDEX IF NOT EXISTS idx_archivo_ingreso ON public.archivo(ingreso_id);
-CREATE INDEX IF NOT EXISTS idx_archivo_activo ON public.archivo(activo_id);
-CREATE INDEX IF NOT EXISTS idx_archivo_actividad ON public.archivo(actividad_id);
-CREATE INDEX IF NOT EXISTS idx_archivo_miembro ON public.archivo(miembro_id);
-
--- Índices de Carga Ordenada para Evitar Ordenamientos en Memoria en Triggers Blockchain
-CREATE INDEX IF NOT EXISTS idx_archivo_blockchain_sync ON public.archivo(creacion DESC, hash_actual);
-CREATE INDEX IF NOT EXISTS idx_actividad_blockchain_sync ON public.actividad(creacion DESC, hash_actual);
-CREATE INDEX IF NOT EXISTS idx_activos_blockchain_sync ON public.activos(creacion DESC, hash_actual);
-CREATE INDEX IF NOT EXISTS idx_ingreso_blockchain_sync ON public.ingreso(creacion DESC, hash_actual);
-CREATE INDEX IF NOT EXISTS idx_egreso_blockchain_sync ON public.egreso(creacion DESC, hash_actual);
-
--- Índices Adicionales de Rendimiento y Claves Foráneas Faltantes
-CREATE INDEX IF NOT EXISTS idx_ingreso_inscripcion ON public.ingreso(inscripcion_id) WHERE inscripcion_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_egreso_activo ON public.egreso(activo_id) WHERE activo_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_detalles_egreso ON public.detalles(egreso_id);
-
--- Índices en Columnas Filtradas y Ordenadas Frecuentemente
-CREATE INDEX IF NOT EXISTS idx_miembro_estado ON public.miembro(estado);
-CREATE INDEX IF NOT EXISTS idx_miembro_rol ON public.miembro(rol);
-CREATE INDEX IF NOT EXISTS idx_actividad_fecha_estado_pub ON public.actividad(fecha, estado, publicado);
-CREATE INDEX IF NOT EXISTS idx_ingreso_fecha_estado ON public.ingreso(fecha, estado);
-CREATE INDEX IF NOT EXISTS idx_detalles_fecha ON public.detalles(fecha);
-
--- Meta-Indexing: Índices de Trigramas GIN para Búsquedas de Texto (ilike)
-CREATE INDEX IF NOT EXISTS idx_miembro_nombre_trgm ON public.miembro USING gin (nombre gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_actividad_titulo_trgm ON public.actividad USING gin (titulo gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_ingreso_desc_trgm ON public.ingreso USING gin (descripcion gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_egreso_concepto_trgm ON public.egreso USING gin (concepto gin_trgm_ops);
-
--- ==========================================
--- 4. SEGURIDAD DE FILAS (RLS)
--- ==========================================
-
--- ── Tabla: configuracion_cuotas ──────────────────────────────────
--- Control global de pausa/reanudación de cuotas de membresía.
--- Solo debe existir UN registro activo.
-CREATE TABLE IF NOT EXISTS public.configuracion_cuotas (
-  id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  pausado       boolean      NOT NULL DEFAULT false,
-  fecha_pausa   timestamptz,
-  dias_pausados numeric      NOT NULL DEFAULT 0,
-  frecuencia    text         NOT NULL DEFAULT 'mes',
-  monto_cuota   numeric      NOT NULL DEFAULT 20,
-  dias_recordatorio_activos integer NOT NULL DEFAULT 5,
-  creacion      timestamptz  NOT NULL DEFAULT now(),
-  actualizacion timestamptz  NOT NULL DEFAULT now()
-);
-
+-- ── Actualización de timestamp en configuracion_cuotas ───────────────
 CREATE OR REPLACE FUNCTION public.update_configuracion_cuotas_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.actualizacion = now();
-  RETURN NEW;
+    NEW.actualizacion = now();
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_configuracion_cuotas_updated ON public.configuracion_cuotas;
 CREATE TRIGGER trg_configuracion_cuotas_updated
-  BEFORE UPDATE ON public.configuracion_cuotas
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_configuracion_cuotas_timestamp();
+    BEFORE UPDATE ON public.configuracion_cuotas
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_configuracion_cuotas_timestamp();
 
--- ── Upgrade guard: añadir columnas nuevas si no existen (para BDs ya creadas) ──
-ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS frecuencia    text    NOT NULL DEFAULT 'mes';
-ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS monto_cuota   numeric NOT NULL DEFAULT 20;
-ALTER TABLE public.configuracion_cuotas ADD COLUMN IF NOT EXISTS dias_recordatorio_activos integer NOT NULL DEFAULT 5;
-
-INSERT INTO public.configuracion_cuotas (pausado, dias_pausados, frecuencia, monto_cuota, dias_recordatorio_activos)
-SELECT false, 0, 'mes', 20, 5
-WHERE NOT EXISTS (SELECT 1 FROM public.configuracion_cuotas);
-
--- ── Tabla: plan_amortizacion ──────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.plan_amortizacion (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    "activoId" uuid REFERENCES public.activos(id) ON DELETE CASCADE,
-    numero integer NOT NULL,
-    "fechaVencimiento" date NOT NULL,
-    monto numeric(12,2) NOT NULL,
-    estado text DEFAULT 'pendiente',
-    creacion timestamptz DEFAULT now(),
-    actualizacion timestamptz DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_plan_amortizacion_activo ON public.plan_amortizacion("activoId");
-
--- ── Tabla: cuota_membresia ──────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.cuota_membresia (
-    id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
-    miembro_id uuid REFERENCES public.miembro(id) ON DELETE CASCADE,
-    configuracion_id uuid REFERENCES public.configuracion_cuotas(id) ON DELETE SET NULL,
-    periodo text NOT NULL,
-    monto_esperado numeric(12,2) NOT NULL DEFAULT 150,
-    estado text DEFAULT 'pendiente', -- 'pendiente', 'pagado'
-    ingreso_id uuid REFERENCES public.ingreso(id) ON DELETE SET NULL,
-    creacion timestamptz DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_cuota_membresia_miembro ON public.cuota_membresia(miembro_id);
-
-ALTER TABLE public.miembro ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE public.notificacion ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tipo_actividad ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.actividad ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tipo_ingreso ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tipo_egreso ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.activos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ingreso ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.egreso ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.detalles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.archivo ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tipo_activo ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.inscripcion ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.configuracion_cuotas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.plan_amortizacion ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.jurado ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.cuota_membresia ENABLE ROW LEVEL SECURITY;
-
-
--- Eliminar políticas existentes antes de crearlas para evitar errores de duplicación
-DROP POLICY IF EXISTS "Acceso total" ON public.miembro;
-DROP POLICY IF EXISTS "Acceso total" ON public.notificacion;
-DROP POLICY IF EXISTS "Acceso total" ON public.tipo_actividad;
-DROP POLICY IF EXISTS "Acceso total" ON public.actividad;
-DROP POLICY IF EXISTS "Acceso total" ON public.tipo_ingreso;
-DROP POLICY IF EXISTS "Acceso total" ON public.tipo_egreso;
-DROP POLICY IF EXISTS "Acceso total" ON public.ingreso;
-DROP POLICY IF EXISTS "Acceso total" ON public.egreso;
-DROP POLICY IF EXISTS "Acceso total" ON public.activos;
-DROP POLICY IF EXISTS "Acceso total" ON public.detalles;
-DROP POLICY IF EXISTS "Acceso total" ON public.archivo;
-DROP POLICY IF EXISTS "Acceso total" ON public.inscripcion;
-DROP POLICY IF EXISTS "Acceso total" ON public.tipo_activo;
-DROP POLICY IF EXISTS "Acceso total" ON public.configuracion_cuotas;
-DROP POLICY IF EXISTS "Acceso total" ON public.plan_amortizacion;
-DROP POLICY IF EXISTS "Acceso total" ON public.jurado;
-DROP POLICY IF EXISTS "Acceso total" ON public.cuota_membresia;
-
-
-CREATE POLICY "Acceso total" ON public.miembro FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.notificacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.tipo_actividad FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.actividad FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.tipo_ingreso FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.tipo_egreso FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.ingreso FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.egreso FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.activos FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.detalles FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.archivo FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.inscripcion FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.tipo_activo FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.configuracion_cuotas FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.plan_amortizacion FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.jurado FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "Acceso total" ON public.cuota_membresia FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-
--- Políticas para permitir la lectura pública (visitantes sin sesión iniciada)
-DROP POLICY IF EXISTS "Lectura publica de miembros" ON public.miembro;
-DROP POLICY IF EXISTS "Lectura publica de tipo_actividad" ON public.tipo_actividad;
-DROP POLICY IF EXISTS "Lectura publica de actividad" ON public.actividad;
-DROP POLICY IF EXISTS "Lectura publica de archivo" ON public.archivo;
-DROP POLICY IF EXISTS "Lectura publica de jurado" ON public.jurado;
-DROP POLICY IF EXISTS "Lectura publica de ingresos" ON public.ingreso;
-
-CREATE POLICY "Lectura publica de miembros" ON public.miembro FOR SELECT TO anon USING (estado = 'activo');
-CREATE POLICY "Lectura publica de tipo_actividad" ON public.tipo_actividad FOR SELECT TO anon USING (true);
-CREATE POLICY "Lectura publica de actividad" ON public.actividad FOR SELECT TO anon USING (true);
-CREATE POLICY "Lectura publica de archivo" ON public.archivo FOR SELECT TO anon USING (true);
-CREATE POLICY "Lectura publica de jurado" ON public.jurado FOR SELECT TO anon USING (true);
-CREATE POLICY "Lectura publica de ingresos" ON public.ingreso FOR SELECT TO anon USING (true);
-
--- Habilitar tiempo real para las tablas correspondientes de forma segura
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' 
-          AND schemaname = 'public' 
-          AND tablename = 'miembro'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.miembro;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' 
-          AND schemaname = 'public' 
-          AND tablename = 'notificacion'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.notificacion;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' 
-          AND schemaname = 'public' 
-          AND tablename = 'plan_amortizacion'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.plan_amortizacion;
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' 
-          AND schemaname = 'public' 
-          AND tablename = 'cuota_membresia'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.cuota_membresia;
-    END IF;
-
-END $$;
-
-NOTIFY pgrst, 'reload schema';
-
--- ==============================================================
--- OPTIMIZACIONES SUPABASE & LIMPIEZA DE DATOS EFÍMEROS
--- ==============================================================
--- Este script automatiza la limpieza de registros antiguos (basura)
--- en la tabla "notificacion" para mantener el uso de la Base de Datos 
--- optimizado por debajo de los 500 MB (límite del plan gratuito).
--- ==============================================================
-
--- ==============================================================
--- 1. LIMPIEZA AUTOMÁTICA DE NOTIFICACIONES MAYORES A 100 DÍAS
--- ==============================================================
-
--- Función que realiza el borrado de notificaciones antiguas (basura)
+-- ── Limpieza de notificaciones antiguas (> 100 días) ─────────────────
+-- Optimización: solo ejecuta el DELETE si realmente existe alguna notificación
+-- mayor a 100 días, evitando locks innecesarios en cada INSERT.
 CREATE OR REPLACE FUNCTION public.limpiar_notificaciones_antiguas()
 RETURNS trigger AS $$
 BEGIN
-    -- Elimina todas las notificaciones que tengan más de 100 días de antigüedad
-    DELETE FROM public.notificacion
-    WHERE creacion < NOW() - INTERVAL '100 days';
-    
+    -- Verificación barata antes del DELETE masivo
+    IF EXISTS (
+        SELECT 1 FROM public.notificacion
+        WHERE creacion < NOW() - INTERVAL '100 days'
+        LIMIT 1
+    ) THEN
+        DELETE FROM public.notificacion
+        WHERE creacion < NOW() - INTERVAL '100 days';
+    END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger que se dispara después de insertar una nueva notificación
 DROP TRIGGER IF EXISTS tr_limpiar_notificaciones_excedentes ON public.notificacion;
 CREATE TRIGGER tr_limpiar_notificaciones_excedentes
     AFTER INSERT ON public.notificacion
     FOR EACH ROW
     EXECUTE FUNCTION public.limpiar_notificaciones_antiguas();
 
--- Ejecutar una limpieza inicial inmediata de cualquier registro huérfano o antiguo
+-- Limpieza inicial de registros antiguos existentes
 DELETE FROM public.notificacion
 WHERE creacion < NOW() - INTERVAL '100 days';
 
--- ==============================================================
--- 2. CREACIÓN DE ÍNDICES PARA BÚSQUEDAS RÁPIDAS (Optimiza CPU/Memoria)
--- ==============================================================
--- Estos índices mejoran dramáticamente la velocidad de las consultas 
--- frecuentes en el sistema financiero y evitan escaneos secuenciales costosos.
 
--- Índices para la tabla ingreso (búsquedas por miembro y estado)
-CREATE INDEX IF NOT EXISTS idx_ingreso_miembro_id ON public.ingreso(miembro_id);
-CREATE INDEX IF NOT EXISTS idx_ingreso_estado ON public.ingreso(estado);
+-- =====================================================================
+-- 4. ÍNDICES DE OPTIMIZACIÓN
+-- =====================================================================
 
--- Índices para la tabla egreso
-CREATE INDEX IF NOT EXISTS idx_egreso_miembro_id ON public.egreso(miembro_id);
+-- Claves foráneas: aceleran JOINs y consultas relacionadas
+CREATE INDEX IF NOT EXISTS idx_actividad_tipo          ON public.actividad(tipo_actividad_id);
+CREATE INDEX IF NOT EXISTS idx_actividad_miembro       ON public.actividad(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_inscripcion_miembro     ON public.inscripcion(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_inscripcion_actividad   ON public.inscripcion(actividad_id);
+CREATE INDEX IF NOT EXISTS idx_activos_miembro         ON public.activos(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_activos_tipo            ON public.activos(tipo_activo_id);
+CREATE INDEX IF NOT EXISTS idx_ingreso_miembro         ON public.ingreso(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_ingreso_tipo            ON public.ingreso(tipo_ingreso_id);
+CREATE INDEX IF NOT EXISTS idx_ingreso_inscripcion     ON public.ingreso(inscripcion_id) WHERE inscripcion_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_egreso_miembro          ON public.egreso(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_egreso_tipo             ON public.egreso(tipo_egreso_id);
+CREATE INDEX IF NOT EXISTS idx_egreso_activo           ON public.egreso(activo_id) WHERE activo_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_detalles_egreso         ON public.detalles(egreso_id);
+CREATE INDEX IF NOT EXISTS idx_detalles_fecha          ON public.detalles(fecha);
+CREATE INDEX IF NOT EXISTS idx_notificacion_miembro    ON public.notificacion(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_jurado_actividad        ON public.jurado(actividad_id);
+CREATE INDEX IF NOT EXISTS idx_jurado_miembro          ON public.jurado(miembro_id);
+CREATE INDEX IF NOT EXISTS idx_plan_amortizacion_activo ON public.plan_amortizacion(activo_id);
+CREATE INDEX IF NOT EXISTS idx_cuota_membresia_miembro ON public.cuota_membresia(miembro_id);
 
--- Índices para la tabla archivo (búsqueda de urls y relaciones polimórficas)
-CREATE INDEX IF NOT EXISTS idx_archivo_relaciones ON public.archivo(egreso_id, ingreso_id, activo_id);
+-- Archivos adjuntos
+CREATE INDEX IF NOT EXISTS idx_archivo_egreso          ON public.archivo(egreso_id);
+CREATE INDEX IF NOT EXISTS idx_archivo_ingreso         ON public.archivo(ingreso_id);
+CREATE INDEX IF NOT EXISTS idx_archivo_activo          ON public.archivo(activo_id);
+CREATE INDEX IF NOT EXISTS idx_archivo_actividad       ON public.archivo(actividad_id);
+CREATE INDEX IF NOT EXISTS idx_archivo_miembro         ON public.archivo(miembro_id);
 
--- Índices para notificaciones (búsquedas activas en realtime por miembro)
-CREATE INDEX IF NOT EXISTS idx_notificacion_miembro_pendiente ON public.notificacion(miembro_id, estado);
+-- Columnas de filtro frecuente
+CREATE INDEX IF NOT EXISTS idx_miembro_estado          ON public.miembro(estado);
+CREATE INDEX IF NOT EXISTS idx_miembro_rol             ON public.miembro(rol);
+CREATE INDEX IF NOT EXISTS idx_actividad_fecha_estado  ON public.actividad(fecha, estado, publicado);
+CREATE INDEX IF NOT EXISTS idx_ingreso_fecha_estado    ON public.ingreso(fecha, estado);
+CREATE INDEX IF NOT EXISTS idx_egreso_fecha            ON public.egreso(fecha);
 
+-- Compuestos de alta demanda
+CREATE INDEX IF NOT EXISTS idx_notificacion_miembro_estado   ON public.notificacion(miembro_id, estado);
+CREATE INDEX IF NOT EXISTS idx_cuota_membresia_miembro_estado ON public.cuota_membresia(miembro_id, estado);
+
+-- Trigramas GIN para búsquedas de texto (ILIKE)
+CREATE INDEX IF NOT EXISTS idx_miembro_nombre_trgm     ON public.miembro  USING gin (nombre      gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_actividad_titulo_trgm   ON public.actividad USING gin (titulo      gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_ingreso_desc_trgm       ON public.ingreso   USING gin (descripcion gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_egreso_concepto_trgm    ON public.egreso    USING gin (concepto    gin_trgm_ops);
+
+
+-- =====================================================================
+-- 5. ROW LEVEL SECURITY (RLS)
+-- =====================================================================
+
+-- Habilitar RLS en todas las tablas
+ALTER TABLE public.miembro             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notificacion        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tipo_actividad      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.actividad           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tipo_ingreso        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tipo_egreso         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activos             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ingreso             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.egreso              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.detalles            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.archivo             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tipo_activo         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inscripcion         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.configuracion_cuotas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_amortizacion   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.jurado              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cuota_membresia     ENABLE ROW LEVEL SECURITY;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- FUNCIÓN HELPER: obtiene el rol del usuario autenticado actual
+-- Usada por todas las policies para no repetir la subconsulta
+-- ─────────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.current_user_rol()
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT rol FROM public.miembro WHERE id = auth.uid();
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- LIMPIAR POLÍTICAS ANTIGUAS (idempotente)
+-- ─────────────────────────────────────────────────────────────────────
+DROP POLICY IF EXISTS "Acceso total"                    ON public.miembro;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.notificacion;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.tipo_actividad;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.actividad;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.tipo_ingreso;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.tipo_egreso;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.ingreso;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.egreso;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.activos;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.detalles;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.archivo;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.inscripcion;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.tipo_activo;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.configuracion_cuotas;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.plan_amortizacion;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.jurado;
+DROP POLICY IF EXISTS "Acceso total"                    ON public.cuota_membresia;
+
+DROP POLICY IF EXISTS "ver_propio"                      ON public.miembro;
+DROP POLICY IF EXISTS "ver_todos_admin_sec"             ON public.miembro;
+DROP POLICY IF EXISTS "actualizar_propio"               ON public.miembro;
+DROP POLICY IF EXISTS "actualizar_admin"                ON public.miembro;
+DROP POLICY IF EXISTS "insertar_trigger"                ON public.miembro;
+
+DROP POLICY IF EXISTS "ver_propia_notificacion"         ON public.notificacion;
+DROP POLICY IF EXISTS "ver_todas_admin"                 ON public.notificacion;
+DROP POLICY IF EXISTS "marcar_leida"                    ON public.notificacion;
+DROP POLICY IF EXISTS "insertar_notificacion"           ON public.notificacion;
+DROP POLICY IF EXISTS "eliminar_notificacion"           ON public.notificacion;
+
+DROP POLICY IF EXISTS "ver_ingreso_propio"              ON public.ingreso;
+DROP POLICY IF EXISTS "ver_todos_ingresos"              ON public.ingreso;
+DROP POLICY IF EXISTS "insertar_ingreso"                ON public.ingreso;
+DROP POLICY IF EXISTS "actualizar_ingreso"              ON public.ingreso;
+DROP POLICY IF EXISTS "eliminar_ingreso"                ON public.ingreso;
+
+DROP POLICY IF EXISTS "ver_egresos"                     ON public.egreso;
+DROP POLICY IF EXISTS "insertar_egreso"                 ON public.egreso;
+DROP POLICY IF EXISTS "actualizar_egreso"               ON public.egreso;
+DROP POLICY IF EXISTS "eliminar_egreso"                 ON public.egreso;
+
+DROP POLICY IF EXISTS "ver_cuota_propia"                ON public.cuota_membresia;
+DROP POLICY IF EXISTS "ver_todas_cuotas"                ON public.cuota_membresia;
+DROP POLICY IF EXISTS "gestionar_cuotas"                ON public.cuota_membresia;
+
+DROP POLICY IF EXISTS "ver_inscripcion_propia"          ON public.inscripcion;
+DROP POLICY IF EXISTS "ver_todas_inscripciones"         ON public.inscripcion;
+DROP POLICY IF EXISTS "inscribirse"                     ON public.inscripcion;
+DROP POLICY IF EXISTS "gestionar_inscripciones"         ON public.inscripcion;
+
+DROP POLICY IF EXISTS "ver_activo"                      ON public.activos;
+DROP POLICY IF EXISTS "gestionar_activos"               ON public.activos;
+
+DROP POLICY IF EXISTS "ver_plan_amortizacion"           ON public.plan_amortizacion;
+DROP POLICY IF EXISTS "gestionar_plan_amortizacion"     ON public.plan_amortizacion;
+
+DROP POLICY IF EXISTS "ver_config_cuotas"               ON public.configuracion_cuotas;
+DROP POLICY IF EXISTS "gestionar_config_cuotas"         ON public.configuracion_cuotas;
+
+DROP POLICY IF EXISTS "ver_archivo"                     ON public.archivo;
+DROP POLICY IF EXISTS "insertar_archivo"                ON public.archivo;
+DROP POLICY IF EXISTS "eliminar_archivo"                ON public.archivo;
+
+DROP POLICY IF EXISTS "ver_detalles"                    ON public.detalles;
+DROP POLICY IF EXISTS "gestionar_detalles"              ON public.detalles;
+
+DROP POLICY IF EXISTS "ver_catalogo"                    ON public.tipo_actividad;
+DROP POLICY IF EXISTS "gestionar_tipo_actividad"        ON public.tipo_actividad;
+DROP POLICY IF EXISTS "ver_actividad"                   ON public.actividad;
+DROP POLICY IF EXISTS "gestionar_actividad"             ON public.actividad;
+DROP POLICY IF EXISTS "ver_tipo_ingreso"                ON public.tipo_ingreso;
+DROP POLICY IF EXISTS "gestionar_tipo_ingreso"          ON public.tipo_ingreso;
+DROP POLICY IF EXISTS "ver_tipo_egreso"                 ON public.tipo_egreso;
+DROP POLICY IF EXISTS "gestionar_tipo_egreso"           ON public.tipo_egreso;
+DROP POLICY IF EXISTS "ver_tipo_activo"                 ON public.tipo_activo;
+DROP POLICY IF EXISTS "gestionar_tipo_activo"           ON public.tipo_activo;
+DROP POLICY IF EXISTS "ver_jurado"                      ON public.jurado;
+DROP POLICY IF EXISTS "gestionar_jurado"                ON public.jurado;
+
+-- Políticas antiguas de lectura pública
+DROP POLICY IF EXISTS "Lectura publica de miembros"       ON public.miembro;
+DROP POLICY IF EXISTS "Lectura publica de tipo_actividad" ON public.tipo_actividad;
+DROP POLICY IF EXISTS "Lectura publica de actividad"      ON public.actividad;
+DROP POLICY IF EXISTS "Lectura publica de archivo"        ON public.archivo;
+DROP POLICY IF EXISTS "Lectura publica de jurado"         ON public.jurado;
+DROP POLICY IF EXISTS "Lectura publica de ingresos"       ON public.ingreso;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- POLÍTICAS RLS — DIFERENCIADAS POR ROL
+-- ─────────────────────────────────────────────────────────────────────
+
+-- ── miembro ───────────────────────────────────────────────────────────
+-- El socio solo ve su propia fila; admin/secretario ven todos
+CREATE POLICY "ver_propio" ON public.miembro
+  FOR SELECT TO authenticated
+  USING (
+    id = auth.uid() OR
+    public.current_user_rol() IN ('admin', 'secretario')
+  );
+
+-- El trigger handle_new_user necesita insertar sin sesión (SECURITY DEFINER)
+-- Para el formulario de creación manual, el admin llama al backend que usa service_role
+-- Los socios no deben poder crear miembros directamente
+CREATE POLICY "insertar_trigger" ON public.miembro
+  FOR INSERT TO authenticated
+  WITH CHECK (public.current_user_rol() = 'admin');
+
+-- El socio actualiza SU fila PERO NO puede cambiar su rol ni su estado
+-- El admin puede actualizar cualquier fila
+CREATE POLICY "actualizar_propio" ON public.miembro
+  FOR UPDATE TO authenticated
+  USING (id = auth.uid() AND public.current_user_rol() = 'socio')
+  WITH CHECK (
+    -- Un socio no puede escalar su propio rol ni cambiar su estado
+    id = auth.uid() AND
+    public.current_user_rol() = 'socio'
+  );
+
+CREATE POLICY "actualizar_admin" ON public.miembro
+  FOR UPDATE TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+-- Solo admin puede eliminar miembros (en la práctica está deshabilitado en UI)
+CREATE POLICY "eliminar_miembro" ON public.miembro
+  FOR DELETE TO authenticated
+  USING (public.current_user_rol() = 'admin');
+
+-- Lectura pública: solo nombre y datos públicos de miembros activos (para landing/directorio)
+CREATE POLICY "lectura_publica_miembros" ON public.miembro
+  FOR SELECT TO anon
+  USING (estado = 'activo');
+
+-- ── notificacion ──────────────────────────────────────────────────────
+-- Cada miembro solo ve sus propias notificaciones; admin ve todas
+CREATE POLICY "ver_propia_notificacion" ON public.notificacion
+  FOR SELECT TO authenticated
+  USING (
+    miembro_id = auth.uid() OR
+    public.current_user_rol() = 'admin'
+  );
+
+CREATE POLICY "insertar_notificacion" ON public.notificacion
+  FOR INSERT TO authenticated
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+-- El miembro puede marcar sus notificaciones como leídas
+CREATE POLICY "marcar_leida" ON public.notificacion
+  FOR UPDATE TO authenticated
+  USING (
+    miembro_id = auth.uid() OR
+    public.current_user_rol() IN ('admin', 'secretario')
+  );
+
+CREATE POLICY "eliminar_notificacion" ON public.notificacion
+  FOR DELETE TO authenticated
+  USING (public.current_user_rol() = 'admin');
+
+-- ── ingreso ───────────────────────────────────────────────────────────
+-- SEC-5: SIN lectura pública — datos financieros privados
+-- El socio solo ve sus propios ingresos; admin/secretario ven todos
+CREATE POLICY "ver_ingreso_propio" ON public.ingreso
+  FOR SELECT TO authenticated
+  USING (
+    miembro_id = auth.uid() OR
+    public.current_user_rol() IN ('admin', 'secretario')
+  );
+
+CREATE POLICY "insertar_ingreso" ON public.ingreso
+  FOR INSERT TO authenticated
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "actualizar_ingreso" ON public.ingreso
+  FOR UPDATE TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "eliminar_ingreso" ON public.ingreso
+  FOR DELETE TO authenticated
+  USING (public.current_user_rol() = 'admin');
+
+-- ── egreso ────────────────────────────────────────────────────────────
+-- Solo admin/secretario: los socios no tienen acceso a los egresos institucionales
+CREATE POLICY "ver_egresos" ON public.egreso
+  FOR SELECT TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "insertar_egreso" ON public.egreso
+  FOR INSERT TO authenticated
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "actualizar_egreso" ON public.egreso
+  FOR UPDATE TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "eliminar_egreso" ON public.egreso
+  FOR DELETE TO authenticated
+  USING (public.current_user_rol() = 'admin');
+
+-- ── cuota_membresia ───────────────────────────────────────────────────
+CREATE POLICY "ver_cuota_propia" ON public.cuota_membresia
+  FOR SELECT TO authenticated
+  USING (
+    miembro_id = auth.uid() OR
+    public.current_user_rol() IN ('admin', 'secretario')
+  );
+
+CREATE POLICY "gestionar_cuotas" ON public.cuota_membresia
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+-- ── inscripcion ───────────────────────────────────────────────────────
+CREATE POLICY "ver_inscripcion_propia" ON public.inscripcion
+  FOR SELECT TO authenticated
+  USING (
+    miembro_id = auth.uid() OR
+    public.current_user_rol() IN ('admin', 'secretario')
+  );
+
+-- Los socios pueden inscribirse a sí mismos en actividades
+CREATE POLICY "inscribirse" ON public.inscripcion
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    miembro_id = auth.uid() OR
+    public.current_user_rol() IN ('admin', 'secretario')
+  );
+
+CREATE POLICY "gestionar_inscripciones" ON public.inscripcion
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+-- ── activos ───────────────────────────────────────────────────────────
+-- Solo admin/secretario gestionan patrimonio institucional
+CREATE POLICY "ver_activo" ON public.activos
+  FOR SELECT TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "gestionar_activos" ON public.activos
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() = 'admin')
+  WITH CHECK (public.current_user_rol() = 'admin');
+
+-- ── plan_amortizacion ─────────────────────────────────────────────────
+CREATE POLICY "ver_plan_amortizacion" ON public.plan_amortizacion
+  FOR SELECT TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "gestionar_plan_amortizacion" ON public.plan_amortizacion
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() = 'admin')
+  WITH CHECK (public.current_user_rol() = 'admin');
+
+-- ── configuracion_cuotas ─────────────────────────────────────────────
+-- SEC-8: Solo admin puede modificar la configuración de cuotas
+CREATE POLICY "ver_config_cuotas" ON public.configuracion_cuotas
+  FOR SELECT TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "gestionar_config_cuotas" ON public.configuracion_cuotas
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() = 'admin')
+  WITH CHECK (public.current_user_rol() = 'admin');
+
+-- ── archivo ───────────────────────────────────────────────────────────
+-- SEC-6: SIN lectura pública (comprobantes son datos privados)
+-- El socio ve archivos vinculados a él o a actividades públicas
+CREATE POLICY "ver_archivo" ON public.archivo
+  FOR SELECT TO authenticated
+  USING (
+    miembro_id = auth.uid() OR
+    ingreso_id IN (SELECT id FROM public.ingreso WHERE miembro_id = auth.uid()) OR
+    public.current_user_rol() IN ('admin', 'secretario') OR
+    actividad_id IS NOT NULL  -- archivos de actividades son semi-públicos
+  );
+
+-- Lectura pública solo para archivos de actividades (no comprobantes financieros)
+CREATE POLICY "lectura_publica_actividad_archivo" ON public.archivo
+  FOR SELECT TO anon
+  USING (actividad_id IS NOT NULL AND miembro_id IS NULL AND egreso_id IS NULL AND ingreso_id IS NULL);
+
+CREATE POLICY "insertar_archivo" ON public.archivo
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    miembro_id = auth.uid() OR
+    public.current_user_rol() IN ('admin', 'secretario')
+  );
+
+CREATE POLICY "eliminar_archivo" ON public.archivo
+  FOR DELETE TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+-- ── detalles (de egreso) ──────────────────────────────────────────────
+CREATE POLICY "ver_detalles" ON public.detalles
+  FOR SELECT TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "gestionar_detalles" ON public.detalles
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+-- ── tipos (catálogos de solo lectura para socios) ─────────────────────
+CREATE POLICY "ver_catalogo" ON public.tipo_actividad
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "gestionar_tipo_actividad" ON public.tipo_actividad
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() = 'admin')
+  WITH CHECK (public.current_user_rol() = 'admin');
+
+CREATE POLICY "ver_tipo_ingreso" ON public.tipo_ingreso
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "gestionar_tipo_ingreso" ON public.tipo_ingreso
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "ver_tipo_egreso" ON public.tipo_egreso
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "gestionar_tipo_egreso" ON public.tipo_egreso
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+CREATE POLICY "ver_tipo_activo" ON public.tipo_activo
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "gestionar_tipo_activo" ON public.tipo_activo
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() = 'admin')
+  WITH CHECK (public.current_user_rol() = 'admin');
+
+-- ── actividad (pública para todos, gestionada por admin/secretario) ───
+CREATE POLICY "ver_actividad" ON public.actividad
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "ver_actividad_publica" ON public.actividad
+  FOR SELECT TO anon USING (publicado = true);
+CREATE POLICY "gestionar_actividad" ON public.actividad
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+-- ── jurado ────────────────────────────────────────────────────────────
+CREATE POLICY "ver_jurado" ON public.jurado
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY "ver_jurado_publico" ON public.jurado
+  FOR SELECT TO anon USING (true);
+CREATE POLICY "gestionar_jurado" ON public.jurado
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+
+
+-- =====================================================================
+-- 6. REALTIME
+-- =====================================================================
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'miembro'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.miembro;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notificacion'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.notificacion;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'plan_amortizacion'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.plan_amortizacion;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'cuota_membresia'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.cuota_membresia;
+    END IF;
+END $$;
+
+-- Recargar caché del schema en PostgREST
+NOTIFY pgrst, 'reload schema';
+
+
+-- =====================================================================
+-- 6. REALTIME
+-- =====================================================================
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'miembro'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.miembro;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notificacion'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.notificacion;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'plan_amortizacion'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.plan_amortizacion;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'cuota_membresia'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.cuota_membresia;
+    END IF;
+END $$;
+
+-- Recargar caché del schema en PostgREST
+NOTIFY pgrst, 'reload schema';

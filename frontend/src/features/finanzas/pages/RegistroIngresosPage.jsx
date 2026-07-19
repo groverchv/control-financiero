@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, RefreshCw, BookOpen } from 'lucide-react';
+import { CreditCard, Plus, Search, Eye, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Receipt, PlusCircle, BadgeDollarSign, Calendar, RefreshCw, BookOpen } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { administracionApi } from '../../administracion/api';
 import { usePagos } from '../hooks';
@@ -560,19 +560,7 @@ export const RegistroCuotasPage = () => {
     }
   };
 
-  const handleSellar = async (id) => {
-    try {
-      setSubmitting(true);
-      await finanzasApi.sellarIngreso(id, user?.id);
-      const updatedCuotas = await finanzasApi.obtenerCuotas();
-      if (setCuotas) setCuotas(updatedCuotas);
-      setMessage({ type: 'success', text: 'Ingreso sellado en Blockchain correctamente.' });
-    } catch {
-      setMessage({ type: 'error', text: 'Error al sellar: Asegúrese de que el nodo de Blockchain esté activo.' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
 
   const handleDevolver = (cuota) => {
     setDevolverModal({ open: true, cuota });
@@ -593,7 +581,7 @@ export const RegistroCuotasPage = () => {
         open: true,
         type: 'success',
         text: '¡Reembolso procesado!',
-        details: 'El ingreso ha sido devuelto con éxito. Su monto ahora figura en Bs. 0 y el estado es "Devuelto". La transacción de reembolso ha sido sellada en la Blockchain.'
+        details: 'El ingreso ha sido devuelto con éxito. Su monto ahora figura en Bs. 0 y el estado es "Devuelto".'
       });
     } catch (err) {
       console.error(err);
@@ -766,11 +754,6 @@ export const RegistroCuotasPage = () => {
                           <td className="px-4 py-3 font-semibold text-slate-900">
                             <div className="flex items-center gap-1.5">
                               Bs. {cuota.monto}
-                               {cuota.blockchain_tx_id ? (
-                                <ShieldCheck className="h-3.5 w-3.5 text-blue-600" title="Sellado en Blockchain" />
-                              ) : (
-                                <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" title="Pendiente de sellado en Blockchain (Fallo de conexión o red offline)" />
-                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -834,17 +817,6 @@ export const RegistroCuotasPage = () => {
                                 }
                                 return null;
                               })()}
-                              {!cuota.blockchain_tx_id && cuota.estado !== 'devolucion' && (
-                                <button 
-                                  onClick={() => handleSellar(cuota.id)}
-                                  disabled={submitting}
-                                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors disabled:opacity-50"
-                                  title="Reintentar sellar de forma manual"
-                                >
-                                  <RefreshCw className="h-3.5 w-3.5" />
-                                  Reintentar sellar
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -1457,11 +1429,6 @@ export const RegistroCuotasPage = () => {
                 <p className="text-[10px] text-slate-400 font-medium mb-1">Monto Pagado</p>
                 <p className="font-bold text-lg text-emerald-700">
                   Bs. {detalleModal.cuota.monto}
-                  {detalleModal.cuota.blockchain_tx_id && (
-                    <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-                      <ShieldCheck className="h-3 w-3" /> SELLADO
-                    </span>
-                  )}
                 </p>
               </div>
               <div>
@@ -1481,12 +1448,7 @@ export const RegistroCuotasPage = () => {
                     : new Date(detalleModal.cuota.fecha + 'T00:00:00').toLocaleDateString('es-ES')}
                 </p>
               </div>
-              {detalleModal.cuota.blockchain_tx_id && (
-                <div className="col-span-2">
-                  <p className="text-[10px] text-slate-400 font-medium mb-1">Blockchain TX ID</p>
-                  <p className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg break-all">{detalleModal.cuota.blockchain_tx_id}</p>
-                </div>
-              )}
+
               <div className="col-span-2">
                 <p className="text-[10px] text-slate-400 font-medium mb-1">Descripción</p>
                 <p className="text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200">{detalleModal.cuota.descripcion || 'Sin descripción adicional'}</p>
@@ -1582,14 +1544,14 @@ export const RegistroCuotasPage = () => {
                   const diff = Number(cuota.monto) - costoAct;
                   return (
                     <span>
-                      ¿Está seguro de procesar el reembolso para este ingreso? Esta acción es <strong>irreversible</strong>, fijará el monto del ingreso a <strong>Bs. {costoAct.toFixed(2)}</strong> (reembolsando el excedente de <strong>Bs. {diff.toFixed(2)}</strong> al socio), y sellará la transacción de devolución en la Blockchain.
+                      ¿Está seguro de procesar el reembolso para este ingreso? Esta acción es <strong>irreversible</strong>, fijará el monto del ingreso a <strong>Bs. {costoAct.toFixed(2)}</strong> (reembolsando el excedente de <strong>Bs. {diff.toFixed(2)}</strong> al socio).
                     </span>
                   );
                 }
                 
                 return (
                   <span>
-                    ¿Está seguro de procesar el reembolso para este ingreso? Esta acción es <strong>irreversible</strong>, fijará el monto del ingreso a <strong>Bs. 0.00</strong>, actualizará su estado a <strong>"Devuelto"</strong>, y sellará la transacción de devolución en la Blockchain.
+                    ¿Está seguro de procesar el reembolso para este ingreso? Esta acción es <strong>irreversible</strong>, fijará el monto del ingreso a <strong>Bs. 0.00</strong>, y actualizará su estado a <strong>"Devuelto"</strong>.
                   </span>
                 );
               })()}
@@ -1615,7 +1577,7 @@ export const RegistroCuotasPage = () => {
         </div>
       </Modal>
 
-      <LoadingOverlay open={submitting} text="Estamos procesando la transacción, subiendo los archivos adjuntos y sellando el registro financiero en la Blockchain de forma segura." />
+      <LoadingOverlay open={submitting} text="Estamos procesando la transacción y subiendo los archivos adjuntos de forma segura..." />
       <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
     </div>
   );

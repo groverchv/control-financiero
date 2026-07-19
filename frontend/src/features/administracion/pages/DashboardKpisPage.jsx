@@ -2,15 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Landmark, Receipt, Banknote, Scale, CircleDollarSign,
   UsersRound, UserCheck, UserX, GraduationCap, CalendarCheck, BookOpenCheck,
-  Package, Warehouse, ClipboardList, ShieldCheck,
-  Signal, Fingerprint, FileSpreadsheet,
-  CheckCircle, AlertTriangle, Cpu, Clock, ChevronLeft, ChevronRight
+  Package, Warehouse, ClipboardList,
+  CheckCircle, AlertTriangle, Clock
 } from 'lucide-react';
 import { useKpiData } from '../hooks';
 import { useActivos } from '../../patrimonio/hooks';
 import { usePagos, useEgresos } from '../../finanzas/hooks';
 import { useActividades } from '../../academico/hooks';
-import { auditoriaApi } from '../../auditoria/api';
 import { administracionApi } from '../api';
 import { finanzasApi } from '../../finanzas/api';
 import { supabase } from '../../../services/supabase';
@@ -88,13 +86,10 @@ export const DashboardKpisPage = () => {
   const { actividades, loading: loadingActividades } = useActividades();
 
   const [activeTab, setActiveTab] = useState('financiero');
+  const [quarterFilter, setQuarterFilter] = useState('ALL');
   const [todosMiembros, setTodosMiembros] = useState([]);
   const [, setLoadingMiembros] = useState(true);
-  const [quarterFilter, setQuarterFilter] = useState('ALL');
-  const [blockchainOnline, setBlockchainOnline] = useState(null);
-  const [auditStats, setAuditStats] = useState(null);
   const [amortPendientes, setAmortPendientes] = useState(0);
-  const [currentPageBlockchain, setCurrentPageBlockchain] = useState(1);
 
   const [cuotasPendientesTotal, setCuotasPendientesTotal] = useState(0);
   const [cursosPendientesTotal, setCursosPendientesTotal] = useState(0);
@@ -198,18 +193,10 @@ export const DashboardKpisPage = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Blockchain connection + Amortization alerts
+  // Amortization alerts
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      try {
-        const [online, stats] = await Promise.all([
-          auditoriaApi.verificarConexion(),
-          auditoriaApi.obtenerEstadisticas()
-        ]);
-        if (!cancelled) { setBlockchainOnline(online); setAuditStats(stats); }
-      } catch { if (!cancelled) setBlockchainOnline(false); }
-
       try {
         const { count } = await supabase
           .from('plan_amortizacion')
@@ -284,56 +271,7 @@ export const DashboardKpisPage = () => {
   const totalActividades = (actividades || []).length;
   const actividadesActivas = (actividades || []).filter(a => a.estado === 'activo' || a.estado === 'programado').length;
 
-  // Sellado blockchain
-  const sellados = allI.filter(i => i.blockchain_tx_id || i.hash_actual).length + allE.filter(e => e.blockchain_tx_id || e.hash_actual).length;
-  const totalTx = allI.length + allE.length;
-  const pctSellado = totalTx > 0 ? Math.round((sellados / totalTx) * 100) : 100;
 
-  // Blockchain Blocks dynamic data feed
-  const blockchainBlocks = useMemo(() => {
-    const blocks = [];
-    allI.filter(i => i.hash_actual).forEach(i => {
-      blocks.push({
-        id: i.id,
-        tipo: 'Ingreso',
-        concepto: i.socio_nombre || 'Membresía Ordinaria',
-        hash: i.hash_actual,
-        hash_anterior: i.hash_anterior || 'genesis',
-        fecha: i.fecha || i.creacion,
-        tx: i.blockchain_tx_id
-      });
-    });
-    allE.filter(e => e.hash_actual).forEach(e => {
-      blocks.push({
-        id: e.id,
-        tipo: 'Egreso',
-        concepto: e.concepto,
-        hash: e.hash_actual,
-        hash_anterior: e.hash_anterior || 'genesis',
-        fecha: e.creacion || e.fecha,
-        tx: e.blockchain_tx_id
-      });
-    });
-    (activos || []).filter(a => a.hash_actual).forEach(a => {
-      blocks.push({
-        id: a.id,
-        tipo: 'Activo',
-        concepto: a.nombre,
-        hash: a.hash_actual,
-        hash_anterior: a.hash_anterior || 'genesis',
-        fecha: a.creacion || a.fechaAdquisicion,
-        tx: a.blockchain_tx_id
-      });
-    });
-    return blocks.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  }, [allI, allE, activos]);
-
-  const itemsPerPageBlockchain = 10;
-  const totalPagesBlockchain = Math.ceil(blockchainBlocks.length / itemsPerPageBlockchain);
-  const paginatedBlockchainBlocks = useMemo(() => {
-    const start = (currentPageBlockchain - 1) * itemsPerPageBlockchain;
-    return blockchainBlocks.slice(start, start + itemsPerPageBlockchain);
-  }, [blockchainBlocks, currentPageBlockchain]);
 
   // dynamic professions calculation
   const professionsMap = useMemo(() => {
@@ -388,8 +326,8 @@ export const DashboardKpisPage = () => {
         </div>
 
         {/* ─── Tabs Navigation Skeleton ─── */}
-        <div className="grid grid-cols-5 gap-2 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
-          {Array.from({ length: 5 }).map((_, idx) => (
+        <div className="grid grid-cols-4 gap-2 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+          {Array.from({ length: 4 }).map((_, idx) => (
             <div key={idx} className="h-12 bg-slate-200/50 rounded-xl animate-pulse" />
           ))}
         </div>
@@ -443,13 +381,12 @@ export const DashboardKpisPage = () => {
       </div>
 
       {/* ─── Tabs Navigation ─── */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
         {[
           { id: 'financiero', label: 'Indicadores Financieros', icon: Landmark, color: 'blue' },
           { id: 'miembros', label: 'Gestión de Miembros', icon: UsersRound, color: 'purple' },
           { id: 'patrimonial', label: 'Control Patrimonial', icon: Warehouse, color: 'amber' },
           { id: 'academica', label: 'Gestión Académica', icon: GraduationCap, color: 'emerald' },
-          { id: 'blockchain', label: 'Auditoría y Blockchain', icon: Fingerprint, color: 'indigo' },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -865,138 +802,7 @@ export const DashboardKpisPage = () => {
           </div>
         )}
 
-        {/* VIEW 5: AUDITORÍA Y BLOCKCHAIN */}
-        {activeTab === 'blockchain' && (
-          <div className="space-y-6">
-            <SectionHeader 
-              icon={Fingerprint} 
-              title="Auditoría Blockchain e Inmutabilidad de Datos" 
-              color="indigo"
-              desc="Conectividad directa con la red Blockchain y verificación del encadenamiento criptográfico."
-            />
-            
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-start gap-4">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${blockchainOnline ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                  <Signal className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Estado Red</p>
-                  <p className={`text-lg font-extrabold ${blockchainOnline ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {blockchainOnline === null ? '...' : blockchainOnline ? 'En Línea' : 'Offline'}
-                  </p>
-                  <p className="text-xs text-slate-500">Hyperledger Fabric</p>
-                </div>
-              </div>
-              <KpiCard icon={ShieldCheck} label="Registros Sellados" value={sellados} sub={`de ${totalTx} transacciones`} color="blue" />
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4">
-                <Donut value={pctSellado} color="#3b82f6" />
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cobertura Cripto</p>
-                  <p className="text-lg font-extrabold text-slate-900">{pctSellado}%</p>
-                  <p className="text-xs text-slate-500">Inmutabilidad</p>
-                </div>
-              </div>
-              <KpiCard icon={FileSpreadsheet} label="Bloques Fabricados" value={auditStats?.totalRegistros ?? '—'} sub="Cadena de auditoría" color="indigo" />
-            </div>
 
-            {/* Cryptographic timeline blocks grid */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Cpu className="h-4 w-4 text-indigo-500 animate-spin-slow" /> Flujo en Tiempo Real de Bloques Sellados (Hyperledger Ledger)
-                </h3>
-                <span className="inline-flex items-center gap-1 text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
-                  Sello SHA-256 Activo
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-2">
-                {paginatedBlockchainBlocks.map((block, index) => (
-                  <div key={block.id} className="relative bg-slate-50 rounded-2xl p-4 border border-slate-200/60 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow group">
-                    <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <div>
-                      <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        <Clock className="h-3 w-3" /> Bloque #{blockchainBlocks.length - ((currentPageBlockchain - 1) * itemsPerPageBlockchain + index)}
-                      </div>
-                      <p className="font-extrabold text-xs text-slate-800 mt-2 truncate group-hover:text-blue-600 transition-colors">
-                        {block.concepto}
-                      </p>
-                      <span className="inline-block mt-1 text-[8px] font-black uppercase bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
-                        {block.tipo}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-200/80 space-y-2">
-                      <div className="space-y-0.5">
-                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider block">Hash Bloque</span>
-                        <span className="font-mono text-[9px] text-slate-500 truncate block bg-white px-1.5 py-0.5 rounded border border-slate-100">
-                          {block.hash.substring(0, 16)}…
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider block">Prev Hash</span>
-                        <span className="font-mono text-[9px] text-slate-500 truncate block bg-white px-1.5 py-0.5 rounded border border-slate-100">
-                          {block.hash_anterior.substring(0, 16)}…
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {blockchainBlocks.length === 0 && (
-                  <div className="col-span-5 text-center py-6 text-slate-400 text-xs">
-                    No se han detectado transacciones selladas en este período fiscal.
-                  </div>
-                )}
-              </div>
-
-              {/* Controles de paginación para Blockchain */}
-              {totalPagesBlockchain > 1 && (
-                <div className="flex items-center justify-between border-t border-slate-50 pt-4 mt-2">
-                  <p className="text-xs text-slate-500 font-semibold">
-                    Mostrando bloques <span className="font-bold">{(currentPageBlockchain - 1) * itemsPerPageBlockchain + 1}</span> a <span className="font-bold">{Math.min(currentPageBlockchain * itemsPerPageBlockchain, blockchainBlocks.length)}</span> de <span className="font-bold">{blockchainBlocks.length}</span>
-                  </p>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      disabled={currentPageBlockchain === 1}
-                      onClick={() => setCurrentPageBlockchain(p => Math.max(1, p - 1))}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-colors flex items-center gap-1"
-                    >
-                      <ChevronLeft className="h-4 w-4" /> Anterior
-                    </button>
-                    {Array.from({ length: totalPagesBlockchain }).map((_, idx) => {
-                      const page = idx + 1;
-                      return (
-                        <button
-                          key={page}
-                          type="button"
-                          onClick={() => setCurrentPageBlockchain(page)}
-                          className={`h-8 w-8 rounded-lg border text-xs font-bold transition-colors ${
-                            currentPageBlockchain === page
-                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      disabled={currentPageBlockchain === totalPagesBlockchain}
-                      onClick={() => setCurrentPageBlockchain(p => Math.min(totalPagesBlockchain, p + 1))}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-colors flex items-center gap-1"
-                    >
-                      Siguiente <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
         
       </div>
     </div>

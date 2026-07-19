@@ -1,14 +1,11 @@
 import { AppRouter } from './routes/AppRouter';
 import { useAuth } from './hooks/useAuth';
-import { useOfflineSync } from './hooks/useOfflineSync';
 import { ToastContainer } from 'react-toastify';
 import { IdleTimeoutHandler, ErrorBoundary } from './components/feedback';
-import { OfflineSyncBanner } from './components/ui';
 import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
   useAuth();
-  useOfflineSync();
 
   return (
     <ErrorBoundary>
@@ -16,9 +13,6 @@ function App() {
         <AppRouter />
         <IdleTimeoutHandler />
         <ToastContainer position="top-right" autoClose={5000} />
-        {/* PWA: Banner premium de estado offline y sincronización de cola */}
-        <OfflineSyncBanner />
-        {/* PWA: Banner de instalación personalizado */}
       </div>
     </ErrorBoundary>
   );

@@ -126,16 +126,7 @@ export const GestionActivosPage = () => {
     { 
       key: 'nombre', 
       label: 'Nombre',
-      render: (val, row) => (
-        <div className="flex items-center gap-2">
-          {val}
-          {row.blockchain_tx_id ? (
-            <ShieldCheck className="h-3.5 w-3.5 text-blue-600" title="Sellado en Blockchain" />
-          ) : (
-            <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" title="Pendiente de sellado en Blockchain (Fallo de conexión o red offline)" />
-          )}
-        </div>
-      )
+      render: (val) => val
     },
     { 
       key: 'tipo_activo', 
@@ -178,19 +169,6 @@ export const GestionActivosPage = () => {
             <Eye className="h-3 w-3" />
             Detalle
           </Button>
-          {!row.blockchain_tx_id && (
-            <Button 
-              size="xs" 
-              variant="outline" 
-              className="text-amber-700 border-amber-200 hover:bg-amber-50 h-7 flex items-center gap-1 font-bold"
-              onClick={() => handleSellar(id)}
-              disabled={isSubmitting}
-              title="Reintentar sellar de forma manual"
-            >
-              <RefreshCw className="h-3 w-3" />
-              Reintentar sellar
-            </Button>
-          )}
         </div>
       )
     }
@@ -221,17 +199,12 @@ export const GestionActivosPage = () => {
       const nuevoActivo = await patrimonioApi.registrarActivo(payload);
       setActivos([nuevoActivo, ...activos]);
       
-      // R12: Verificar si el sellado fue exitoso
-      const selladoExitoso = !!nuevoActivo.blockchain_tx_id;
-      
       setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
-        type: selladoExitoso ? 'success' : 'warning',
-        text: selladoExitoso ? '¡Activo registrado con éxito!' : 'Activo registrado (Sin Sello)',
-        details: selladoExitoso 
-          ? `El activo "${formData.nombre}" ha sido registrado y sellado en la Blockchain correctamente.`
-          : `El activo "${formData.nombre}" se registró en la base de datos, pero el sellado en Blockchain falló. Puede reintentarlo manualmente en la tabla.`
+        type: 'success',
+        text: '¡Activo registrado con éxito!',
+        details: `El activo "${formData.nombre}" ha sido registrado correctamente en la base de datos.`
       });
       setIsModalOpen(false);
       setFormData({ 
@@ -256,33 +229,7 @@ export const GestionActivosPage = () => {
     }
   };
 
-  const handleSellar = async (id) => {
-    setIsSubmitting(true);
-    setLoadingModal({ open: true, text: 'Sellando activo en Blockchain...' });
-    try {
-      await patrimonioApi.sellarActivo(id, user?.id);
-      const updatedData = await patrimonioApi.obtenerActivos();
-      setActivos(updatedData);
-      setLoadingModal({ open: false, text: '' });
-      setResultModal({
-        open: true,
-        type: 'success',
-        text: '¡Activo sellado en la Blockchain!',
-        details: 'El activo patrimonial y sus firmas de auditoría han sido grabados y sellados de manera inmutable.'
-      });
-    } catch (err) {
-      console.error(err);
-      setLoadingModal({ open: false, text: '' });
-      setResultModal({
-        open: true,
-        type: 'error',
-        text: 'Error de sellado Blockchain',
-        details: err instanceof Error ? err.message : 'Error al sellar: Verifique que la red Blockchain esté activa.'
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+
 
   // Calcular métricas dinámicas globales sobre los activos
   const totalCosto = activos.reduce((sum, a) => sum + Number(a.costo_total || 0), 0);
@@ -628,14 +575,7 @@ export const GestionActivosPage = () => {
                 <p className="text-[10px] text-slate-400 font-medium mb-1">Fecha de Adquisición</p>
                 <p className="text-slate-700">{detalleModal.activo.fechaAdquisicion || 'No especificada'}</p>
               </div>
-              {detalleModal.activo.blockchain_tx_id && (
-                <div className="col-span-2">
-                  <p className="text-[10px] text-slate-400 font-medium mb-1">Blockchain TX ID</p>
-                  <p className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg break-all">
-                    {detalleModal.activo.blockchain_tx_id}
-                  </p>
-                </div>
-              )}
+
               {detalleModal.activo.descripcion && (
                 <div className="col-span-2">
                   <p className="text-[10px] text-slate-400 font-medium mb-1">Descripción</p>

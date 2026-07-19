@@ -1,24 +1,9 @@
 /**
- * Servicio de correo electronico transaccional con Brevo
- *
- * UNICO USO: Envio de emails relacionados a cuotas de membresia:
- *  1. notificarPagoPendiente  → Factura cuando se genera una cuota
- *  2. notificarPagoRegistrado → Recibo cuando se registra el pago
- *
- * Todas las demas notificaciones del sistema se gestionan
- * internamente en la tabla `notificacion` de la base de datos.
+ * Servicio de correo electronico transaccional
+ * Usa el backend seguro para no exponer la API key
  */
 import { supabase } from './supabase';
-
-const BREVO_API_KEY = import.meta.env.VITE_BREVO_API_KEY;
-const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-
-const SENDER = {
-  name: 'Asociación de Profesionales Financieros',
-  email: import.meta.env.VITE_BREVO_SENDER_EMAIL || 'notificaciones@controlfinanciero.org'
-};
-
-// ─── Utilidades ────────────────────────────────────────────────────────────────
+import { BACKEND_API } from '../config/api';
 
 const formatFecha = (fechaStr) => {
   if (!fechaStr) return '—';
@@ -48,12 +33,9 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
         <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
           <tr>
             <td style="background:linear-gradient(135deg, ${accentColor}, ${accentColor}dd);padding:32px 40px;">
-              <h1 style="margin:0;color:#ffffff;font-size:18px;font-weight:800;letter-spacing:-0.5px;line-height:1.2;">
-                Asociación de<br/><span style="opacity:0.85;font-size:20px;">Profesionales Financieros</span>
-              </h1>
-              <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:700;">
+              <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:600;letter-spacing:0.5px;">
                 ${title}
-              </p>
+              </h1>
             </td>
           </tr>
           <tr>
@@ -62,10 +44,10 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
             </td>
           </tr>
           <tr>
-            <td style="padding:24px 40px;border-top:1px solid #f1f5f9;background-color:#f8fafc;">
-              <p style="margin:0;color:#94a3b8;font-size:11px;text-align:center;">
-                Asociación de Profesionales Financieros ${new Date().getFullYear()}. Todos los derechos reservados.<br/>
-                Este correo es generado automaticamente, no responda a este mensaje.
+            <td style="background-color:#f8fafc;padding:24px 40px;border-top:1px solid #e2e8f0;text-align:center;">
+              <p style="margin:0;color:#64748b;font-size:13px;line-height:1.5;">
+                Este es un mensaje automático generado por el Sistema de Control Financiero.<br>
+                Por favor, no respondas a este correo.
               </p>
             </td>
           </tr>
@@ -73,14 +55,12 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
       </td>
     </tr>
   </table>
-</body>
-</html>`;
+</body>`;
 
 const enviarEmail = async ({ to, subject, htmlContent }) => {
   try {
-    if (!navigator.onLine) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
       console.warn('[Brevo Service] Sin conexión. Encolando correo para envío posterior.');
-      // Encolar correo en localStorage
       const queueKey = 'control-financiero-offline-emails-queue';
       const queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
       queue.push({
@@ -88,35 +68,32 @@ const enviarEmail = async ({ to, subject, htmlContent }) => {
         to,
         subject,
         htmlContent,
-        timestamp: Date.now()
+        createdAt: new Date().toISOString()
       });
       localStorage.setItem(queueKey, JSON.stringify(queue));
       return { success: true, queued: true };
     }
 
-    const response = await fetch(BREVO_API_URL, {
+    const response = await fetch(`${BACKEND_API}/api/emails/send`, {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
-        'api-key': BREVO_API_KEY,
-        'content-type': 'application/json',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sender: SENDER,
-        to: Array.isArray(to) ? to : [to],
-        subject,
-        htmlContent,
+        toEmail: to.email,
+        toName: to.name,
+        subject: subject,
+        htmlContent: htmlContent,
       }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('[Brevo] Error al enviar email:', errorData);
-      return { success: false, error: errorData };
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || `HTTP ${response.status}`);
     }
 
-    const data = await response.json();
-    return { success: true, messageId: data.messageId };
+    return { success: true };
   } catch (error) {
     console.error('[Brevo] Error de red:', error);
     return { success: false, error: error.message };
@@ -135,16 +112,15 @@ if (typeof window !== 'undefined') {
 
     for (const email of queue) {
       try {
-        const res = await fetch(BREVO_API_URL, {
+        const toObj = Array.isArray(email.to) ? email.to[0] : email.to;
+        const res = await fetch(`${BACKEND_API}/api/emails/send`, {
           method: 'POST',
           headers: {
-            'accept': 'application/json',
-            'api-key': BREVO_API_KEY,
-            'content-type': 'application/json',
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            sender: SENDER,
-            to: Array.isArray(email.to) ? email.to : [email.to],
+            toEmail: toObj.email,
+            toName: toObj.name,
             subject: email.subject,
             htmlContent: email.htmlContent,
           }),

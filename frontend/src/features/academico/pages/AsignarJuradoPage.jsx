@@ -54,7 +54,7 @@ export const AsignarJuradoPage = () => {
       const [acts, miems, jurs, tipos] = await Promise.all([
         academicoApi.obtenerActividades(),
         administracionApi.obtenerMiembros(),
-        supabase.from('jurado').select('*, miembro(id, nombre, "apellidoPaterno", "apellidoMaterno"), actividad(id, titulo, fecha, hora, blockchain_tx_id)'),
+        supabase.from('jurado').select('*, miembro(id, nombre, "apellidoPaterno", "apellidoMaterno"), actividad(id, titulo, fecha, hora)'),
         academicoApi.obtenerTiposActividad()
       ]);
       
@@ -570,9 +570,6 @@ export const AsignarJuradoPage = () => {
                       {g.descripcionActividad || <span className="text-slate-400 italic text-xs">Sin descripción</span>}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {(() => {
-                        const isSealed = !!g.actividad?.blockchain_tx_id;
-                        return (
                           <div className="flex justify-end gap-1.5 items-center">
                             <button
                               type="button"
@@ -585,32 +582,20 @@ export const AsignarJuradoPage = () => {
                             <button
                               type="button"
                               onClick={() => handleModificar(g)}
-                              disabled={isSealed}
-                              className={`rounded p-1 transition-colors ${
-                                isSealed 
-                                  ? 'text-slate-300 cursor-not-allowed' 
-                                  : 'text-amber-600 hover:bg-amber-50'
-                              }`}
-                              title={isSealed ? "No se puede modificar una actividad sellada en la blockchain" : "Modificar"}
+                              className="rounded p-1 text-amber-600 hover:bg-amber-50 transition-colors"
+                              title="Modificar"
                             >
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleEliminarGrupo(g)}
-                              disabled={isSealed}
-                              className={`rounded p-1 transition-colors ${
-                                isSealed 
-                                  ? 'text-slate-300 cursor-not-allowed' 
-                                  : 'text-red-500 hover:bg-red-50'
-                              }`}
-                              title={isSealed ? "No se puede eliminar jurados de una actividad sellada en la blockchain" : "Eliminar permanentemente"}
+                              className="rounded p-1 text-red-500 hover:bg-red-50 transition-colors"
+                              title="Eliminar permanentemente"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
-                        );
-                      })()}
                     </td>
                   </tr>
                 ))}
@@ -881,18 +866,7 @@ export const AsignarJuradoPage = () => {
                   <div>
                     <span className="font-semibold text-slate-600">Hora:</span> {detalleModal.group.actividad.hora?.substring(0, 5)} Hrs
                   </div>
-                  <div className="col-span-2 flex items-center gap-1.5 mt-1">
-                    <span className="font-semibold text-slate-600">Estado Blockchain:</span>
-                    {detalleModal.group.actividad.blockchain_tx_id ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-blue-700">
-                        <ShieldCheck className="h-3 w-3 text-blue-600" /> Sellado en Blockchain
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                        <Shield className="h-3 w-3" /> Pendiente de Sello
-                      </span>
-                    )}
-                  </div>
+
                 </div>
               ) : (
                 <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 border border-amber-200 mt-1 self-start">

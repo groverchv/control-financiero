@@ -106,7 +106,7 @@ export const ExportButtons = ({ data, filename = 'reporte', title = 'Reporte Ins
   const filteredHeaders = useMemo(() => {
     return allHeaders.filter(h => {
       const lower = h.toLowerCase();
-      return !lower.includes('blockchain') && !lower.includes('tx');
+      return !lower.includes('tx');
     });
   }, [allHeaders]);
 

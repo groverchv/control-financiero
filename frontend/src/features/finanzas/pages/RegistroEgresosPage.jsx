@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, ShieldCheck, Plus, X, CheckCircle2, AlertCircle, RefreshCw, DollarSign, PlusCircle } from 'lucide-react';
+import { ClipboardList, Search, Eye, ChevronLeft, ChevronRight, Plus, X, CheckCircle2, AlertCircle, RefreshCw, DollarSign, PlusCircle } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { patrimonioApi } from '../../patrimonio/api';
 import { useEgresos } from '../hooks';
@@ -252,7 +252,7 @@ export const RegistroEgresosPage = () => {
         open: true,
         type: 'success',
         text: '¡Egreso registrado correctamente!',
-        details: 'El egreso operativo ha sido descontado del saldo del activo (si corresponde) y sellado exitosamente en la Blockchain.'
+        details: 'El egreso operativo ha sido registrado y descontado del saldo del activo (si corresponde) con éxito.'
       });
       setForm({ concepto: '', monto: '', tipo_egreso_id: '', activo_id: '', descripcion: '', comprobante: null });
       setIsCreateModalOpen(false);
@@ -269,19 +269,7 @@ export const RegistroEgresosPage = () => {
     }
   };
   
-  const handleSellar = async (id) => {
-    try {
-      setSubmitting(true);
-      await finanzasApi.sellarEgreso(id, user?.id);
-      const updatedEgresos = await finanzasApi.obtenerEgresos();
-      if (setEgresos) setEgresos(updatedEgresos);
-      setMessage({ type: 'success', text: 'Registro sellado en Blockchain correctamente.' });
-    } catch {
-      setMessage({ type: 'error', text: 'Error al sellar: Asegúrese de que el nodo de Blockchain esté activo.' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
 
   // Calcular métricas dinámicas para los KPIs de Egresos
   const totalEgresos = egresos.reduce((sum, e) => sum + Number(e.monto || 0), 0);
@@ -433,11 +421,6 @@ export const RegistroEgresosPage = () => {
                           <td className="px-4 py-3 font-semibold text-slate-900">
                             <div className="flex items-center gap-1.5">
                               Bs. {egreso.monto}
-                               {egreso.blockchain_tx_id ? (
-                                <ShieldCheck className="h-3.5 w-3.5 text-blue-600" title="Sellado en Blockchain" />
-                              ) : (
-                                <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" title="Pendiente de sellado en Blockchain (Fallo de conexión o red offline)" />
-                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
@@ -457,17 +440,6 @@ export const RegistroEgresosPage = () => {
                                 <Eye className="h-3.5 w-3.5" />
                                 Detalle
                               </button>
-                              {!egreso.blockchain_tx_id && (
-                                <button 
-                                  onClick={() => handleSellar(egreso.id)}
-                                  disabled={submitting}
-                                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors disabled:opacity-50"
-                                  title="Reintentar sellar de forma manual"
-                                >
-                                  <RefreshCw className="h-3.5 w-3.5" />
-                                  Reintentar sellar
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -716,11 +688,6 @@ export const RegistroEgresosPage = () => {
                 <p className="text-[10px] text-slate-400 font-medium mb-1">Monto Egresado</p>
                 <p className="font-bold text-lg text-red-600">
                   Bs. {detalleModal.egreso.monto}
-                  {detalleModal.egreso.blockchain_tx_id && (
-                    <span className="ml-2 inline-flex items-center gap-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 box-blue">
-                      <ShieldCheck className="h-3 w-3" /> SELLADO
-                    </span>
-                  )}
                 </p>
               </div>
               <div>
@@ -744,12 +711,7 @@ export const RegistroEgresosPage = () => {
                   ✓ Egresado
                 </span>
               </div>
-              {detalleModal.egreso.blockchain_tx_id && (
-                <div className="col-span-2">
-                  <p className="text-[10px] text-slate-400 font-medium mb-1">Blockchain TX ID</p>
-                  <p className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg break-all box-blue">{detalleModal.egreso.blockchain_tx_id}</p>
-                </div>
-              )}
+
               <div className="col-span-2">
                 <p className="text-[10px] text-slate-400 font-medium mb-1">Descripción</p>
                 <p className="text-slate-700 bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">{detalleModal.egreso.descripcion || 'Sin descripción adicional'}</p>
@@ -820,7 +782,7 @@ export const RegistroEgresosPage = () => {
         </div>
       </Modal>
 
-      <LoadingOverlay open={submitting} text="Estamos procesando la transacción, subiendo los archivos adjuntos y sellando el egreso operativo en la Blockchain de forma segura." />
+      <LoadingOverlay open={submitting} text="Estamos procesando la transacción y subiendo los archivos adjuntos de forma segura..." />
       <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
     </div>
   );

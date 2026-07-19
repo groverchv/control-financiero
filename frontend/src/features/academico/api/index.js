@@ -2,9 +2,6 @@ import { supabase } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 
 import { apiCache, withCache } from '../../../utils/apiCache';
-import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
-
-const wrapWrite = (type, name, fn) => (...args) => withWriteQueue(type, name, fn)(...args);
 
 export const academicoApi = {
   obtenerTiposActividad: async () => {
@@ -138,7 +135,7 @@ export const academicoApi = {
     return true;
   },
 
-  crearActividad: wrapWrite('actividad', 'crearActividad', async (actividad, imagenFile = null) => {
+  crearActividad: async (actividad, imagenFile = null) => {
     apiCache.invalidate('academico');
     const parsedCosto = (actividad.costo === '' || actividad.costo === null || actividad.costo === undefined) ? 0 : Number(actividad.costo);
     const { data, error } = await supabase
@@ -229,7 +226,7 @@ export const academicoApi = {
         return extName || 'Jurado Externo';
       }) || []
     };
-  }),
+  },
 
   obtenerActividades: (() => {
     const cachedFn = withCache('academico:actividades', async () => {
@@ -253,8 +250,7 @@ export const academicoApi = {
       }));
     });
     return async (...args) => {
-      const data = await cachedFn(...args);
-      return applyPendingQueueToData('actividad', data);
+      return await cachedFn(...args);
     };
   })(),
 
@@ -605,7 +601,7 @@ export const academicoApi = {
   },
 
   asignarJurado: async (payload) => {
-    // Si es actividad del sistema, verificar que no esté finalizada/cancelada o sellada en blockchain
+    // Si es actividad del sistema, verificar que no esté finalizada o cancelada
     if (payload.actividad_id) {
       const { data: act } = await supabase
         .from('actividad')
@@ -615,9 +611,6 @@ export const academicoApi = {
       
       if (act?.estado === 'finalizado' || act?.estado === 'cancelado') {
         throw new Error('No se puede asignar jurados a una actividad que ya ha finalizado o ha sido cancelada.');
-      }
-      if (act?.blockchain_tx_id) {
-        throw new Error('No se puede modificar jurados de una actividad que ya ha sido sellada en la blockchain.');
       }
     }
 
@@ -646,9 +639,6 @@ export const academicoApi = {
     if (jurado?.actividad) {
       if (jurado.actividad.estado === 'finalizado' || jurado.actividad.estado === 'cancelado') {
         throw new Error('No se puede retirar un jurado de una actividad que ya ha finalizado o ha sido cancelada.');
-      }
-      if (jurado.actividad.blockchain_tx_id) {
-        throw new Error('No se puede retirar un jurado de una actividad que ya ha sido sellada en la blockchain.');
       }
     }
 
@@ -730,7 +720,7 @@ export const academicoApi = {
     return !!data;
   },
 
-  inscribirSocio: wrapWrite('inscripcion', 'inscribirSocio', async (miembroId, actividadId) => {
+  inscribirSocio: async (miembroId, actividadId) => {
     apiCache.invalidate('academico');
     // Primero, verificamos si hay cupos y la fecha/hora
     const { data: itemData, error: itemError } = await supabase
@@ -795,9 +785,9 @@ export const academicoApi = {
     }
 
     return true;
-  }),
+  },
 
-  desinscribirSocio: wrapWrite('inscripcion', 'desinscribirSocio', async (miembroId, actividadId) => {
+  desinscribirSocio: async (miembroId, actividadId) => {
     apiCache.invalidate('academico');
     const { error: deleteError } = await supabase
       .from('inscripcion')
@@ -835,5 +825,5 @@ export const academicoApi = {
     }
 
     return true;
-  })
+  }
 };

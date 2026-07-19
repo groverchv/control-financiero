@@ -18,30 +18,6 @@ export const PublicLayout = () => {
   const isLanding = location.pathname === '/' || location.pathname === '/inicio';
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showPwaModal, setShowPwaModal] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (window.matchMedia('(display-mode: standalone)').matches) return;
-    const handler = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const mobileWidth = window.innerWidth < 768;
-      setIsMobile(mobileUA || mobileWidth);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true);
@@ -515,22 +491,6 @@ export const PublicLayout = () => {
                   </button>
                 </div>
               </div>
-
-              {/* Opción de Instalar Aplicación para Móviles */}
-              {isMobile && (
-                <div className="mt-4 border-t pt-4">
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      setShowPwaModal(true);
-                    }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-4 py-3 text-sm font-bold transition-all"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>Instalar Aplicación</span>
-                  </button>
-                </div>
-              )}
             </nav>
           </div>
         )}
@@ -546,82 +506,7 @@ export const PublicLayout = () => {
         </div>
       </footer>
 
-      {/* MODAL DE INSTALACIÓN PWA MÓVIL */}
-      {showPwaModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-slate-900 dark:text-white shadow-2xl">
-            <button
-              onClick={() => setShowPwaModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-650 dark:hover:text-slate-300"
-              aria-label="Cerrar"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            
-            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-850 pb-4 mb-4">
-              <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 text-blue-650 dark:text-blue-400">
-                <Smartphone className="h-5.5 w-5.5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold">Instalar Aplicación Móvil</h3>
-                <p className="text-[10px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider">APF Móvil PWA</p>
-              </div>
-            </div>
-            
-            <div className="bg-slate-50 dark:bg-slate-955 p-4 rounded-xl border border-slate-100 dark:border-slate-850 mb-6 text-left space-y-2.5">
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instrucciones</p>
-              {deferredPrompt ? (
-                <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed">
-                  Haz clic en el botón de abajo para iniciar el instalador de tu sistema y añadir la aplicación a tu pantalla principal.
-                </p>
-              ) : (
-                <div className="space-y-2 text-xs text-slate-600 dark:text-slate-350 leading-relaxed">
-                  <p className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                    ⚠️ Instalación semiautomática
-                  </p>
-                  <p>
-                    <strong>En iOS (Safari):</strong> Pulsa el botón de compartir del navegador (cuadrado con flecha hacia arriba) y selecciona <strong>"Añadir a pantalla de inicio"</strong>.
-                  </p>
-                  <p>
-                    <strong>En Android / Chrome:</strong> Pulsa el menú de 3 puntos del navegador y selecciona <strong>"Instalar aplicación"</strong> o "Añadir a pantalla de inicio".
-                  </p>
-                </div>
-              )}
-            </div>
 
-            <div className="flex items-center gap-3 justify-end pt-2 border-t border-slate-100 dark:border-slate-850">
-              <button
-                onClick={() => setShowPwaModal(false)}
-                className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
-              >
-                Cerrar
-              </button>
-              {deferredPrompt ? (
-                <button
-                  onClick={async () => {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    if (outcome === 'accepted') {
-                      setShowPwaModal(false);
-                    }
-                    setDeferredPrompt(null);
-                  }}
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg"
-                >
-                  Instalar Ahora
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowPwaModal(false)}
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700 px-5 py-2.5 text-xs font-bold text-white transition-all shadow-lg"
-                >
-                  Entendido
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL DE CONFIRMACIÓN DE CIERRE DE SESIÓN */}
       {showLogoutConfirm && (

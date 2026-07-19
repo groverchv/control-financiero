@@ -20,17 +20,7 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
-  {
-    files: ['blockchain/**/*.js'],
-    extends: [
-      js.configs.recommended,
-    ],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-      },
-    },
-  },
+
   {
     files: ['*.{js,cjs,mjs}'],
     extends: [

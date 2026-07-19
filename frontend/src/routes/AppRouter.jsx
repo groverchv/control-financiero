@@ -36,8 +36,7 @@ const GestionTiposActividadPage = lazy(() => import("@/features/academico/pages/
 
 const SocioNotificacionesPage = lazy(() => import("@/features/administracion/pages/SocioNotificacionesPage").then(m => ({ default: m.SocioNotificacionesPage })));
 const AdminNotificacionesPage = lazy(() => import("@/features/administracion/pages/NotificacionesPage").then(m => ({ default: m.NotificacionesPage })));
-const AuditoriaPage = lazy(() => import("@/features/auditoria/pages/AuditoriaPage").then(m => ({ default: m.AuditoriaPage })));
-const TransparenciaPage = lazy(() => import("@/features/auditoria/pages/TransparenciaPage").then(m => ({ default: m.TransparenciaPage })));
+
 const BackupPage = lazy(() => import("@/features/auditoria/pages/BackupPage").then(m => ({ default: m.BackupPage })));
 const PublicActividadesPage = lazy(() => import("@/features/academico/pages/PublicCursosPage").then(m => ({ default: m.PublicCursosPage })));
 const DetalleActividadPage = lazy(() => import("@/features/academico/pages/DetalleActividadPage").then(m => ({ default: m.DetalleActividadPage })));
@@ -186,14 +185,7 @@ export const AppRouter = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/transparencia"
-              element={
-                <ProtectedRoute requiredRoles={["socio", "admin", "secretario"]}>
-                  <TransparenciaPage />
-                </ProtectedRoute>
-              }
-            />
+
           </Route>
 
           <Route
@@ -221,16 +213,38 @@ export const AppRouter = () => {
                 </ProtectedRoute>
               }
             />
-            <Route path="/admin/ingresos" element={<RegistroCuotasPage />} />
+            <Route
+              path="/admin/ingresos"
+              element={
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                  <RegistroCuotasPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/admin/historial-cuotas"
-              element={<HistorialCuotasPage />}
+              element={
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                  <HistorialCuotasPage />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/admin/historial-actividades"
-              element={<HistorialActividadesPage />}
+              element={
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                  <HistorialActividadesPage />
+                </ProtectedRoute>
+              }
             />
-            <Route path="/admin/egresos" element={<RegistroEgresosPage />} />
+            <Route
+              path="/admin/egresos"
+              element={
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                  <RegistroEgresosPage />
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="/admin/tipos-transaccion"
@@ -282,7 +296,11 @@ export const AppRouter = () => {
             />
             <Route
               path="/admin/actividades"
-              element={<GestionActividadesPage />}
+              element={
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                  <GestionActividadesPage />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/admin/tipos-actividad"
@@ -292,10 +310,21 @@ export const AppRouter = () => {
                 </ProtectedRoute>
               }
             />
-            <Route path="/admin/asignar-jurado" element={<AsignarJuradoPage />} />
+            <Route
+              path="/admin/asignar-jurado"
+              element={
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                  <AsignarJuradoPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/admin/actividades/jurados"
-              element={<AsignacionJuradoPage />}
+              element={
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                  <AsignacionJuradoPage />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/admin/talento"
@@ -305,14 +334,7 @@ export const AppRouter = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/admin/auditoria"
-              element={
-                <ProtectedRoute requiredRoles={["admin"]}>
-                  <AuditoriaPage />
-                </ProtectedRoute>
-              }
-            />
+
             <Route
               path="/admin/backup"
               element={

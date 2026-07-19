@@ -2,12 +2,11 @@ import { supabase } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 import { brevoService } from '../../../services/brevo';
 
-import { encryptPassword } from '../../../utils/encryption';
+// encryptPassword eliminado: la columna 'contrasena' en miembro no debe poblarse desde el frontend.
+// Supabase Auth gestiona las credenciales con bcrypt. El backend usa service_role para crear usuarios.
 import { withCache } from '../../../utils/apiCache';
-import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
-import { BLOCKCHAIN_API } from '../../../config/api';
-
-const wrapWrite = (type, name, fn) => (...args) => withWriteQueue(type, name, fn)(...args);
+import { sanitizeObject } from '../../../utils/sanitize';
+import { BACKEND_API } from '../../../config/api';
 
 export const administracionApi = {
   obtenerMiembros: (() => {
@@ -44,30 +43,32 @@ export const administracionApi = {
       }));
     });
     return async (...args) => {
-      const data = await cachedFn(...args);
-      return applyPendingQueueToData('miembro', data);
+      return await cachedFn(...args);
     };
   })(),
 
-  crearMiembro: wrapWrite('miembro', 'crearMiembro', async (miembro) => {
+  crearMiembro: async (miembro) => {
     const emailToUse = miembro.email || miembro.correoElectronico;
 
-    // 1. Crear usuario en Auth llamando a la API del backend
-    const response = await fetch(`${BLOCKCHAIN_API}/api/admin/miembros/crear`, {
+    // SEC-13: Sanitizar entradas contra XSS
+    const sanitized = sanitizeObject({
+      email: emailToUse,
+      nombre: miembro.nombre,
+      rol: miembro.rol,
+      telefono: miembro.telefono,
+      apellidoPaterno: miembro.apellidoPaterno,
+      apellidoMaterno: miembro.apellidoMaterno,
+      monto_inscripcion: miembro.monto_inscripcion || 150
+    });
+
+    const response = await fetch(`${BACKEND_API}/api/admin/miembros/crear`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        email: emailToUse,
-        password: miembro.password || 'password123',
-        nombre: miembro.nombre,
-        rol: miembro.rol,
-        telefono: miembro.telefono,
-        apellidoPaterno: miembro.apellidoPaterno,
-        apellidoMaterno: miembro.apellidoMaterno,
-        monto_inscripcion: miembro.monto_inscripcion || 150,
-        contrasenaEncriptada: miembro.password ? encryptPassword(miembro.password) : undefined
+        ...sanitized,
+        password: miembro.password || 'password123'
       })
     });
 
@@ -113,22 +114,25 @@ export const administracionApi = {
       email: data.correoElectronico,
       // Contraseña no se expone al frontend por seguridad
     };
-  }),
+  },
 
-  actualizarMiembro: wrapWrite('miembro', 'actualizarMiembro', async (id, updates) => {
+  actualizarMiembro: async (id, updates) => {
+    // SEC-13: Sanitizar payload
+    const sanitized = sanitizeObject(updates);
+
     // 1. Si hay email o rol o nombre en los updates, también actualizamos en Auth a través de la API del backend
     const authUpdates = {};
-    if (updates.email) {
-      authUpdates.email = updates.email;
+    if (sanitized.email) {
+      authUpdates.email = sanitized.email;
     }
-    if (updates.rol || updates.nombre) {
-      authUpdates.rol = updates.rol;
-      authUpdates.nombre = updates.nombre;
+    if (sanitized.rol || sanitized.nombre) {
+      authUpdates.rol = sanitized.rol;
+      authUpdates.nombre = sanitized.nombre;
     }
 
     if (Object.keys(authUpdates).length > 0) {
       try {
-        const response = await fetch(`${BLOCKCHAIN_API}/api/admin/miembros/actualizar-auth`, {
+        const response = await fetch(`${BACKEND_API}/api/admin/miembros/actualizar-auth`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -149,9 +153,9 @@ export const administracionApi = {
     }
 
     // 2. Mapear 'email' a 'correoElectronico' para la tabla miembro
-    const finalUpdates = { ...updates };
-    if (updates.email) {
-      finalUpdates.correoElectronico = updates.email;
+    const finalUpdates = { ...sanitized };
+    if (sanitized.email) {
+      finalUpdates.correoElectronico = sanitized.email;
       delete finalUpdates.email;
     }
 
@@ -164,15 +168,15 @@ export const administracionApi = {
     if (error) throw error;
     const res = data?.[0];
     return res ? { ...res, email: res.correoElectronico } : null;
-  }),
+  },
 
   eliminarMiembro: async () => {
     throw new Error('La eliminación directa de miembros está deshabilitada por motivos de integridad histórica de datos financieros. Utilice el cambio de estado a Inactivo en su lugar.');
   },
 
-  inactivarMiembro: wrapWrite('miembro', 'inactivarMiembro', async (id) => {
+  inactivarMiembro: async (id) => {
     return administracionApi.actualizarMiembro(id, { estado: 'inactivo' });
-  }),
+  },
 
   obtenerAlertas: async () => {
     const { data, error } = await supabase
@@ -420,17 +424,18 @@ export const administracionApi = {
   },
 
   actualizarContrasena: async (userId, newPassword) => {
-    const encrypted = encryptPassword(newPassword);
-
-    const response = await fetch(`${BLOCKCHAIN_API}/api/admin/miembros/actualizar-password`, {
+    // Nota: Solo se envía newPassword en texto plano al backend sobre HTTPS.
+    // El backend usa Supabase Admin SDK (service_role) para actualizar la contraseña con bcrypt.
+    // NO se guarda la contraseña en la tabla miembro.contrasena desde el frontend.
+    const response = await fetch(`${BACKEND_API}/api/admin/miembros/actualizar-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         userId,
-        newPassword,
-        contrasenaEncriptada: encrypted
+        newPassword
+        // contrasenaEncriptada: ELIMINADO — AES reversible almacenado en BD es un riesgo
       })
     });
 

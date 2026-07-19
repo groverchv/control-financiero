@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   CalendarPlus,
   ClipboardList,
@@ -21,8 +21,6 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
-  ShieldCheck,
-  Shield,
   Loader2,
   XCircle,
   RefreshCw,
@@ -43,7 +41,6 @@ import { MapPicker } from "../../../components/ui/MapPicker";
 import { Table } from "../../../components/data-display";
 import { Toast, LoadingOverlay } from "../../../components/feedback";
 import { academicoApi } from "../api";
-import { blockchainService } from "../../../services/blockchain";
 import { administracionApi } from "../../administracion/api";
 import { useAuthStore } from "../../../store/authStore";
 import { supabase } from "../../../services/supabase";
@@ -255,106 +252,6 @@ export const GestionActividadesPage = () => {
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
 
-  // ── Blockchain sealing state ────────────────────────────────────────────────
-  // Tracks which activity IDs are currently being sealed (to show spinner)
-  const [sealingIds, setSealingIds] = useState(new Set());
-  // Ref to avoid running auto-seal more than once per load
-  const autoSealRanRef = useRef(false);
-
-  // Auto-seal finalized activities that lack a blockchain_tx_id
-  useEffect(() => {
-    if (!actividades.length || autoSealRanRef.current) return;
-    autoSealRanRef.current = true;
-
-    const pending = actividades.filter(
-      (act) =>
-        getDynamicEstado(act.fecha, act.hora) === "finalizado" &&
-        !act.blockchain_tx_id,
-    );
-
-    if (!pending.length) return;
-
-    // Fire-and-forget: seal each in background, then update local state
-    pending.forEach(async (act) => {
-      setSealingIds((prev) => new Set([...prev, act.id]));
-      try {
-        const txId = await blockchainService.sellarYActualizar(
-          "actividad",
-          act,
-          user?.id || "sistema",
-        );
-        if (txId) {
-          setActividades((prev) =>
-            prev.map((a) =>
-              a.id === act.id ? { ...a, blockchain_tx_id: txId } : a,
-            ),
-          );
-        }
-      } catch (err) {
-        console.error(
-          "[Blockchain] Auto-seal failed for actividad",
-          act.id,
-          err,
-        );
-      } finally {
-        setSealingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(act.id);
-          return next;
-        });
-      }
-    });
-  }, [actividades, user?.id, setActividades]);
-
-  // Manual seal handler
-  const handleSellarBlockchain = async (act) => {
-    setSealingIds((prev) => new Set([...prev, act.id]));
-    try {
-      const txId = await blockchainService.sellarYActualizar(
-        "actividad",
-        act,
-        user?.id || "sistema",
-      );
-      if (txId) {
-        setActividades((prev) =>
-          prev.map((a) =>
-            a.id === act.id ? { ...a, blockchain_tx_id: txId } : a,
-          ),
-        );
-        setResultModal({
-          open: true,
-          type: "success",
-          text: "¡Actividad sellada en Blockchain!",
-          details: `La actividad "${act.nombre}" ha sido registrada de forma inmutable en Hyperledger Fabric. TX: ${txId}`,
-        });
-        return txId;
-      } else {
-        setResultModal({
-          open: true,
-          type: "error",
-          text: "Sellado no completado",
-          details:
-            "El servicio de blockchain no devolvió un TX ID. Verifique que la API del blockchain esté activa en http://localhost:3001.",
-        });
-      }
-    } catch (err) {
-      console.error("[Blockchain] Manual seal error:", err);
-      setResultModal({
-        open: true,
-        type: "error",
-        text: "Error al sellar en Blockchain",
-        details:
-          err.message ||
-          "No se pudo conectar con el servicio de Hyperledger Fabric.",
-      });
-    } finally {
-      setSealingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(act.id);
-        return next;
-      });
-    }
-  };
 
   const columns = [
     { key: "nro", label: "Nº" },
@@ -794,79 +691,7 @@ export const GestionActividadesPage = () => {
     }
   };
 
-  const handleManualDesinscribir = (miembro) => {
-    if (!inscritosModal.actividad) return;
 
-    setGeneralConfirmModal({
-      open: true,
-      title: "Eliminar Inscripción",
-      message: `¿Estás seguro de eliminar la inscripción de "${miembro.nombre} ${miembro.apellidoPaterno || ""}" en esta actividad?`,
-      confirmText: "Sí, eliminar inscripción",
-      actionType: "danger",
-      onConfirm: async () => {
-        setGeneralConfirmModal((prev) => ({ ...prev, open: false }));
-        setLoadingModal({ open: true, text: "Anulando inscripción del socio..." });
-        try {
-          await academicoApi.desinscribirSocio(
-            miembro.id,
-            inscritosModal.actividad.id,
-          );
-
-          // Reload inscritos list in modal
-          const nuevosInscritos =
-            await administracionApi.obtenerInscritosActividad(
-              inscritosModal.actividad.id,
-            );
-          setInscritosModal((prev) => ({
-            ...prev,
-            inscritos: nuevosInscritos,
-          }));
-
-          // Increase cupos locally and decrement inscritos count to instantly update the list view
-          setActividades((prev) =>
-            prev.map((a) =>
-              a.id === inscritosModal.actividad.id
-                ? {
-                    ...a,
-                    cupos: (a.cupos || 0) + 1,
-                    inscritos_count: Math.max(0, (a.inscritos_count || 1) - 1),
-                  }
-                : a,
-            ),
-          );
-
-          setLoadingModal({ open: false, text: "" });
-          setResultModal({
-            open: true,
-            type: "success",
-            text: "¡Inscripción eliminada!",
-            details: "El socio ha sido desinscrito de la actividad con éxito.",
-          });
-
-          // Notificar desinscripción únicamente de forma interna (dentro del sistema)
-          try {
-            await supabase.from('notificacion').insert([{
-              miembro_id: miembro.id,
-              titulo: 'Inscripción Anulada',
-              descripcion: `Tu inscripción en la actividad "${inscritosModal.actividad.nombre}" ha sido anulada por la administración.`,
-              estado: 'pendiente'
-            }]);
-          } catch (notifErr) {
-            console.error('[Notif] Error guardando notificación interna de desinscripción:', notifErr);
-          }
-        } catch (err) {
-          console.error(err);
-          setLoadingModal({ open: false, text: "" });
-          setResultModal({
-            open: true,
-            type: "error",
-            text: "Error al eliminar inscripción",
-            details: err.message || "No se pudo eliminar la inscripción.",
-          });
-        }
-      },
-    });
-  };
 
   const handleReportActividadChange = async (actId) => {
     setAsistenciaModal((prev) => ({
@@ -1272,66 +1097,14 @@ export const GestionActividadesPage = () => {
         )}
       </div>
     ),
-    blockchain_display: (() => {
-      const isSealing = sealingIds.has(act.id);
 
-      if (act.blockchain_tx_id) {
-        // Already sealed
-        return (
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-blue-700 cursor-default"
-            title={`TX: ${act.blockchain_tx_id}`}
-          >
-            <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
-            Sellado
-          </span>
-        );
-      }
-
-      if (isSealing) {
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-amber-700">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Sellando…
-          </span>
-        );
-      }
-
-      const esFinalizado =
-        getDynamicEstado(act.fecha, act.hora) === "finalizado";
-
-      if (!esFinalizado) {
-        // Activity not yet finished — no sealing applicable
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
-            <Shield className="h-3.5 w-3.5" />
-            Pendiente
-          </span>
-        );
-      }
-
-      // Finalized but not sealed — show manual button
-      return (
-        <div className="flex items-center gap-1.5">
-          <AlertCircle className="h-3.5 w-3.5 text-amber-500 animate-pulse" title="Pendiente de sellado en Blockchain (Fallo de conexión o red offline)" />
-          <button
-            onClick={() => handleSellarBlockchain(act)}
-            className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-300 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-700 hover:bg-amber-100 transition-colors"
-            title="Sellar esta actividad en Hyperledger Fabric"
-          >
-            Sellar Ahora
-          </button>
-        </div>
-      );
-    })(),
     acciones: (() => {
       // Una actividad cancelada NUNCA es "finalizada" — tiene su propio estado
       // y debe poder editarse / re-publicarse independientemente de su fecha.
       const esCancelado = act.estado === "cancelado";
       const esFinalizado =
         !esCancelado && getDynamicEstado(act.fecha, act.hora) === "finalizado";
-      const esSellado = !!act.blockchain_tx_id;
-      const debeMostrarOculto = act.publicado === false || esFinalizado || esSellado;
+      const debeMostrarOculto = act.publicado === false || esFinalizado;
       return (
         <div className="flex gap-1.5 sm:gap-2 items-center">
           <button
@@ -1368,20 +1141,20 @@ export const GestionActividadesPage = () => {
           </button>
           <button
             onClick={() => {
-              if (esFinalizado || esSellado) return;
+              if (esFinalizado) return;
               handleTogglePublicado(act);
             }}
-            disabled={esFinalizado || esSellado}
+            disabled={esFinalizado}
             className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-              (esFinalizado || esSellado)
+              esFinalizado
                 ? "bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
                 : act.publicado === false
                   ? "bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-950/20 dark:text-violet-400"
                   : "bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-950/20 dark:text-violet-400"
             }`}
             title={
-              (esFinalizado || esSellado)
-                ? "No se puede publicar/ocultar una actividad finalizada o sellada en Blockchain"
+              esFinalizado
+                ? "No se puede publicar/ocultar una actividad finalizada"
                 : act.publicado === false
                   ? "Publicar actividad"
                   : "Ocultar actividad"
@@ -1401,23 +1174,23 @@ export const GestionActividadesPage = () => {
           </button>
           <button
             onClick={() => {
-              if (esFinalizado || esSellado) return;
+              if (esFinalizado) return;
               handleOpenEdit(act);
             }}
-            disabled={esFinalizado || esSellado}
+            disabled={esFinalizado}
             className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-              (esFinalizado || esSellado)
+              esFinalizado
                 ? "bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500"
                 : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
             }`}
             title={
-              (esFinalizado || esSellado) ? "No se puede editar un curso finalizado o sellado en Blockchain" : "Editar"
+              esFinalizado ? "No se puede editar un curso finalizado" : "Editar"
             }
           >
             <Edit className="h-3.5 w-3.5" />
             <span>Editar</span>
           </button>
-          {(!act.inscritos_count || act.inscritos_count === 0) && !esSellado && (
+          {(!act.inscritos_count || act.inscritos_count === 0) && (
             <button
               onClick={() => {
                 if (esFinalizado) return;
@@ -2053,22 +1826,20 @@ export const GestionActividadesPage = () => {
                           key={i}
                           className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2.5 text-sm border border-slate-100 animate-fadeIn"
                         >
-                          <div className="flex items-center gap-3">
-                            {!inscritosModal.actividad?.blockchain_tx_id && (
-                              <button
-                                type="button"
-                                onClick={() => handleProcesarReembolso(u)}
-                                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors mr-2 shrink-0 text-xs font-semibold ${
-                                  u.totalPaid > 0 
-                                    ? "bg-amber-50 text-amber-600 hover:bg-amber-100" 
-                                    : "bg-rose-50 text-red-600 hover:bg-rose-100"
-                                }`}
-                                title={u.totalPaid > 0 ? "Procesar Reembolso (El socio ya pagó)" : "Anular Inscripción"}
-                              >
-                                <RefreshCw className="h-3.5 w-3.5" />
-                                <span>{u.totalPaid > 0 ? "Reembolsar" : "Anular"}</span>
-                              </button>
-                            )}
+                           <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleProcesarReembolso(u)}
+                              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors mr-2 shrink-0 text-xs font-semibold ${
+                                u.totalPaid > 0 
+                                  ? "bg-amber-50 text-amber-600 hover:bg-amber-100" 
+                                  : "bg-rose-50 text-red-600 hover:bg-rose-100"
+                              }`}
+                              title={u.totalPaid > 0 ? "Procesar Reembolso (El socio ya pagó)" : "Anular Inscripción"}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              <span>{u.totalPaid > 0 ? "Reembolsar" : "Anular"}</span>
+                            </button>
                             <span className="font-mono font-black text-slate-400 bg-slate-200/50 rounded-full h-6 w-6 flex items-center justify-center text-xs shrink-0">
                               {i + 1}
                             </span>
@@ -2356,44 +2127,7 @@ export const GestionActividadesPage = () => {
                     : "✗ No incluye certificación"}
                 </span>
               </div>
-              <div>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">
-                  Estado Blockchain
-                </p>
-                {detalleModal.actividad.blockchain_tx_id ? (
-                  <div className="flex flex-col gap-1 mt-0.5">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-250 dark:border-emerald-900 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-450 w-fit uppercase">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Sellado
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono select-all truncate max-w-[200px]" title={detalleModal.actividad.blockchain_tx_id}>
-                      TX: {detalleModal.actividad.blockchain_tx_id}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-750 px-2 py-0.5 text-xs font-bold text-slate-600 dark:text-slate-405 w-fit uppercase">
-                      <Shield className="h-3.5 w-3.5" /> Pendiente
-                    </span>
-                    {detalleModal.actividad.estado === "finalizado" && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const txId = await handleSellarBlockchain(detalleModal.actividad);
-                          if (txId) {
-                            setDetalleModal(prev => ({
-                              ...prev,
-                              actividad: { ...prev.actividad, blockchain_tx_id: txId }
-                            }));
-                          }
-                        }}
-                        className="text-[10px] text-blue-600 dark:text-emerald-450 hover:underline font-black"
-                      >
-                        Sellar ahora
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+
               {detalleModal.actividad.requisitos && (
                 <div className="col-span-1 md:col-span-2">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">

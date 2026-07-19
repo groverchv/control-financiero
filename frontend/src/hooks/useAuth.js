@@ -104,6 +104,8 @@ export const useAuth = () => {
           try {
             const cachedUser = JSON.parse(cachedUserStr);
             if (cachedUser.id === sessionUser.id) {
+              // SEC-9: Nunca confiar en el rol del localStorage. Sobrescribir con el JWT firmado.
+              cachedUser.rol = sessionUser.user_metadata?.rol || 'socio';
               setUser(cachedUser);
               setLoading(false);
               return;
@@ -255,25 +257,6 @@ export const useAuth = () => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-
-    // R12: Auto-sellar registros pendientes cuando Fabric está en línea
-    const autoSeal = async () => {
-      try {
-        const { blockchainService } = await import('../services/blockchain');
-        const online = await blockchainService.healthCheck();
-        if (online) {
-          await blockchainService.sellarPendientes('ingreso');
-          await blockchainService.sellarPendientes('egreso');
-          await blockchainService.sellarPendientes('activo');
-          await blockchainService.sellarPendientes('archivo');
-          await blockchainService.sellarPendientes('actividad');
-        }
-      } catch (err) {
-        console.warn('[useAuth] Error en auto-sellado de registros pendientes:', err.message);
-      }
-    };
-    
-    autoSeal();
 
     // Suscribirse a inserciones de notificaciones en tiempo real para el usuario actual
     const channel = supabase

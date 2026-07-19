@@ -5,7 +5,10 @@ const loadCachedUser = () => {
   try {
     const cached = localStorage.getItem('control-financiero-auth-user');
     if (cached) {
-      return JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      // SEC-9: Nunca confiar en el rol del localStorage al inicializar la app.
+      // Se sobreescribirá con el valor real del JWT (o BD) en useAuth.
+      return { ...parsed, rol: 'socio' };
     }
   } catch (e) {
     console.error('[authStore] Error al leer usuario de localStorage:', e);

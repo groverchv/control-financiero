@@ -32,9 +32,6 @@ dist-ssr
 *.key.pub
 *.pem
 
-# Blockchain runtime artifacts
-blockchain/api/services/mockLedger.json
-blockchain/api/logs/
 
 # Scratch / temporary
 scratch/

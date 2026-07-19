@@ -1,27 +1,25 @@
 import { supabase } from '../../../services/supabase';
 import { brevoService } from '../../../services/brevo';
-import { blockchainService } from '../../../services/blockchain';
 import { apiCache, withCache } from '../../../utils/apiCache';
-import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
-
-const wrapWrite = (type, name, fn) => (...args) => withWriteQueue(type, name, fn)(...args);
+import { sanitizeObject } from '../../../utils/sanitize';
 
 export const finanzasApi = {
   // Nota: 'cuotas' ya no existe en el esquema nuevo. Se mapea a 'ingreso' temporalmente o se marca como pendiente.
-  registrarPago: wrapWrite('ingreso', 'registrarPago', async (pago) => {
+  registrarPago: async (pago) => {
     apiCache.invalidate('finanzas');
-    const miembroId = pago.miembroId || pago.miembro_id || null;
+    const sanitized = sanitizeObject(pago);
+    const miembroId = sanitized.miembroId || sanitized.miembro_id || null;
     const { data, error } = await supabase
       .from('ingreso')
       .insert([{
         miembro_id: miembroId,
-        registrado_por: pago.registradoPor || null,
-        tipo_ingreso_id: pago.tipo_ingreso_id || null,
-        monto: pago.monto,
-        fecha: pago.fecha,
-        descripcion: pago.descripcion || 'Ingreso',
-        estado: pago.estado || 'pagada',
-        inscripcion_id: pago.inscripcionId || null,
+        registrado_por: sanitized.registradoPor || null,
+        tipo_ingreso_id: sanitized.tipo_ingreso_id || null,
+        monto: sanitized.monto,
+        fecha: sanitized.fecha,
+        descripcion: sanitized.descripcion || 'Ingreso',
+        estado: sanitized.estado || 'pagada',
+        inscripcion_id: sanitized.inscripcionId || null,
       }])
       .select();
 
@@ -30,20 +28,12 @@ export const finanzasApi = {
 
     // Registrar archivo si se proporcionó una URL de comprobante
     if (pago.comprobanteUrl && pagoRegistrado) {
-      const { data: archData } = await supabase.from('archivo').insert([{
+      await supabase.from('archivo').insert([{
         ingreso_id: pagoRegistrado.id,
         url: pago.comprobanteUrl,
         tipo: 'comprobante_ingreso'
-      }]).select();
-
-      // Sellar el archivo en blockchain
-      if (archData?.[0]) {
-        blockchainService.sellarYActualizar('archivo', archData[0], pago.registradoPor || 'sistema');
-      }
+      }]);
     }
-
-    // Sellar el ingreso en blockchain (en segundo plano para no bloquear el UI)
-    blockchainService.sellarYActualizar('ingreso', pagoRegistrado, pago.registradoPor || 'sistema');
 
     // Si el pago está vinculado a una inscripción de actividad, marcarla como pagada
     if (pago.inscripcionId && pagoRegistrado) {
@@ -54,9 +44,9 @@ export const finanzasApi = {
     }
 
     // Si el pago es de tipo cuota mensual/inscripción o la descripción indica que es pago de membresía/inscripción, marcar la cuota más antigua pendiente como pagada
-    const esPagoCuotaOMembresia = 
-      pago.tipo_ingreso_id === 'fb06aeef-2529-425b-b131-ff09466a0a83' ||
-      pago.tipo_ingreso_id === '6968c28b-d79f-4cfa-86ef-b1674b93ac8e' ||
+    // Deteccion por descripcion o tipo_ingreso (sin UUIDs hardcodeados que cambian por BD)
+    // Los UUIDs de tipo_ingreso varian por entorno; se usa el nombre/descripcion del pago.
+    const esPagoCuotaOMembresia =
       (pago.descripcion && (
         pago.descripcion.toLowerCase().includes('cuota') ||
         pago.descripcion.toLowerCase().includes('membres') ||
@@ -159,7 +149,7 @@ export const finanzasApi = {
       registrado_por_rol: fullPago.registrador?.rol || null,
       comprobanteUrl: fullPago.archivos && fullPago.archivos.length > 0 ? fullPago.archivos[0].url : null
     };
-  }),
+  },
 
   devolverIngreso: async (id, usuarioId) => {
     apiCache.invalidate('finanzas');
@@ -244,54 +234,16 @@ export const finanzasApi = {
       console.error('[Notif] Error guardando notificación de devolución:', notifErr);
     }
 
-    // Si tiene una inscripción ligada y es un reembolso total, eliminarla y regresar el cupo
-    if (currentIngreso?.inscripcion_id && !esRefundablePorCosto) {
-      // Obtener la actividad_id asociada a la inscripción
-      const { data: inscripcion, error: insErr } = await supabase
-        .from('inscripcion')
-        .select('actividad_id')
-        .eq('id', currentIngreso.inscripcion_id)
-        .maybeSingle();
-
-      if (!insErr && inscripcion?.actividad_id) {
-        // Eliminar inscripción
-        const { error: delErr } = await supabase
-          .from('inscripcion')
-          .delete()
-          .eq('id', currentIngreso.inscripcion_id);
-        
-        if (delErr) {
-          console.error("Error al eliminar la inscripcion:", delErr);
-        }
-
-        // Devolver el cupo a la actividad
-        const { data: actNow } = await supabase
-          .from('actividad')
-          .select('cupos')
-          .eq('id', inscripcion.actividad_id)
-          .maybeSingle();
-
-        if (actNow) {
-          await supabase
-            .from('actividad')
-            .update({ cupos: (actNow.cupos || 0) + 1 })
-            .eq('id', inscripcion.actividad_id);
-        }
-      }
-    }
-    
-    // Sellar la devolución en blockchain (en segundo plano)
-    if (data?.[0]) {
-      blockchainService.sellarYActualizar('ingreso', data[0], 'sistema-devolucion');
-    }
-    
+    // La inscripcion fue eliminada. El trigger gestionar_cupos en BD
+    // devuelve el cupo automaticamente al hacer DELETE de la inscripcion.
+    // NO hacer update manual del cupo para evitar doble incremento.
     return data?.[0];
   },
 
   obtenerCuotas: async (miembroId) => {
     const cacheKey = `finanzas:cuotas:${miembroId || 'all'}`;
     const cached = apiCache.get(cacheKey);
-    if (cached) return applyPendingQueueToData('ingreso', cached);
+    if (cached) return cached;
 
     let query = supabase.from('ingreso').select(`
       *,
@@ -326,7 +278,7 @@ export const finanzasApi = {
     })) || [];
 
     apiCache.set(cacheKey, result);
-    return applyPendingQueueToData('ingreso', result);
+    return result;
   },
 
   // ── Historial de cuotas de membresía por miembro ──────────────────────────
@@ -746,12 +698,16 @@ export const finanzasApi = {
     }
   },
 
-  registrarEgreso: wrapWrite('egreso', 'registrarEgreso', async (egreso) => {
+  registrarEgreso: async (egreso) => {
     apiCache.invalidate('finanzas');
+    
+    // SEC-13: Sanitizar entradas contra XSS
+    const sanitized = sanitizeObject(egreso);
+    
     // Convertir strings vacíos a null para campos UUID (Supabase no acepta '' en UUID)
-    const miembroId = egreso.miembro_id || egreso.registradoPor || null;
-    const tipoEgresoId = egreso.tipo_egreso_id && egreso.tipo_egreso_id.trim() !== '' ? egreso.tipo_egreso_id : null;
-    const activoId = egreso.activo_id && egreso.activo_id.trim() !== '' ? egreso.activo_id : null;
+    const miembroId = sanitized.miembro_id || sanitized.registradoPor || null;
+    const tipoEgresoId = sanitized.tipo_egreso_id && sanitized.tipo_egreso_id.trim() !== '' ? sanitized.tipo_egreso_id : null;
+    const activoId = sanitized.activo_id && sanitized.activo_id.trim() !== '' ? sanitized.activo_id : null;
 
     const { data, error } = await supabase
       .from('egreso')
@@ -759,9 +715,11 @@ export const finanzasApi = {
         miembro_id: miembroId,
         tipo_egreso_id: tipoEgresoId,
         activo_id: activoId,
-        monto: Number(egreso.monto),
-        concepto: egreso.concepto,
-        descripcion: egreso.descripcion || null,
+        monto: Number(sanitized.monto),
+        concepto: sanitized.concepto,
+        // fecha es NOT NULL en BD: usar la fecha del formulario o la fecha actual
+        fecha: sanitized.fecha || new Date().toISOString().split('T')[0],
+        descripcion: sanitized.descripcion || null,
       }])
       .select();
 
@@ -820,20 +778,12 @@ export const finanzasApi = {
 
     // Registrar archivo si se proporcionó una URL de comprobante
     if (egreso.comprobanteUrl && egresoRegistrado) {
-      const { data: archData } = await supabase.from('archivo').insert([{
+      await supabase.from('archivo').insert([{
         egreso_id: egresoRegistrado.id,
         url: egreso.comprobanteUrl,
         tipo: 'comprobante_egreso'
-      }]).select();
-
-      // Sellar el archivo en blockchain
-      if (archData?.[0]) {
-        blockchainService.sellarYActualizar('archivo', archData[0], miembroId || 'sistema');
-      }
+      }]);
     }
-
-    // Sellar el egreso en blockchain
-    blockchainService.sellarYActualizar('egreso', egresoRegistrado, miembroId || 'sistema');
 
     // R15: Recargar el objeto completo (con tipo, activo y archivos) para actualizar la UI sin F5
     const { data: fullEgreso, error: fetchError } = await supabase
@@ -860,7 +810,7 @@ export const finanzasApi = {
       activo_nombre: fullEgreso.activo?.nombre || null,
       comprobanteUrl: fullEgreso.archivos && fullEgreso.archivos.length > 0 ? fullEgreso.archivos[0].url : null
     };
-  }),
+  },
 
   obtenerEgresos: (() => {
     const cachedFn = withCache('finanzas:egresos', async () => {
@@ -889,7 +839,7 @@ export const finanzasApi = {
     });
     return async (...args) => {
       const data = await cachedFn(...args);
-      return applyPendingQueueToData('egreso', data);
+      return data;
     };
   })(),
 
@@ -924,11 +874,14 @@ export const finanzasApi = {
   },
 
   obtenerFlujoCaja: async () => {
-    // 1. Obtener suma de ingresos
-    const { data: ingresos } = await supabase.from('ingreso').select('monto');
+    // 1. Obtener ingresos activos (excluir devoluciones para calcular saldo real)
+    const { data: ingresos } = await supabase
+      .from('ingreso')
+      .select('monto, estado')
+      .neq('estado', 'devolucion');
     const ingresosTotales = (ingresos || []).reduce((acc, curr) => acc + Number(curr.monto), 0);
 
-    // 2. Obtener suma de egresos
+    // 2. Obtener suma de egresos (todos son positivos por CHECK constraint)
     const { data: egresos } = await supabase.from('egreso').select('monto');
     const egresosTotales = (egresos || []).reduce((acc, curr) => acc + Number(curr.monto), 0);
 
@@ -989,21 +942,7 @@ export const finanzasApi = {
     return data || [];
   },
   
-  sellarIngreso: async (id, registradoPor) => {
-    const { data, error } = await supabase.from('ingreso').select('*').eq('id', id).single();
-    if (error) throw error;
-    const txId = await blockchainService.sellarYActualizar('ingreso', data, registradoPor);
-    if (!txId) throw new Error('El sellado falló o el registro no tiene un hash generado.');
-    return txId;
-  },
 
-  sellarEgreso: async (id, registradoPor) => {
-    const { data, error } = await supabase.from('egreso').select('*').eq('id', id).single();
-    if (error) throw error;
-    const txId = await blockchainService.sellarYActualizar('egreso', data, registradoPor);
-    if (!txId) throw new Error('El sellado falló o el registro no tiene un hash generado.');
-    return txId;
-  },
 
   verificarTipoIngresoEnUso: async (tipoId) => {
     const { count, error } = await supabase

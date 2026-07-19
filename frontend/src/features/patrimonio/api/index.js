@@ -1,12 +1,8 @@
 import { supabase } from '../../../services/supabase';
-import { blockchainService } from '../../../services/blockchain';
 import { withCache } from '../../../utils/apiCache';
-import { withWriteQueue, applyPendingQueueToData } from '../../../utils/offlineQueue';
-
-const wrapWrite = (type, name, fn) => (...args) => withWriteQueue(type, name, fn)(...args);
 
 export const patrimonioApi = {
-  registrarActivo: wrapWrite('activo', 'registrarActivo', async (activo) => {
+  registrarActivo: async (activo) => {
     // eslint-disable-next-line no-unused-vars
     const { imagen_url, ...activoData } = activo;
     const { data, error } = await supabase
@@ -19,22 +15,13 @@ export const patrimonioApi = {
 
     // Registrar en la tabla archivo si hay imagen
     if (activo.imagen_url && activoRegistrado) {
-      const { data: archData } = await supabase.from('archivo').insert([{
+      await supabase.from('archivo').insert([{
         activo_id: activoRegistrado.id,
         miembro_id: activo.miembro_id,
         url: activo.imagen_url,
         tipo: 'imagen_activo'
-      }]).select();
-
-      // Sellar el archivo
-      if (archData?.[0]) {
-        blockchainService.sellarYActualizar('archivo', archData[0], activo.miembro_id || 'sistema');
-      }
+      }]);
     }
-
-    // Sellar el activo en blockchain
-    // R12: Devolvemos el TxID para confirmar veracidad
-    const txId = await blockchainService.sellarYActualizar('activo', activoRegistrado, activo.miembro_id || 'sistema');
 
     // R15: Recargar el objeto completo (con tipo e imagen) para actualizar la UI sin F5
     const { data: fullAsset, error: fetchError } = await supabase
@@ -44,15 +31,14 @@ export const patrimonioApi = {
       .single();
 
     if (fetchError) {
-        return { ...activoRegistrado, blockchain_tx_id: txId };
+        return activoRegistrado;
     }
 
     return { 
       ...fullAsset, 
-      blockchain_tx_id: txId,
       imagen_url: fullAsset.archivo?.[0]?.url || null
     };
-  }),
+  },
 
   obtenerActivos: (() => {
     const cachedFn = withCache('patrimonio:activos', async () => {
@@ -68,73 +54,27 @@ export const patrimonioApi = {
       }));
     });
     return async (...args) => {
-      const data = await cachedFn(...args);
-      return applyPendingQueueToData('activo', data);
+      return await cachedFn(...args);
     };
   })(),
 
-  sellarActivo: async (id, idUsuario) => {
-    const { data: activo, error } = await supabase
-      .from('activos')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) throw error;
-    
-    const txId = await blockchainService.sellarYActualizar('activo', activo, idUsuario || 'sistema');
-    if (!txId) throw new Error('No se pudo generar el sello en el servidor Blockchain. Verifique la conexión.');
-    
-    return txId;
+
+  // NOTA: La tabla 'adquisiciones' no existe en el esquema de BD.
+  // Si se requiere en el futuro, crear la tabla primero en setup.sql.
+  registrarAdquisicion: async () => {
+    throw new Error('[patrimonioApi] La tabla adquisiciones no existe en la base de datos. Registre el gasto como un egreso vinculado al activo.');
   },
-  registrarAdquisicion: wrapWrite('adquisicion', 'registrarAdquisicion', async (adquisicion) => {
-    const { data, error } = await supabase
-      .from('adquisiciones')
-      .insert([adquisicion])
-      .select();
-
-    if (error) throw error;
-    return data?.[0];
-  }),
-  obtenerAdquisiciones: (() => {
-    const cachedFn = withCache('patrimonio:adquisiciones', async () => {
-      const { data, error } = await supabase
-        .from('adquisiciones')
-        .select('*')
-        .order('fecha', { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    });
-    return async (...args) => {
-      const data = await cachedFn(...args);
-      return applyPendingQueueToData('adquisicion', data);
-    };
-  })(),
-  registrarAuditoria: async (auditoria) => {
-    const { data, error } = await supabase
-      .from('auditorias_blockchain')
-      .insert([auditoria])
-      .select();
-
-    if (error) throw error;
-    return data?.[0];
+  obtenerAdquisiciones: async () => {
+    console.warn('[patrimonioApi] obtenerAdquisiciones: tabla adquisiciones no existe. Retornando array vacío.');
+    return [];
   },
-  obtenerAuditorias: async () => {
-    const { data, error } = await supabase
-      .from('auditorias_blockchain')
-      .select('*')
-      .order('fecha', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
-  },
 
   obtenerAmortizacion: async (activoId) => {
     const { data, error } = await supabase
       .from('plan_amortizacion')
       .select('*')
-      .eq('activoId', activoId);
+      .eq('activo_id', activoId); // snake_case
 
     if (error) throw error;
     return data || [];
@@ -142,7 +82,7 @@ export const patrimonioApi = {
   obtenerTodosPlanesAmortizacion: async () => {
     const { data, error } = await supabase
       .from('plan_amortizacion')
-      .select('activoId');
+      .select('activo_id'); // snake_case
 
     if (error) throw error;
     return data || [];
@@ -185,15 +125,15 @@ export const patrimonioApi = {
   
   guardarPlanAmortizacion: async (activoId, plan) => {
     // Eliminar plan anterior si existe
-    await supabase.from('plan_amortizacion').delete().eq('activoId', activoId);
-    
+    await supabase.from('plan_amortizacion').delete().eq('activo_id', activoId); // snake_case
+
     // Insertar nuevo plan
     const { data, error } = await supabase
       .from('plan_amortizacion')
       .insert(plan.map(p => ({
-        activoId,
+        activo_id: activoId,              // snake_case (era activoId)
         numero: p.numero,
-        fechaVencimiento: p.fechaVencimiento,
+        fecha_vencimiento: p.fechaVencimiento || p.fecha_vencimiento, // acepta ambos formatos del frontend
         monto: p.monto,
         estado: 'pendiente'
       })))
@@ -216,17 +156,17 @@ export const patrimonioApi = {
       if (!planes || planes.length === 0) return;
 
       const { data: activos } = await supabase.from('activos').select('id, nombre');
-      const { data: notifs } = await supabase.from('notificacion').select('titulo').eq('miembro_id', userId).ilike('titulo', 'Recordatorio de Amortización:%');
+      const { data: notifs } = await supabase.from('notificacion').select('titulo').eq('miembro_id', userId).ilike('titulo', 'Recordatorio de Amortizacion:%');
 
       const hoy = new Date();
 
       for (const p of planes) {
-        const fechaVenc = new Date(p.fechaVencimiento + 'T00:00:00');
+        const fechaVenc = new Date((p.fecha_vencimiento || p.fechaVencimiento) + 'T00:00:00'); // compatibilidad
         const diffDias = Math.ceil((fechaVenc - hoy) / (1000 * 60 * 60 * 24));
 
         if (diffDias <= diasAviso) {
-          const activoNombre = activos?.find(a => a.id === p.activoId)?.nombre || 'Activo';
-          const tituloEsperado = `Recordatorio de Amortización: ${activoNombre} - Cuota ${p.numero}`;
+          const activoNombre = activos?.find(a => a.id === (p.activo_id || p.activoId))?.nombre || 'Activo';
+          const tituloEsperado = `Recordatorio de Amortizacion: ${activoNombre} - Cuota ${p.numero}`;
           const syncKey = `${userId}-${tituloEsperado}`;
 
           if (patrimonioApi._syncAmortizacionKeys.has(syncKey)) continue;

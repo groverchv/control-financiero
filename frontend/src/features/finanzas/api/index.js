@@ -284,7 +284,7 @@ export const finanzasApi = {
   // ── Historial de cuotas de membresía por miembro ──────────────────────────
   obtenerHistorialCuotasMiembro: async (forceRefresh = false) => {
     const cacheKey = 'finanzas:historial_cuotas';
-    if (!forceRefresh && !navigator.onLine) {
+    if (!forceRefresh) {
       const cached = apiCache.get(cacheKey);
       if (cached) return cached;
     }
@@ -353,9 +353,11 @@ export const finanzasApi = {
             while (nextDue <= now) {
               const periodStr = getPeriodLabel(nextDue, configUltima.frecuencia);
               
-              // Evitar duplicados revisando si la cuota ya existe en cuotasFisicas
+              // Evitar duplicados revisando si la cuota ya existe en cuotasFisicas o en las nuevas generadas en este lote
               const yaExiste = (cuotasFisicas || []).some(
                 cf => cf.miembro_id === m.id && cf.periodo === periodStr
+              ) || cuotasNuevas.some(
+                cn => cn.periodo === periodStr
               );
 
               if (!yaExiste) {
@@ -379,7 +381,7 @@ export const finanzasApi = {
 
             if (cuotasNuevas.length > 0) {
               huboCambios = true;
-              await supabase.from('cuota_membresia').insert(cuotasNuevas);
+              await supabase.from('cuota_membresia').upsert(cuotasNuevas, { onConflict: 'miembro_id,periodo' });
             }
           }
         }
@@ -547,12 +549,13 @@ export const finanzasApi = {
       frecuencia: configActual?.frecuencia || 'mes',
       monto_cuota: configActual?.monto_cuota || 20,
       dias_recordatorio_activos: configActual?.dias_recordatorio_activos || 5,
-      ...payload
+      ...payload,
+      singleton_guard: true
     };
 
     const { data, error } = await supabase
       .from('configuracion_cuotas')
-      .insert([fullPayload])
+      .upsert(fullPayload, { onConflict: 'singleton_guard' })
       .select()
       .single();
 
@@ -585,7 +588,7 @@ export const finanzasApi = {
     const executeSave = async (dataToSave) => {
       return await supabase
         .from('configuracion_cuotas')
-        .insert([dataToSave])
+        .upsert({ ...dataToSave, singleton_guard: true }, { onConflict: 'singleton_guard' })
         .select()
         .single();
     };
@@ -660,9 +663,9 @@ export const finanzasApi = {
                     estado: 'pendiente',
                   });
                 }
-                if (cuotasNuevas.length > 0) {
-                  await supabase.from('cuota_membresia').insert(cuotasNuevas);
-                }
+                 if (cuotasNuevas.length > 0) {
+                   await supabase.from('cuota_membresia').upsert(cuotasNuevas, { onConflict: 'miembro_id,periodo' });
+                 }
               }
             }
 
@@ -733,7 +736,7 @@ export const finanzasApi = {
         const { data: planesPendientes } = await supabase
           .from('plan_amortizacion')
           .select('*')
-          .eq('activoId', activoId)
+          .eq('activo_id', activoId)
           .eq('estado', 'pendiente')
           .order('numero', { ascending: true })
           .limit(1);
@@ -1003,7 +1006,7 @@ export const finanzasApi = {
             nombre
           )
         ),
-        ingreso(monto)
+        ingreso(monto, estado)
       `)
       .order('fecha_inscripcion', { ascending: false });
 
@@ -1013,7 +1016,7 @@ export const finanzasApi = {
       .filter(i => i.actividad && Number(i.actividad.costo) > 0)
       .map(i => {
         const totalPaid = i.ingreso && i.ingreso.length > 0
-          ? i.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
+          ? i.ingreso.reduce((sum, ing) => sum + (ing.estado === 'devolucion' ? 0 : Number(ing.monto || 0)), 0)
           : (i.estado === 'pagado' ? Number(i.actividad?.costo || 0) : 0);
         return {
           id: i.id,

@@ -1,31 +1,12 @@
 import { create } from 'zustand';
 
-// Carga inicial desde localStorage para evitar parpadeo de pantalla no autenticada
-const loadCachedUser = () => {
-  try {
-    const cached = localStorage.getItem('control-financiero-auth-user');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      // SEC-9: Nunca confiar en el rol del localStorage al inicializar la app.
-      // Se sobreescribirá con el valor real del JWT (o BD) en useAuth.
-      return { ...parsed, rol: 'socio' };
-    }
-  } catch (e) {
-    console.error('[authStore] Error al leer usuario de localStorage:', e);
-  }
-  return null;
-};
-
-const cachedUser = loadCachedUser();
-
 export const useAuthStore = create((set) => ({
-  user: cachedUser || null,
-  isAuthenticated: !!cachedUser,
+  user: null,
+  isAuthenticated: false,
   isLoading: true,
   setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
   setLoading: (isLoading) => set({ isLoading }),
   logout: () => {
-    localStorage.removeItem('control-financiero-auth-user');
     set({ user: null, isAuthenticated: false, isLoading: false });
   },
 }));

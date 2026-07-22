@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   CalendarPlus,
   ClipboardList,
@@ -28,7 +28,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useActividades, useTiposActividad } from "../hooks";
-import { useFormDraft } from "../../../hooks/useFormDraft";
 import {
   Button,
   Spinner,
@@ -78,21 +77,8 @@ export const GestionActividadesPage = () => {
     tipo_actividad_id: "",
   });
   const [showConfetti, setShowConfetti] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
-  // Hook para persistir borradores de actividades nuevas
-  const { clearDraft } = useFormDraft('actividades_form_draft', formData, setFormData, !editingAct);
+  const clearDraft = () => {};
   const [adicionalCupos, setAdicionalCupos] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -518,14 +504,14 @@ export const GestionActividadesPage = () => {
           }));
           setSelectedMiembroId("");
           setMemberSearchQuery("");
-          // Decrease cupos locally and increment inscritos count to instantly update the list view
+          // Decrease cupos locally and update inscritos count with exact value to instantly update the list view
           setActividades((prev) =>
             prev.map((a) =>
               a.id === inscritosModal.actividad.id
                 ? {
                     ...a,
                     cupos: Math.max(0, a.cupos - 1),
-                    inscritos_count: (a.inscritos_count || 0) + 1,
+                    inscritos_count: nuevosInscritos.length,
                   }
                 : a,
             ),
@@ -590,6 +576,7 @@ export const GestionActividadesPage = () => {
           try {
             const { finanzasApi } = await import("../../finanzas/api");
             await finanzasApi.devolverIngreso(miembro.ingresoId, user?.id);
+            await academicoApi.desinscribirSocio(miembro.id, inscritosModal.actividad.id);
 
             const nuevosInscritos =
               await administracionApi.obtenerInscritosActividad(
@@ -600,13 +587,13 @@ export const GestionActividadesPage = () => {
               inscritos: nuevosInscritos,
             }));
 
-            setActividades((prev) =>
+             setActividades((prev) =>
               prev.map((a) =>
                 a.id === inscritosModal.actividad.id
                   ? {
                       ...a,
                       cupos: (a.cupos || 0) + 1,
-                      inscritos_count: Math.max(0, (a.inscritos_count || 1) - 1),
+                      inscritos_count: nuevosInscritos.length,
                     }
                   : a,
               ),
@@ -657,13 +644,13 @@ export const GestionActividadesPage = () => {
               inscritos: nuevosInscritos,
             }));
 
-            setActividades((prev) =>
+             setActividades((prev) =>
               prev.map((a) =>
                 a.id === inscritosModal.actividad.id
                   ? {
                       ...a,
                       cupos: (a.cupos || 0) + 1,
-                      inscritos_count: Math.max(0, (a.inscritos_count || 1) - 1),
+                      inscritos_count: nuevosInscritos.length,
                     }
                   : a,
               ),
@@ -966,7 +953,7 @@ export const GestionActividadesPage = () => {
 
         // Notificar a los inscritos si el costo cambió
         const costChanged = Number(editingAct.costo) !== Number(formData.costo);
-        if (costChanged && navigator.onLine) {
+        if (costChanged) {
           try {
             const { data: inscritos } = await supabase
               .from('inscripcion')
@@ -1758,15 +1745,13 @@ export const GestionActividadesPage = () => {
             <Button
               type="submit"
               disabled={isSubmitting || isSubmitDisabled}
-              className={`${isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""} ${!isOnline ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white" : ""}`}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
             >
               {isSubmitting
                 ? "Guardando..."
-                : !isOnline
-                  ? "💾 Guardar localmente (Offline)"
-                  : editingAct
-                    ? "Actualizar Actividad"
-                    : "Guardar Actividad"}
+                : editingAct
+                  ? "Actualizar Actividad"
+                  : "Guardar Actividad"}
             </Button>
           </div>
         </form>

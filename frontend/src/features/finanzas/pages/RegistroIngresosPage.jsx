@@ -118,18 +118,7 @@ export const RegistroCuotasPage = () => {
     comprobante: null,
   });
   const [showConfetti, setShowConfetti] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [message, setMessage] = useState(null);
@@ -1275,9 +1264,9 @@ export const RegistroCuotasPage = () => {
             <Button 
               type="submit" 
               disabled={submitting || isSubmitDisabled}
-              className={`${isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""} ${!isOnline ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white" : ""}`}
+              className={isSubmitDisabled ? "opacity-50 cursor-not-allowed" : ""}
             >
-              {!isOnline ? '💾 Guardar localmente (Offline)' : 'Guardar ingreso'}
+              Guardar ingreso
             </Button>
           </div>
         </form>

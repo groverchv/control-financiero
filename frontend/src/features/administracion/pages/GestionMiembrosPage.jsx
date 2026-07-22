@@ -21,23 +21,6 @@ const ITEMS_PER_PAGE = 10;
 
 export const GestionMiembrosPage = () => {
   const { miembros, loading, error, setMiembros, refetch } = useMiembros();
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    const handleSyncCompleted = () => {
-      refetch();
-    };
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('offline-sync-completed', handleSyncCompleted);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('offline-sync-completed', handleSyncCompleted);
-    };
-  }, [refetch]);
 
   const [globalConfig, setGlobalConfig] = useState({ monto_cuota: 20 });
 
@@ -240,13 +223,11 @@ export const GestionMiembrosPage = () => {
         const miembroSincronizado = actualizado
           ? {
               ...editingMember,
-              ...actualizado,
-              contrasena: password ? password : editingMember.contrasena
+              ...actualizado
             }
           : {
               ...editingMember,
-              ...updates,
-              contrasena: password ? password : editingMember.contrasena
+              ...updates
             };
 
         setMiembros(miembros.map(m => m.id === editingMember.id ? miembroSincronizado : m));
@@ -269,33 +250,28 @@ export const GestionMiembrosPage = () => {
           descNotif += ' Contraseña modificada.';
         }
 
-        // Crear notificación del sistema (sólo si estamos online)
-        if (navigator.onLine) {
-          try {
-            await supabase.from('notificacion').insert([{
-              miembro_id: editingMember.id,
-              titulo: password ? 'Credenciales Actualizadas' : 'Actualización de Perfil',
-              descripcion: descNotif,
-              estado: 'pendiente'
-            }]);
-          } catch (notifErr) {
-            console.warn('[GestionMiembros] No se pudo guardar notificación (offline?):', notifErr);
-          }
+        // Crear notificación del sistema
+        try {
+          await supabase.from('notificacion').insert([{
+            miembro_id: editingMember.id,
+            titulo: password ? 'Credenciales Actualizadas' : 'Actualización de Perfil',
+            descripcion: descNotif,
+            estado: 'pendiente'
+          }]);
+        } catch (notifErr) {
+          console.warn('[GestionMiembros] No se pudo guardar notificación:', notifErr);
         }
 
         setLoadingModal({ open: false, text: '' });
         clearDraft();
         setShowConfetti(true);
-        const wasOffline = actualizado?._offlinePending;
         setResultModal({
           open: true,
           type: 'success',
-          text: wasOffline ? '¡Datos guardados localmente!' : '¡Miembro actualizado con éxito!',
-          details: wasOffline
-            ? 'Los datos se han guardado localmente y se sincronizarán automáticamente cuando recuperes la conexión a internet.'
-            : (password 
-              ? 'Los datos y la contraseña del socio se han actualizado correctamente en Supabase, y se ha registrado una notificación de sistema.'
-              : 'Los datos personales y de configuración del socio se han actualizado correctamente y se ha registrado una notificación de sistema.')
+          text: '¡Miembro actualizado con éxito!',
+          details: password 
+            ? 'Los datos y la contraseña del socio se han actualizado correctamente en Supabase, y se ha registrado una notificación de sistema.'
+            : 'Los datos personales y de configuración del socio se han actualizado correctamente y se ha registrado una notificación de sistema.'
         });
       } else {
         // CREAR
@@ -308,14 +284,11 @@ export const GestionMiembrosPage = () => {
         setLoadingModal({ open: false, text: '' });
         clearDraft();
         setShowConfetti(true);
-        const wasOffline = nuevoMiembro?._offlinePending;
         setResultModal({
           open: true,
           type: 'success',
-          text: wasOffline ? '¡Miembro guardado localmente!' : '¡Miembro registrado con éxito!',
-          details: wasOffline
-            ? 'No hay conexión a internet. El miembro ha sido guardado localmente y se registrará en la base de datos automáticamente cuando recuperes la señal.'
-            : 'El nuevo miembro ha sido dado de alta correctamente. Recibirá un correo de bienvenida con sus credenciales.'
+          text: '¡Miembro registrado con éxito!',
+          details: 'El nuevo miembro ha sido dado de alta correctamente. Recibirá un correo de bienvenida con sus credenciales.'
         });
       }
       setIsModalOpen(false);
@@ -652,14 +625,12 @@ export const GestionMiembrosPage = () => {
         checkEmailUniqueness={checkEmailUniqueness}
         isFormUnchanged={isFormUnchanged}
         isSubmitting={isSubmitting}
-        isOnline={isOnline}
         onSubmit={handlePreSubmit}
       />
 
       <MiembroDetailModal
         detailModal={detailModal}
         setDetailModal={setDetailModal}
-        isOnline={isOnline}
         globalConfig={globalConfig}
         onImageClick={(url) => setImageModal({ open: true, url })}
       />

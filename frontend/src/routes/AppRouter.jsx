@@ -132,10 +132,7 @@ export const AppRouter = () => {
       }
     };
 
-    // Solo ejecutar si hay conexión a internet
-    if (navigator.onLine) {
-      cleanupRefundedInscriptions();
-    }
+    cleanupRefundedInscriptions();
   }, []);
 
   return (

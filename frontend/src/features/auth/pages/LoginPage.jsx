@@ -5,6 +5,7 @@ import { authApi } from '../api/authApi';
 import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/ui';
 import { toast } from 'react-toastify';
+import { translateAuthError } from '../../../utils/errorHandler';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -15,6 +16,30 @@ export const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // HIGH-02: Rate limiting state
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState(null);
+
+  useEffect(() => {
+    if (!lockoutUntil) return;
+
+    const timeLeft = lockoutUntil - Date.now();
+    if (timeLeft <= 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLockoutUntil(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoginAttempts(0);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setLockoutUntil(null);
+      setLoginAttempts(0);
+    }, timeLeft);
+
+    return () => clearTimeout(timer);
+  }, [lockoutUntil]);
 
   useEffect(() => {
     const msg = searchParams.get('msg');
@@ -36,15 +61,35 @@ export const LoginPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+
+    if (lockoutUntil && Date.now() < lockoutUntil) {
+      const remainingSeconds = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      setError(`Demasiados intentos. Por favor, intenta de nuevo en ${remainingSeconds} segundos.`);
+      return;
+    }
+
     setLoading(true);
 
     const { data, error: loginError } = await authApi.login(email, password);
 
     if (loginError) {
-      setError(loginError.message || 'No se pudo iniciar sesion');
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+      
+      if (newAttempts >= 5) {
+        setLockoutUntil(Date.now() + 60 * 1000); // 60 segundos de bloqueo
+        setError('Cuenta temporalmente bloqueada por múltiples intentos fallidos. Espera 60 segundos.');
+      } else {
+        setError(translateAuthError(loginError.message) || 'No se pudo iniciar sesión.');
+      }
+      
       setLoading(false);
       return;
     }
+
+    // Reset attempts on successful login
+    setLoginAttempts(0);
+    setLockoutUntil(null);
 
     if (data?.user) {
       const role = data.user.role_from_db || data.user.user_metadata?.rol || 'socio';
@@ -140,9 +185,14 @@ export const LoginPage = () => {
             </Link>
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full">
-            {loading ? 'Ingresando...' : 'Ingresar'}
-            <ArrowRight className="h-4 w-4" />
+          <Button 
+            type="submit" 
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
+            disabled={loading || lockoutUntil !== null}
+            isLoading={loading}
+          >
+            {loading ? 'Iniciando sesión...' : 'Ingresar'}
+            {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
           </Button>
         </form>
 

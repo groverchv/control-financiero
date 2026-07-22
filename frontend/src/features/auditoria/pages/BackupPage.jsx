@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../../services/supabase';
-import { Database, Download, FileSpreadsheet, FileText, FileDown, CheckCircle2, AlertCircle, RefreshCw, Info, Wallet, Box } from 'lucide-react';
-import { Button, Spinner } from '../../../components/ui';
+import { Database, Download, FileSpreadsheet, FileText, FileDown, CheckCircle2, AlertCircle, RefreshCw, Info, Wallet, Box, Upload, AlertTriangle } from 'lucide-react';
+import { Button, Spinner, Modal } from '../../../components/ui';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -11,6 +11,16 @@ export const BackupPage = () => {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [fetchProgress, setFetchProgress] = useState('');
+
+  // Estados para restauración JSON
+  const [importFile, setImportFile] = useState(null);
+  const [importFileName, setImportFileName] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importProgress, setImportProgress] = useState('');
+  const [importError, setImportError] = useState(null);
+  const [importSuccess, setImportSuccess] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [confirmKeyword, setConfirmKeyword] = useState('');
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -359,6 +369,114 @@ export const BackupPage = () => {
     document.body.removeChild(link);
   };
 
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImportFileName(file.name);
+    setImportError(null);
+    setImportSuccess(false);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        const datos = json.datos || json;
+        // Validar usando tanto nombres BD (singular) como nombres JSON (plural/camelCase)
+        if (!datos.miembros && !datos.miembro && !datos.configCuotas && !datos.configuracion_cuotas) {
+          throw new Error('El archivo no tiene el formato de respaldo correcto. Debe contener al menos la tabla de miembros o de configuraciones.');
+        }
+        setImportFile(datos);
+      } catch (err) {
+        setImportError(`Error leyendo el archivo JSON: ${err.message}`);
+        setImportFile(null);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleStartRestore = () => {
+    if (!importFile) return;
+    setConfirmKeyword('');
+    setShowRestoreModal(true);
+  };
+
+  const executeRestore = async () => {
+    window.isRestoring = true;
+    setImportLoading(true);
+    setImportError(null);
+    setImportProgress('Inicializando restauración...');
+    setShowRestoreModal(false);
+
+    // Obtener el ID y el correo del usuario actual de manera extremadamente robusta
+    let currentUserId = null;
+    let currentUserEmail = null;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      currentUserId = user?.id;
+      currentUserEmail = user?.email;
+      
+      if (!currentUserId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        currentUserId = session?.user?.id;
+        currentUserEmail = session?.user?.email;
+      }
+
+    } catch (e) {
+      console.warn('No se pudo determinar el usuario actual:', e);
+    }
+
+    if (!currentUserId) {
+      setImportLoading(false);
+      setImportError('Error crítico: No se pudo identificar de forma segura tu sesión de administrador para proteger tu rol. Restauración cancelada.');
+      return;
+    }
+
+    // Encontrar el ID antiguo del administrador en el respaldo usando su correo para mapearlo globalmente
+    let dataToRestore = importFile;
+    if (currentUserEmail) {
+      const miembrosList = importFile.miembros || importFile.miembro || [];
+      const adminBackupRow = miembrosList.find(m => m.correoElectronico === currentUserEmail || m.email === currentUserEmail);
+      const oldAdminId = adminBackupRow?.id;
+
+      if (oldAdminId && oldAdminId !== currentUserId) {
+        console.log(`Mapeando ID del administrador antiguo (${oldAdminId}) al actual (${currentUserId}) en todo el JSON`);
+        try {
+          const serialized = JSON.stringify(importFile);
+          // Reemplazar globalmente todas las ocurrencias del UUID antiguo por el actual para mantener la integridad referencial
+          const replaced = serialized.replaceAll(oldAdminId, currentUserId);
+          dataToRestore = JSON.parse(replaced);
+        } catch (err) {
+          console.error('Error al mapear IDs de administrador:', err);
+        }
+      }
+    }
+
+
+
+    try {
+      setImportProgress('Enviando respaldo y ejecutando transacción atómica en el servidor...');
+      
+      const { error: rpcError } = await supabase.rpc('restaurar_respaldo_completo', { 
+        p_backup: dataToRestore 
+      });
+      
+      if (rpcError) throw rpcError;
+
+      setImportProgress('¡Restauración total completada con éxito!');
+      setImportSuccess(true);
+      setImportFile(null);
+      setImportFileName('');
+    } catch (err) {
+      console.error('Error restaurando base de datos:', err);
+      setImportError(`Error en restauración: ${err.message || 'Error en Supabase RLS/trigger'}`);
+    } finally {
+      setImportLoading(false);
+      window.isRestoring = false;
+    }
+  };
+
   const handleDownloadPdf = () => {
     if (!data) return;
     const doc = new jsPDF();
@@ -618,6 +736,159 @@ export const BackupPage = () => {
           </div>
         )}
       </div>
+
+      {/* Nuevo Card: Importar y Restaurar Base de Datos */}
+      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 space-y-6">
+        <div className="border-b border-slate-50 pb-5">
+          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Upload className="h-5 w-5 text-amber-600" />
+            Restaurar Base de Datos desde Respaldo JSON
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed mt-1">
+            Sube un archivo de respaldo en formato JSON previamente exportado para sobrescribir los datos actuales del sistema.
+          </p>
+        </div>
+
+        {importError && (
+          <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 text-red-800 rounded-xl text-sm leading-relaxed">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+            <div>
+              <p className="font-bold">Error en restauración</p>
+              <p>{importError}</p>
+            </div>
+          </div>
+        )}
+
+        {importSuccess && (
+          <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-sm leading-relaxed">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />
+            <div>
+              <p className="font-bold">Restauración Completada</p>
+              <p>El sistema se ha restablecido exitosamente con el contenido del respaldo cargado.</p>
+            </div>
+          </div>
+        )}
+
+        {importLoading && (
+          <div className="flex flex-col items-center justify-center py-10 space-y-3 bg-slate-50/50 rounded-2xl border">
+            <Spinner size="lg" />
+            <p className="text-xs font-bold text-amber-600 uppercase tracking-widest animate-pulse">
+              {importProgress}
+            </p>
+          </div>
+        )}
+
+        {!importLoading && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-center w-full">
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-200 border-dashed rounded-2xl cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 transition-all">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 mb-3 text-slate-400" />
+                  <p className="mb-1 text-sm text-slate-500 font-semibold">
+                    {importFileName ? `Archivo cargado: ${importFileName}` : 'Haz clic para seleccionar o arrastra un archivo JSON'}
+                  </p>
+                  <p className="text-[10px] text-slate-400">JSON de Respaldo Total de Base de Datos</p>
+                </div>
+                <input 
+                  type="file" 
+                  accept=".json" 
+                  className="hidden" 
+                  onChange={handleFileChange} 
+                />
+              </label>
+            </div>
+
+            {importFile && (
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3 animate-in fade-in duration-200">
+                <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Tablas encontradas en el respaldo:</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-700">
+                  {Object.keys(importFile).map(table => {
+                    const count = Array.isArray(importFile[table]) ? importFile[table].length : 0;
+                    if (count === 0 && table !== 'datos' && table !== 'generacion') return null;
+                    if (table === 'datos' || table === 'generacion') return null;
+                    return (
+                      <div key={table} className="bg-white border p-2 rounded-lg shadow-sm flex items-center justify-between">
+                        <span className="font-semibold text-slate-500 truncate mr-2">{table}</span>
+                        <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-black">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    onClick={() => { setImportFile(null); setImportFileName(''); }}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                  >
+                    Descartar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleStartRestore}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/10 active:scale-95 transition-all"
+                  >
+                    <Database className="h-4 w-4" />
+                    Iniciar Restauración
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Modal de Advertencia Crítica de Restauración */}
+      <Modal
+        isOpen={showRestoreModal}
+        onClose={() => setShowRestoreModal(false)}
+        title="⚠️ ADVERTENCIA CRÍTICA DE SEGURIDAD"
+        size="md"
+      >
+        <div className="space-y-4 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <AlertTriangle className="h-8 w-8" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">¿Estás absolutamente seguro de continuar?</h3>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              La restauración **ELIMINARÁ** de forma permanente e irreversible todos los datos actuales de las tablas correspondientes en la base de datos de producción y los sobrescribirá con el respaldo JSON.
+            </p>
+            <p className="text-xs text-red-600 font-bold mt-2">
+              Esta acción no se puede deshacer. Podría causar pérdidas de transacciones recientes.
+            </p>
+          </div>
+
+          <div className="space-y-2 border-t pt-4 text-left">
+            <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
+              Para confirmar, escribe la palabra <span className="text-red-600 font-extrabold">RESTAURAR</span> a continuación:
+            </label>
+            <input
+              type="text"
+              value={confirmKeyword}
+              onChange={(e) => setConfirmKeyword(e.target.value)}
+              placeholder="Escribe RESTAURAR aquí"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 uppercase font-black"
+            />
+          </div>
+
+          <div className="flex gap-3 justify-center pt-2">
+            <Button
+              onClick={() => setShowRestoreModal(false)}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeRestore}
+              disabled={confirmKeyword !== 'RESTAURAR'}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Confirmar y Sobrescribir BD
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

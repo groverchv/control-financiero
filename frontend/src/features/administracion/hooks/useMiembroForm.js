@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { useFormDraft } from '../../../hooks/useFormDraft';
 
 const INITIAL_FORM_DATA = { 
   nombre: '', 
@@ -26,8 +25,7 @@ export const useMiembroForm = (miembros) => {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [emailError, setEmailError] = useState('');
 
-  // Auto-guardado de borrador (deshabilitado cuando estamos editando un miembro existente)
-  const { clearDraft } = useFormDraft('miembro_form_draft', formData, setFormData, !editingMember);
+  const clearDraft = () => {};
 
   const checkEmailUniqueness = useCallback((emailVal) => {
     if (!emailVal) {

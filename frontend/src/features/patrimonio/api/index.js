@@ -211,7 +211,7 @@ export const patrimonioApi = {
 
     const { data, error } = await supabase
       .from('configuracion_cuotas')
-      .insert([cleanConfig])
+      .upsert({ ...cleanConfig, singleton_guard: true }, { onConflict: 'singleton_guard' })
       .select();
 
     if (error) throw error;

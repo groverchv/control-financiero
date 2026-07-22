@@ -58,6 +58,22 @@ const CountdownTimer = ({ targetDate, pausado, fechaPausa }) => {
   );
 };
 
+const formatDiasPausados = (dias) => {
+  if (!dias || dias <= 0) return '';
+  const totalMinutos = Math.round(dias * 24 * 60);
+  if (totalMinutos < 60) {
+    return `${totalMinutos} minuto${totalMinutos !== 1 ? 's' : ''}`;
+  }
+  const horas = Math.floor(totalMinutos / 60);
+  const mins = totalMinutos % 60;
+  if (horas < 24) {
+    return `${horas} hora${horas !== 1 ? 's' : ''}${mins > 0 ? ` y ${mins} min` : ''}`;
+  }
+  const diasEnteros = Math.floor(horas / 24);
+  const horasRestantes = horas % 24;
+  return `${diasEnteros} día${diasEnteros !== 1 ? 's' : ''}${horasRestantes > 0 ? ` y ${horasRestantes} hora${horasRestantes !== 1 ? 's' : ''}` : ''}`;
+};
+
 const MiembroRow = ({ registro }) => {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
@@ -480,7 +496,7 @@ export const HistorialCuotasPage = () => {
             <p className="text-amber-700 text-xs mt-0.5">
               Las fechas de vencimiento de todos los miembros están detenidas desde el{' '}
               <strong>{config.fecha_pausa ? new Date(config.fecha_pausa).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric' }) : '—'}</strong>.
-              {config.dias_pausados > 0 && ` Días de pausa acumulados anteriores: ${config.dias_pausados}.`}
+              {config.dias_pausados > 0 && ` Tiempo de pausa acumulado anterior: ${formatDiasPausados(config.dias_pausados)}.`}
               {' '}Al reanudar, los días adicionales se suman automáticamente a todas las fechas.
             </p>
           </div>
@@ -641,9 +657,7 @@ export const HistorialCuotasPage = () => {
                 onChange={e => setConfigForm(prev => ({ ...prev, frecuencia: e.target.value }))}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
-                <option value="1_minuto">Cada 1 min (Pruebas)</option>
-                <option value="3_minutos">Cada 3 min (Pruebas)</option>
-                <option value="5_minutos">Cada 5 min (Pruebas)</option>
+                 <option value="5_minutos">Cada 5 min (Pruebas)</option>
                 <option value="1_dia">Cada Día (Pruebas)</option>
                 <option value="mes">Cada Mes (Estándar)</option>
               </select>

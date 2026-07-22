@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Tags, PlusCircle, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { finanzasApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
@@ -22,6 +22,7 @@ export const GestionTiposFinanzasPage = () => {
   const [pageEgreso, setPageEgreso] = useState(1);
   const ITEMS_PER_PAGE = 10;
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
+  const [confirmSubmitModal, setConfirmSubmitModal] = useState({ open: false, mode: 'create' });
   const [editingTipo, setEditingTipo] = useState(null); // { id, nombre, descripcion, type }
   const [deletingTipo, setDeletingTipo] = useState(null); // { id, nombre, type }
   const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
@@ -34,8 +35,13 @@ export const GestionTiposFinanzasPage = () => {
     setDeletingTipo({ ...tipo, type });
   };
 
-  const handleEditSubmit = async (e) => {
+  const handlePreSubmitEdit = (e) => {
     e.preventDefault();
+    setConfirmSubmitModal({ open: true, mode: 'edit' });
+  };
+
+  const executeEditSubmit = async () => {
+    setConfirmSubmitModal({ open: false, mode: 'edit' });
     if (!editingTipo) return;
     setIsSubmitting(true);
     setLoadingModal({ open: true, text: 'Actualizando categoría...' });
@@ -45,7 +51,7 @@ export const GestionTiposFinanzasPage = () => {
         setTiposIngreso(prev => prev.map(t => t.id === editingTipo.id ? { ...t, nombre: editingTipo.nombre, descripcion: editingTipo.descripcion } : t));
       } else {
         await finanzasApi.actualizarTipoEgreso(editingTipo.id, editingTipo.nombre, editingTipo.descripcion);
-        setTiposEgreso(prev => prev.map(t => t.id === editingTipo.id ? { ...t, nombre: editingTipo.nombre, descripcion: editingTipo.descripcion } : t));
+        setTiposEgreso(prev => prev.map(t => t.id === editingTipo.id ? { ...t, fontName: editingTipo.nombre, nombre: editingTipo.nombre, descripcion: editingTipo.descripcion } : t));
       }
       setLoadingModal({ open: false, text: '' });
       setResultModal({
@@ -145,8 +151,13 @@ export const GestionTiposFinanzasPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (e) => {
+  const handlePreSubmitCreate = (e) => {
     e.preventDefault();
+    setConfirmSubmitModal({ open: true, mode: 'create' });
+  };
+
+  const executeCreateSubmit = async () => {
+    setConfirmSubmitModal({ open: false, mode: 'create' });
     setIsSubmitting(true);
     setLoadingModal({ open: true, text: 'Creando categoría financiera...' });
     setMessage(null);
@@ -463,7 +474,7 @@ export const GestionTiposFinanzasPage = () => {
         onClose={() => setIsModalOpen(false)}
         title={`Registrar nuevo tipo de ${modalType}`}
       >
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+        <form onSubmit={handlePreSubmitCreate} className="space-y-4 mt-4">
           <Input
             id="nombre"
             name="nombre"
@@ -496,47 +507,13 @@ export const GestionTiposFinanzasPage = () => {
         </form>
       </Modal>
 
-      <Modal 
-        isOpen={resultModal.open} 
-        onClose={() => setResultModal(prev => ({ ...prev, open: false }))} 
-        title={resultModal.type === 'success' ? "Registro Exitoso" : "Error de Operación"} 
-        width="max-w-md"
-      >
-        <div className="flex flex-col items-center text-center space-y-4 py-2">
-          {resultModal.type === 'success' ? (
-            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
-              <CheckCircle2 className="h-12 w-12" />
-            </div>
-          ) : (
-            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
-              <AlertCircle className="h-12 w-12" />
-            </div>
-          )}
-          <h4 className={`text-lg font-bold ${resultModal.type === 'success' ? 'text-slate-900' : 'text-rose-900'}`}>
-            {resultModal.text}
-          </h4>
-          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
-            {resultModal.details}
-          </p>
-          <div className="pt-2 w-full">
-            <Button 
-              className="w-full" 
-              variant={resultModal.type === 'success' ? 'primary' : 'danger'}
-              onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
-            >
-              Entendido
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       <Modal
         isOpen={!!editingTipo}
         onClose={() => setEditingTipo(null)}
         title={`Editar tipo de ${editingTipo?.type === 'ingreso' ? 'Ingreso' : 'Egreso'}`}
       >
         {editingTipo && (
-          <form onSubmit={handleEditSubmit} className="space-y-4 mt-4">
+          <form onSubmit={handlePreSubmitEdit} className="space-y-4 mt-4">
             <Input
               id="edit-nombre"
               name="nombre"
@@ -599,6 +576,79 @@ export const GestionTiposFinanzasPage = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Modal de Confirmación de Creación/Edición */}
+      <Modal
+        isOpen={confirmSubmitModal.open}
+        onClose={() => setConfirmSubmitModal({ open: false, mode: 'create' })}
+        title={
+          <div className="flex items-center gap-2.5 text-emerald-600">
+            <Info className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>Confirmar Acción</span>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-800 text-sm">
+            <Info className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />
+            <div>
+              <span>
+                ¿Estás seguro de que deseas <strong>{confirmSubmitModal.mode === 'edit' ? 'actualizar' : 'registrar'}</strong> esta categoría en el sistema?
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmSubmitModal({ open: false, mode: 'create' })}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmSubmitModal.mode === 'edit' ? executeEditSubmit : executeCreateSubmit}
+              className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white"
+            >
+              Sí, continuar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal 
+        isOpen={resultModal.open} 
+        onClose={() => setResultModal(prev => ({ ...prev, open: false }))} 
+        title={resultModal.type === 'success' ? "Registro Exitoso" : "Error de Operación"} 
+        width="max-w-md"
+      >
+        <div className="flex flex-col items-center text-center space-y-4 py-2">
+          {resultModal.type === 'success' ? (
+            <div className="rounded-full bg-emerald-100 p-3 text-emerald-600">
+              <CheckCircle2 className="h-12 w-12" />
+            </div>
+          ) : (
+            <div className="rounded-full bg-rose-100 p-3 text-rose-600">
+              <AlertCircle className="h-12 w-12" />
+            </div>
+          )}
+          <h4 className={`text-lg font-bold ${resultModal.type === 'success' ? 'text-slate-900' : 'text-rose-900'}`}>
+            {resultModal.text}
+          </h4>
+          <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
+            {resultModal.details}
+          </p>
+          <div className="pt-2 w-full">
+            <Button 
+              className="w-full" 
+              variant={resultModal.type === 'success' ? 'primary' : 'danger'}
+              onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />

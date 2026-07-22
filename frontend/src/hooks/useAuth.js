@@ -38,29 +38,9 @@ export const useAuth = () => {
   useEffect(() => {
     setLoading(true);
 
-    /**
-     * Carga el usuario desde caché local de localStorage
-     */
-    const loadFromLocalCache = () => {
-      try {
-        const cachedUserStr = localStorage.getItem('control-financiero-auth-user');
-        if (cachedUserStr) {
-          const cachedUser = JSON.parse(cachedUserStr);
-          if (cachedUser && cachedUser.id) {
-            setUser(cachedUser);
-            return true;
-          }
-        }
-      } catch (e) {
-        console.error('[useAuth] Error al parsear cached user:', e);
-      }
-      return false;
-    };
-
     const fetchUserData = async (sessionUser) => {
       let miembro = null;
       let archivos = null;
-      let offlineFallback = false;
 
       try {
         const { data } = await supabase
@@ -80,8 +60,7 @@ export const useAuth = () => {
           .maybeSingle();
         archivos = archs;
       } catch (err) {
-        console.warn('[useAuth] Error al consultar Supabase (posiblemente offline). Usando fallback de caché local:', err);
-        offlineFallback = true;
+        console.error('[useAuth] Error al consultar Supabase:', err);
       }
 
       // Si el miembro está inactivo, bloquear el acceso y cerrar la sesión
@@ -91,42 +70,7 @@ export const useAuth = () => {
         } catch (err) {
           console.warn('[useAuth] Error al cerrar sesión de miembro inactivo:', err.message);
         }
-        localStorage.removeItem('control-financiero-auth-user');
         setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      if (offlineFallback) {
-        // Intentar recuperar el perfil de la caché local primero
-        const cachedUserStr = localStorage.getItem('control-financiero-auth-user');
-        if (cachedUserStr) {
-          try {
-            const cachedUser = JSON.parse(cachedUserStr);
-            if (cachedUser.id === sessionUser.id) {
-              // SEC-9: Nunca confiar en el rol del localStorage. Sobrescribir con el JWT firmado.
-              cachedUser.rol = sessionUser.user_metadata?.rol || 'socio';
-              setUser(cachedUser);
-              setLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.error('Error al parsear cached user:', e);
-          }
-        }
-        // Si no hay caché, usamos lo que Supabase Auth tenga en metadata
-        const fallbackRole = sessionUser.user_metadata?.rol || 'socio';
-        const fallbackName = sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0] || '';
-        const fallbackUser = {
-          id: sessionUser.id,
-          email: sessionUser.email || '',
-          nombre: fallbackName,
-          rol: fallbackRole,
-          foto: null,
-          created_at: sessionUser.created_at || '',
-        };
-        console.info(`[Auth] Sesión recuperada desde caché offline: ${fallbackUser.email}`);
-        setUser(fallbackUser);
         setLoading(false);
         return;
       }
@@ -137,7 +81,7 @@ export const useAuth = () => {
         ? `${miembro.nombre} ${miembro.apellidoPaterno || ''} ${miembro.apellidoMaterno || ''}`.trim()
         : (sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0]);
 
-      // Si estamos online y el rol de metadata no coincide con el de la DB, actualizamos el user metadata en Supabase Auth
+      // Si el rol de metadata no coincide con el de la DB, actualizamos el user metadata en Supabase Auth
       if (miembro && sessionUser.user_metadata?.rol !== realRole) {
         supabase.auth.updateUser({
           data: { rol: realRole }
@@ -152,11 +96,6 @@ export const useAuth = () => {
         foto: archivos?.url || null,
         created_at: sessionUser.created_at || '',
       };
-
-      // Guardar en caché local para persistencia offline
-      localStorage.setItem('control-financiero-auth-user', JSON.stringify(userData));
-
-
 
       setUser(userData);
       setLoading(false);
@@ -192,31 +131,14 @@ export const useAuth = () => {
       const isResetPage = window.location.pathname === '/reset-password';
       if (session?.user && !isResetPage) {
         fetchUserData(session.user);
-      } else if (!session) {
-        // Sin sesión activa: si estamos offline, usar caché local. Si estamos online, borrar sesión.
-        if (!navigator.onLine) {
-          const loaded = loadFromLocalCache();
-          if (!loaded) {
-            setLoading(false);
-          }
-        } else {
-          setUser(null);
-          setLoading(false);
-        }
       } else {
-        // Sesión existe pero estamos en /reset-password — limpiar el estado visual del usuario
-        // para que no se muestre el Layout autenticado (el token se mantiene en Supabase para el reseteo)
         setUser(null);
-        localStorage.removeItem('control-financiero-auth-user');
         setLoading(false);
       }
     }).catch((err) => {
-      console.warn('[useAuth] getSession() falló (posiblemente offline):', err);
-      // Si falla getSession() completamente (error de red), recuperar de caché
-      const loaded = loadFromLocalCache();
-      if (!loaded) {
-        setLoading(false);
-      }
+      console.error('[useAuth] getSession() falló:', err);
+      setUser(null);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -227,7 +149,6 @@ export const useAuth = () => {
         // Ni siquiera si el evento es SIGNED_IN pero estamos en la página de reset.
         if (_event === 'PASSWORD_RECOVERY' || (session?.user && isResetPage)) {
           setUser(null);
-          localStorage.removeItem('control-financiero-auth-user');
           setLoading(false);
           return;
         }
@@ -235,12 +156,6 @@ export const useAuth = () => {
         if (session?.user && !isResetPage) {
           fetchUserData(session.user);
         } else {
-          // Si estamos offline, NO borramos al usuario local para no forzar logout
-          if (!navigator.onLine) {
-            // Solo garantizamos que loading sea false, el usuario en store ya está cargado
-            setLoading(false);
-            return;
-          }
           setUser(null);
           setLoading(false);
         }
@@ -270,6 +185,7 @@ export const useAuth = () => {
           filter: `miembro_id=eq.${user.id}`,
         },
         (payload) => {
+          if (window.isRestoring) return;
           const { titulo, descripcion } = payload.new;
 
           // Evitar doble notificación: mostrar Toast en pantalla

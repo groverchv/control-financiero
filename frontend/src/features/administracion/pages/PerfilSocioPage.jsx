@@ -31,7 +31,6 @@ export const PerfilSocioPage = () => {
   const [showSizeErrorModal, setShowSizeErrorModal] = useState(false);
   const [archivos, setArchivos] = useState([]);
   const [fileChanged, setFileChanged] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Estados para el Flujo Transaccional Premium
   const [loadingModal, setLoadingModal] = useState({ open: false, text: "" });
@@ -110,16 +109,7 @@ export const PerfilSocioPage = () => {
     loadProfile();
   }, [user?.id]);
 
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
+
 
   const handleSubmitPrompt = (e) => {
     e.preventDefault();
@@ -689,33 +679,6 @@ export const PerfilSocioPage = () => {
 
             {/* Content Area */}
             <div className="flex-1 bg-slate-100 relative group flex flex-col justify-center">
-              {!isOnline ? (
-                <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-2xl border border-slate-200/60 text-center space-y-3 mx-4 my-8">
-                  <div className="p-3 bg-amber-50 rounded-full text-amber-600">
-                    <AlertCircle className="h-8 w-8" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-800">
-                    Previsualización No Disponible Sin Conexión
-                  </h4>
-                  <p className="text-xs text-slate-500 max-w-sm">
-                    La previsualización interactiva de documentos requiere
-                    conexión a internet. Puede descargar el archivo si lo
-                    necesita sin conexión.
-                  </p>
-                  {cvFile && (
-                    <a
-                      href={cvFile.replace(
-                        "/upload/",
-                        "/upload/fl_attachment/",
-                      )}
-                      download
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-md"
-                    >
-                      Descargar Documento
-                    </a>
-                  )}
-                </div>
-              ) : (
                 <>
                   <iframe
                     src={
@@ -738,7 +701,6 @@ export const PerfilSocioPage = () => {
                     </a>
                   </div>
                 </>
-              )}
             </div>
           </div>
         </div>

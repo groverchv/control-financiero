@@ -384,9 +384,9 @@ export const DashboardKpisPage = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-100/70 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
         {[
           { id: 'financiero', label: 'Indicadores Financieros', icon: Landmark, color: 'blue' },
+          { id: 'academica', label: 'Gestión Académica', icon: GraduationCap, color: 'emerald' },
           { id: 'miembros', label: 'Gestión de Miembros', icon: UsersRound, color: 'purple' },
           { id: 'patrimonial', label: 'Control Patrimonial', icon: Warehouse, color: 'amber' },
-          { id: 'academica', label: 'Gestión Académica', icon: GraduationCap, color: 'emerald' },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

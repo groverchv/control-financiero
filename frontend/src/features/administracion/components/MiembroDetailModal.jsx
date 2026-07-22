@@ -89,7 +89,6 @@ const formatDate = (dateString) => {
 export const MiembroDetailModal = ({
   detailModal,
   setDetailModal,
-  isOnline,
   globalConfig,
   onImageClick
 }) => {
@@ -377,33 +376,14 @@ export const MiembroDetailModal = ({
                     Abrir en nueva pestaña
                   </a>
                 </div>
-                {!isOnline ? (
-                  <div className="w-full flex flex-col items-center justify-center p-8 bg-slate-50 rounded-2xl border border-slate-200/60 text-center space-y-3">
-                    <div className="p-3 bg-amber-50 rounded-full text-amber-600">
-                      <AlertTriangle className="h-6 w-6" />
-                    </div>
-                    <h4 className="text-xs font-bold text-slate-800">Previsualización No Disponible Sin Conexión</h4>
-                    <p className="text-[10px] text-slate-500 max-w-sm">
-                      La previsualización interactiva de documentos requiere conexión a internet.
-                    </p>
-                    <a 
-                      href={detailModal.cvUrl?.replace('/upload/', '/upload/fl_attachment/')} 
-                      download
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg transition-all shadow-md"
-                    >
-                      Descargar Documento
-                    </a>
-                  </div>
-                ) : (
-                  <iframe 
-                    src={detailModal.cvUrl?.toLowerCase().endsWith('.pdf') 
-                      ? detailModal.cvUrl 
-                      : `https://docs.google.com/gview?url=${encodeURIComponent(detailModal.cvUrl)}&embedded=true`
-                    } 
-                    className="w-full h-80 border rounded-xl bg-slate-50 shadow-inner" 
-                    title="CV del Miembro"
-                  ></iframe>
-                )}
+                <iframe 
+                  src={detailModal.cvUrl?.toLowerCase().endsWith('.pdf') 
+                    ? detailModal.cvUrl 
+                    : `https://docs.google.com/gview?url=${encodeURIComponent(detailModal.cvUrl)}&embedded=true`
+                  } 
+                  className="w-full h-80 border rounded-xl bg-slate-50 shadow-inner" 
+                  title="CV del Miembro"
+                ></iframe>
                 
                 {/* Permitir actualizar desde el detalle */}
                 <div className="w-full mt-4 p-4 border border-slate-100 bg-slate-50/50 rounded-xl flex items-center justify-between">

@@ -89,17 +89,6 @@ export const cloudinaryService = {
    */
   uploadFile: async (file, folder = 'miembros') => {
     try {
-      // 1. Manejo offline: si no hay red, simular subida y retornar base64 local
-      if (!navigator.onLine) {
-        console.warn('[Cloudinary Service] Sin conexión. Simulando subida para modo offline.');
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onloadend = () => resolve(reader.result); // Devuelve la cadena DataURL (Base64)
-          reader.onerror = () => reject(new Error('Error leyendo archivo en modo offline'));
-        });
-      }
-
       let fileToUpload = file;
       const TEN_MB = 10 * 1024 * 1024;
 
@@ -141,16 +130,6 @@ export const cloudinaryService = {
    */
   uploadDocument: async (file, folder = 'documentos') => {
     try {
-      // Manejo offline
-      if (!navigator.onLine) {
-        console.warn('[Cloudinary Service] Sin conexión. Guardando documento de forma offline.');
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error('Error leyendo documento en modo offline'));
-        });
-      }
 
       const TEN_MB = 10 * 1024 * 1024;
       if (file.size > TEN_MB) {

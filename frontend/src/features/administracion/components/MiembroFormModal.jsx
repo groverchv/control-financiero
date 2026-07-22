@@ -16,7 +16,6 @@ export const MiembroFormModal = ({
   checkEmailUniqueness,
   isFormUnchanged,
   isSubmitting,
-  isOnline,
   onSubmit
 }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -180,9 +179,9 @@ export const MiembroFormModal = ({
           <Button 
             type="submit" 
             disabled={isSubmitting || isFormUnchanged}
-            className={`${isFormUnchanged ? "opacity-50 cursor-not-allowed" : ""} ${!isOnline ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white" : ""}`}
+            className={isFormUnchanged ? "opacity-50 cursor-not-allowed" : ""}
           >
-            {isSubmitting ? 'Guardando...' : !isOnline ? '💾 Guardar localmente (Offline)' : editingMember ? 'Actualizar' : 'Guardar Miembro'}
+            {isSubmitting ? 'Guardando...' : editingMember ? 'Actualizar' : 'Guardar Miembro'}
           </Button>
         </div>
       </form>

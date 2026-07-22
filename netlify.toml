@@ -4,6 +4,26 @@
   publish = "dist"
 
 [[redirects]]
+  from = "/api/emails/send"
+  to = "/.netlify/functions/emails-send"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/miembros/crear"
+  to = "/.netlify/functions/admin-crear"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/miembros/actualizar-auth"
+  to = "/.netlify/functions/admin-actualizar-auth"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/miembros/actualizar-password"
+  to = "/.netlify/functions/admin-actualizar-password"
+  status = 200
+
+[[redirects]]
   from = "/*"
   status = 200
   to = "/index.html"

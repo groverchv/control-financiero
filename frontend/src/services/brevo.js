@@ -59,19 +59,39 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
 
 const enviarEmail = async ({ to, subject, htmlContent }) => {
   try {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      console.warn('[Brevo Service] Sin conexión. Encolando correo para envío posterior.');
-      const queueKey = 'control-financiero-offline-emails-queue';
-      const queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
-      queue.push({
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        to,
-        subject,
-        htmlContent,
-        createdAt: new Date().toISOString()
+    const localApiKey = import.meta.env.VITE_BREVO_API_KEY;
+    const senderEmail = import.meta.env.VITE_BREVO_SENDER_EMAIL || 'muertemuerte36@gmail.com';
+
+    // Si se proporciona una API Key de Brevo en el frontend, enviamos directamente por SMTP HTTP
+    if (localApiKey) {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': localApiKey,
+        },
+        body: JSON.stringify({
+          sender: { name: 'Asociación de Profesionales Financieros', email: senderEmail },
+          to: [{ email: to.email, name: to.name }],
+          subject: subject,
+          htmlContent: htmlContent,
+        }),
       });
-      localStorage.setItem(queueKey, JSON.stringify(queue));
-      return { success: true, queued: true };
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+      return { success: true };
+    }
+
+    // Si estamos en desarrollo directo en Vite (sin backend ejecutándose en 5173 y sin API Key local)
+    if (typeof window !== 'undefined' && window.location.port === '5173' && !import.meta.env.VITE_BACKEND_API_URL) {
+      console.log('%c📧 [Brevo Mock] Correo simulado con éxito (sin backend):', 'color: #0284c7; font-weight: bold;', {
+        para: to.email,
+        nombre: to.name,
+        asunto: subject
+      });
+      return { success: true, mocked: true };
     }
 
     const response = await fetch(`${BACKEND_API}/api/emails/send`, {
@@ -99,49 +119,6 @@ const enviarEmail = async ({ to, subject, htmlContent }) => {
     return { success: false, error: error.message };
   }
 };
-
-// Intentar sincronizar correos encolados al recuperar la red
-if (typeof window !== 'undefined') {
-  const syncOfflineEmails = async () => {
-    const queueKey = 'control-financiero-offline-emails-queue';
-    const queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
-    if (queue.length === 0) return;
-
-    console.log(`[Brevo Sync] Sincronizando ${queue.length} correos encolados...`);
-    const remaining = [];
-
-    for (const email of queue) {
-      try {
-        const toObj = Array.isArray(email.to) ? email.to[0] : email.to;
-        const res = await fetch(`${BACKEND_API}/api/emails/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            toEmail: toObj.email,
-            toName: toObj.name,
-            subject: email.subject,
-            htmlContent: email.htmlContent,
-          }),
-        });
-        if (!res.ok) {
-          remaining.push(email);
-        }
-      } catch (e) {
-        console.error('Error syncing offline emails:', e);
-        remaining.push(email);
-      }
-    }
-    localStorage.setItem(queueKey, JSON.stringify(remaining));
-  };
-
-  window.addEventListener('online', syncOfflineEmails);
-  if (navigator.onLine) {
-    // Retrasar ejecución inicial brevemente para no saturar
-    setTimeout(syncOfflineEmails, 3000);
-  }
-}
 
 /**
  * Verifica que el miembro este activo antes de enviar email.
@@ -363,7 +340,7 @@ export const brevoService = {
    * @param {string} params.nombre    Nombre completo o primer nombre del socio
    * @param {string} params.rol       Rol asignado al usuario
    */
-  enviarBienvenida: async ({ email, nombre, rol, contrasena, montoInscripcion }) => {
+  enviarBienvenida: async ({ email, nombre, rol, montoInscripcion }) => {
     const rolFormateado = rol ? (rol.charAt(0).toUpperCase() + rol.slice(1)) : 'Miembro';
     const montoFormateado = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(montoInscripcion) || 150);
 
@@ -383,12 +360,10 @@ export const brevoService = {
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Correo Registrado</td>
                 <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${email}</td>
               </tr>
-              ${contrasena ? `
               <tr style="border-top:1px solid #edf2f7;">
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Contraseña de Acceso</td>
-                <td style="padding:8px 0;color:#e11d48;font-size:13px;font-weight:700;text-align:right;font-family:monospace;">${contrasena}</td>
+                <td style="padding:8px 0;color:#e11d48;font-size:13px;font-weight:700;text-align:right;">Usa la opción "Olvidé mi contraseña" para crear una.</td>
               </tr>
-              ` : ''}
               <tr style="border-top:1px solid #edf2f7;">
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Rol asignado</td>
                 <td style="padding:8px 0;color:#1e3a5f;font-size:13px;font-weight:700;text-align:right;">${rolFormateado}</td>

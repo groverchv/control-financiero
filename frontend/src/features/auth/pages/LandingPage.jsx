@@ -591,7 +591,7 @@ export const LandingPage = () => {
               <div className="relative z-10 flex items-center justify-between">
                 <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/90 backdrop-blur border border-slate-800 px-3 py-1 text-[10px] text-slate-350 font-mono">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  <span>GPS ONLINE</span>
+                  <span>GPS ACTIVO</span>
                 </div>
               </div>
 

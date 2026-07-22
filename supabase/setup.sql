@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS public.miembro (
     "apellidoPaterno"    text,
     "apellidoMaterno"    text,
     "correoElectronico"  text UNIQUE,
-    contrasena           text,
     telefono             text,
     profesion            text,
     biografia            text,
@@ -127,8 +126,14 @@ CREATE TABLE IF NOT EXISTS public.tipo_ingreso (
 );
 
 INSERT INTO public.tipo_ingreso (nombre, descripcion)
-VALUES ('Pago de Actividad', 'Pago por inscripción a actividades académicas o eventos con costo.')
+VALUES ('Pago de Cuota', 'Pago de cuota mensual ordinaria.')
 ON CONFLICT (nombre) DO NOTHING;
+
+INSERT INTO public.tipo_ingreso (nombre, descripcion)
+VALUES ('Pago por Actividad', 'Pago por inscripción a actividades académicas o eventos con costo.')
+ON CONFLICT (nombre) DO NOTHING;
+
+
 
 -- ── tipo_egreso ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.tipo_egreso (
@@ -886,9 +891,10 @@ CREATE POLICY "actualizar_propio" ON public.miembro
   FOR UPDATE TO authenticated
   USING (id = auth.uid() AND public.current_user_rol() = 'socio')
   WITH CHECK (
-    -- Un socio no puede escalar su propio rol ni cambiar su estado
     id = auth.uid() AND
-    public.current_user_rol() = 'socio'
+    public.current_user_rol() = 'socio' AND
+    rol = 'socio' AND
+    estado = (SELECT estado FROM public.miembro WHERE id = auth.uid())
   );
 
 CREATE POLICY "actualizar_admin" ON public.miembro
@@ -900,11 +906,6 @@ CREATE POLICY "actualizar_admin" ON public.miembro
 CREATE POLICY "eliminar_miembro" ON public.miembro
   FOR DELETE TO authenticated
   USING (public.current_user_rol() = 'admin');
-
--- Lectura pública: solo nombre y datos públicos de miembros activos (para landing/directorio)
-CREATE POLICY "lectura_publica_miembros" ON public.miembro
-  FOR SELECT TO anon
-  USING (estado = 'activo');
 
 -- ── notificacion ──────────────────────────────────────────────────────
 -- Cada miembro solo ve sus propias notificaciones; admin ve todas
@@ -1117,8 +1118,6 @@ CREATE POLICY "gestionar_actividad" ON public.actividad
 -- ── jurado ────────────────────────────────────────────────────────────
 CREATE POLICY "ver_jurado" ON public.jurado
   FOR SELECT TO authenticated USING (true);
-CREATE POLICY "ver_jurado_publico" ON public.jurado
-  FOR SELECT TO anon USING (true);
 CREATE POLICY "gestionar_jurado" ON public.jurado
   FOR ALL TO authenticated
   USING (public.current_user_rol() IN ('admin', 'secretario'))
@@ -1161,41 +1160,184 @@ END $$;
 
 -- Recargar caché del schema en PostgREST
 NOTIFY pgrst, 'reload schema';
-
-
--- =====================================================================
--- 6. REALTIME
--- =====================================================================
-DO $$
+-- ── Desplazamiento automático de fechas de próxima cuota al reanudar facturación ──
+CREATE OR REPLACE FUNCTION public.gestionar_unpause_global()
+RETURNS trigger AS $$
+DECLARE
+    v_duracion interval;
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables
-        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'miembro'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.miembro;
+    IF OLD.pausado = true AND NEW.pausado = false THEN
+        IF OLD.fecha_pausa IS NOT NULL THEN
+            v_duracion := now() - OLD.fecha_pausa;
+            UPDATE public.miembro 
+            SET fecha_proxima_cuota = fecha_proxima_cuota + v_duracion
+            WHERE fecha_proxima_cuota IS NOT NULL AND estado = 'activo';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_gestionar_unpause_global ON public.configuracion_cuotas;
+CREATE TRIGGER trg_gestionar_unpause_global
+    BEFORE UPDATE OF pausado ON public.configuracion_cuotas
+    FOR EACH ROW
+    EXECUTE FUNCTION public.gestionar_unpause_global();
+
+
+-- =====================================================================
+-- 7. FUNCIONES DE ADMINISTRACIÓN RPC (SIN BACKEND EXTERNO)
+-- =====================================================================
+CREATE OR REPLACE FUNCTION public.crear_usuario_admin(
+    p_email text,
+    p_password text,
+    p_nombre text,
+    p_rol text,
+    p_telefono text,
+    p_apellido_paterno text,
+    p_apellido_materno text,
+    p_monto_inscripcion numeric
+)
+RETURNS json AS $$
+DECLARE
+    v_user_id uuid;
+    v_encrypted_pw text;
+BEGIN
+    IF public.current_user_rol() != 'admin' THEN
+        RAISE EXCEPTION 'Acceso denegado: solo los administradores pueden crear usuarios.';
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables
-        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notificacion'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.notificacion;
+    IF EXISTS (SELECT 1 FROM auth.users WHERE email = p_email) THEN
+        RAISE EXCEPTION 'El correo electrónico ya está registrado.';
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables
-        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'plan_amortizacion'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.plan_amortizacion;
+    v_user_id := gen_random_uuid();
+    v_encrypted_pw := extensions.crypt(p_password, extensions.gen_salt('bf', 10));
+    
+    INSERT INTO auth.users (
+        id,
+        instance_id,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        raw_app_meta_data,
+        raw_user_meta_data,
+        created_at,
+        updated_at,
+        role,
+        aud,
+        confirmation_token,
+        recovery_token,
+        email_change_token_new,
+        email_change
+    ) VALUES (
+        v_user_id,
+        '00000000-0000-0000-0000-000000000000',
+        p_email,
+        v_encrypted_pw,
+        now(),
+        jsonb_build_object('provider', 'email', 'providers', array['email']),
+        jsonb_build_object(
+            'rol', p_rol, 
+            'full_name', trim(concat(p_nombre, ' ', p_apellido_paterno, ' ', p_apellido_materno)),
+            'monto_inscripcion', p_monto_inscripcion
+        ),
+        now(),
+        now(),
+        'authenticated',
+        'authenticated',
+        '',
+        '',
+        '',
+        ''
+    );
+
+    INSERT INTO auth.identities (
+        id,
+        user_id,
+        identity_data,
+        provider,
+        provider_id,
+        last_sign_in_at,
+        created_at,
+        updated_at
+    ) VALUES (
+        v_user_id,
+        v_user_id,
+        jsonb_build_object('sub', v_user_id::text, 'email', p_email),
+        'email',
+        v_user_id::text,
+        now(),
+        now(),
+        now()
+    );
+
+    UPDATE public.miembro
+    SET 
+        telefono = p_telefono,
+        "apellidoPaterno" = p_apellido_paterno,
+        "apellidoMaterno" = p_apellido_materno,
+        monto_inscripcion = p_monto_inscripcion
+    WHERE id = v_user_id;
+
+    RETURN json_build_object('id', v_user_id, 'email', p_email);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.actualizar_auth_admin(
+    p_user_id uuid,
+    p_email text,
+    p_rol text,
+    p_nombre text
+)
+RETURNS json AS $$
+BEGIN
+    IF public.current_user_rol() != 'admin' THEN
+        RAISE EXCEPTION 'Acceso denegado: solo administradores pueden actualizar datos de Auth.';
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables
-        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'cuota_membresia'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.cuota_membresia;
-    END IF;
-END $$;
+    UPDATE auth.users
+    SET 
+        email = COALESCE(p_email, email),
+        raw_user_meta_data = raw_user_meta_data 
+            || CASE WHEN p_rol IS NOT NULL THEN jsonb_build_object('rol', p_rol) ELSE '{}'::jsonb END
+            || CASE WHEN p_nombre IS NOT NULL THEN jsonb_build_object('full_name', p_nombre) ELSE '{}'::jsonb END,
+        updated_at = now()
+    WHERE id = p_user_id;
 
--- Recargar caché del schema en PostgREST
-NOTIFY pgrst, 'reload schema';
+    IF p_email IS NOT NULL THEN
+        UPDATE auth.identities
+        SET 
+            identity_data = identity_data || jsonb_build_object('email', p_email),
+            updated_at = now()
+        WHERE user_id = p_user_id AND provider = 'email';
+    END IF;
+
+    RETURN json_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.actualizar_password_admin(
+    p_user_id uuid,
+    p_new_password text
+)
+RETURNS json AS $$
+DECLARE
+    v_encrypted_pw text;
+BEGIN
+    IF public.current_user_rol() != 'admin' AND auth.uid() != p_user_id THEN
+        RAISE EXCEPTION 'Acceso denegado: no tienes permisos para cambiar esta contraseña.';
+    END IF;
+
+    v_encrypted_pw := extensions.crypt(p_new_password, extensions.gen_salt('bf', 10));
+
+    UPDATE auth.users
+    SET 
+        encrypted_password = v_encrypted_pw,
+        updated_at = now()
+    WHERE id = p_user_id;
+
+    RETURN json_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+

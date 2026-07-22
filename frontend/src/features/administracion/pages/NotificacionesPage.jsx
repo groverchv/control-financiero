@@ -37,7 +37,7 @@ export const NotificacionesPage = () => {
           .from("plan_amortizacion")
           .select("*")
           .eq("estado", "pendiente")
-          .order("fechaVencimiento", { ascending: true });
+          .order("fecha_vencimiento", { ascending: true });
 
         const { data: activosData } = await supabase
           .from("activos")
@@ -47,7 +47,7 @@ export const NotificacionesPage = () => {
 
         const hoy = new Date();
         const todas = (planes || []).map((p) => {
-          const fechaVenc = new Date(p.fechaVencimiento);
+          const fechaVenc = new Date(p.fecha_vencimiento || p.fechaVencimiento);
           const diffDias = Math.ceil((fechaVenc - hoy) / (1000 * 60 * 60 * 24));
           const activoNombre =
             activosData?.find((a) => a.id === p.activoId)?.nombre ||

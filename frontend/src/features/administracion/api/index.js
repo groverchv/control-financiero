@@ -23,7 +23,6 @@ export const administracionApi = {
           rol, 
           estado, 
           creacion,
-          contrasena,
           profesion,
           biografia,
           fecha_pausa,
@@ -61,21 +60,27 @@ export const administracionApi = {
       monto_inscripcion: miembro.monto_inscripcion || 150
     });
 
-    const response = await fetch(`${BACKEND_API}/api/admin/miembros/crear`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        ...sanitized,
-        password: miembro.password || 'password123'
-      })
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || '';
+
+    // HIGH-01: Contraseña temporal fuerte en lugar de 'password123'
+    const generatedPassword = crypto.randomUUID().slice(0, 12) + 'xX1!';
+    const passwordToUse = miembro.password || generatedPassword;
+
+    const { data: resData, error: rpcError } = await supabase.rpc('crear_usuario_admin', {
+      p_email: sanitized.email,
+      p_password: passwordToUse,
+      p_nombre: sanitized.nombre,
+      p_rol: sanitized.rol,
+      p_telefono: sanitized.telefono || null,
+      p_apellido_paterno: sanitized.apellidoPaterno || null,
+      p_apellido_materno: sanitized.apellidoMaterno || null,
+      p_monto_inscripcion: Number(sanitized.monto_inscripcion) || 150
     });
 
-    const resData = await response.json();
-    if (!response.ok) {
-      let mensaje = resData.error || 'Error al crear usuario en la API del backend';
-      if (mensaje.includes('already been registered')) {
+    if (rpcError) {
+      let mensaje = rpcError.message || 'Error al crear usuario en la base de datos';
+      if (mensaje.includes('already been registered') || mensaje.includes('ya está registrado')) {
         mensaje = 'Ya existe un usuario registrado con esta dirección de correo electrónico.';
       } else if (mensaje.includes('should be at least')) {
         mensaje = 'La contraseña debe tener al menos 6 caracteres.';
@@ -85,7 +90,7 @@ export const administracionApi = {
       throw new Error(mensaje);
     }
 
-    const authUser = resData.user;
+    const authUser = resData;
 
     // 3. Obtener el registro final
     const { data, error } = await supabase
@@ -104,7 +109,6 @@ export const administracionApi = {
         email: data.correoElectronico,
         nombre: `${data.nombre || ''} ${data.apellidoPaterno || ''}`.trim(),
         rol: data.rol,
-        contrasena: emailToUse === 'no-reply@control.com' ? undefined : (miembro.password || 'password123'),
         montoInscripcion: data.monto_inscripcion || miembro.monto_inscripcion || 150
       }).catch(err => console.error('[Brevo] Error enviando email de bienvenida:', err));
     }
@@ -132,20 +136,15 @@ export const administracionApi = {
 
     if (Object.keys(authUpdates).length > 0) {
       try {
-        const response = await fetch(`${BACKEND_API}/api/admin/miembros/actualizar-auth`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            userId: id,
-            updates: authUpdates
-          })
+        const { error: rpcError } = await supabase.rpc('actualizar_auth_admin', {
+          p_user_id: id,
+          p_email: authUpdates.email || null,
+          p_rol: authUpdates.rol || null,
+          p_nombre: authUpdates.nombre || null
         });
 
-        if (!response.ok && response.status !== 404) {
-          const resData = await response.json();
-          throw new Error(resData.error || 'Error al actualizar Auth en la API del backend');
+        if (rpcError) {
+          throw new Error(rpcError.message || 'Error al actualizar Auth en la base de datos');
         }
       } catch (err) {
         console.warn('[actualizarMiembro] No se pudo sincronizar con Auth (API offline o desactualizada):', err.message);
@@ -163,7 +162,7 @@ export const administracionApi = {
       .from('miembro')
       .update(finalUpdates)
       .eq('id', id)
-      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, contrasena, fecha_pausa, tiempo_restante_cuota, fecha_proxima_cuota');
+      .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, fecha_pausa, tiempo_restante_cuota, fecha_proxima_cuota');
 
     if (error) throw error;
     const res = data?.[0];
@@ -427,21 +426,13 @@ export const administracionApi = {
     // Nota: Solo se envía newPassword en texto plano al backend sobre HTTPS.
     // El backend usa Supabase Admin SDK (service_role) para actualizar la contraseña con bcrypt.
     // NO se guarda la contraseña en la tabla miembro.contrasena desde el frontend.
-    const response = await fetch(`${BACKEND_API}/api/admin/miembros/actualizar-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        userId,
-        newPassword
-        // contrasenaEncriptada: ELIMINADO — AES reversible almacenado en BD es un riesgo
-      })
+    const { error: rpcError } = await supabase.rpc('actualizar_password_admin', {
+      p_user_id: userId,
+      p_new_password: newPassword
     });
 
-    if (!response.ok) {
-      const resData = await response.json();
-      throw new Error(resData.error || 'Error al actualizar contraseña en la API del backend');
+    if (rpcError) {
+      throw new Error(rpcError.message || 'Error al actualizar contraseña en la base de datos');
     }
 
     return true;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Tags, Plus, CheckCircle2, AlertCircle, Lock, Edit, Trash2, RefreshCw, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { patrimonioApi } from '../api';
 import { Button, Input, Spinner, Modal } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -16,6 +16,7 @@ export const GestionTiposActivoPage = () => {
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
   const [tiposEnUso, setTiposEnUso] = useState({});
   const [confirmDeleteModal, setConfirmDeleteModal] = useState({ open: false, id: null, nombre: '' });
+  const [confirmSubmitModal, setConfirmSubmitModal] = useState({ open: false });
   const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -105,8 +106,13 @@ export const GestionTiposActivoPage = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handlePreSubmit = (e) => {
     e.preventDefault();
+    setConfirmSubmitModal({ open: true });
+  };
+
+  const executeSubmit = async () => {
+    setConfirmSubmitModal({ open: false });
 
     // Programmatic Blockade for active category
     if (editingTipo && tiposEnUso[editingTipo.id]) {
@@ -347,7 +353,7 @@ export const GestionTiposActivoPage = () => {
         }} 
         title={editingTipo ? 'Editar Tipo de Activo' : 'Nuevo Tipo de Activo'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handlePreSubmit} className="space-y-4">
           <Input 
             label="Nombre del Tipo" 
             value={formData.nombre} 
@@ -419,6 +425,45 @@ export const GestionTiposActivoPage = () => {
               variant="danger"
             >
               Sí, eliminar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Confirmación de Creación/Edición */}
+      <Modal
+        isOpen={confirmSubmitModal.open}
+        onClose={() => setConfirmSubmitModal({ open: false })}
+        title={
+          <div className="flex items-center gap-2.5 text-emerald-600">
+            <Info className="h-5.5 w-5.5 stroke-[2.5]" />
+            <span>Confirmar Acción</span>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-800 text-sm">
+            <Info className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />
+            <div>
+              <span>
+                ¿Estás seguro de que deseas <strong>{editingTipo ? 'actualizar' : 'registrar'}</strong> esta categoría de activo en el sistema?
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmSubmitModal({ open: false })}
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeSubmit}
+              className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white"
+            >
+              Sí, continuar
             </Button>
           </div>
         </div>

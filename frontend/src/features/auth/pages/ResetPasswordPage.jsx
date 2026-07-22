@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LockKeyhole, ShieldCheck, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../../services/supabase';
 import { Button } from '../../../components/ui';
-import { toast } from 'react-toastify';
+
+import { translateAuthError } from '../../../utils/errorHandler';
 
 export const ResetPasswordPage = () => {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ export const ResetPasswordPage = () => {
   useEffect(() => {
     // Escuchar el evento PASSWORD_RECOVERY de Supabase Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, _session) => {
+      (event) => {
         if (event === 'PASSWORD_RECOVERY') {
           setIsRecoveryMode(true);
           setCheckingSession(false);
@@ -69,27 +70,13 @@ export const ResetPasswordPage = () => {
       });
 
       if (updateError) {
-        setError(updateError.message || 'Error al actualizar la contraseña.');
+        setError(translateAuthError(updateError.message) || 'Error al actualizar la contraseña.');
         setLoading(false);
         return;
       }
 
-      // Actualizar también la contraseña en la tabla miembro si existe
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        await supabase
-          .from('miembro')
-          .update({ contrasena: password })
-          .eq('id', session.user.id);
-      }
-
       // Cerrar sesión para forzar re-login con la nueva contraseña
       await supabase.auth.signOut();
-
-      toast.success('¡Contraseña actualizada exitosamente! Inicia sesión con tu nueva contraseña.', {
-        toastId: 'password_reset_success',
-        autoClose: 5000,
-      });
 
       navigate('/login?msg=contrasena_actualizada');
     } catch (err) {

@@ -79,12 +79,12 @@ export const academicoApi = {
     if (inscritos && inscritos.length > 0) {
       const inscripcionIds = inscritos.map(ins => ins.id);
       
-      // Update associated paid incomes to 'reembolso_pendiente'
+      // Update associated paid incomes to 'devolucion'
       await supabase
         .from('ingreso')
-        .update({ estado: 'reembolso_pendiente' })
+        .update({ estado: 'devolucion' })
         .in('inscripcion_id', inscripcionIds)
-        .in('estado', ['pagada', 'pagado']);
+        .eq('estado', 'pagada');
 
       const destinatarios = inscritos
         .filter(ins => ins.estado === 'pagado' && ins.miembro && ins.miembro.correoElectronico)

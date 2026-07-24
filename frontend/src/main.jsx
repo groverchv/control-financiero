@@ -4,6 +4,17 @@ import './index.css';
 import 'leaflet/dist/leaflet.css';
 import App from './App';
 
+// Desregistrar cualquier service worker heredado (como sw-custom.js) que cause errores en caché
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister().then(() => {
+        console.log('Service Worker heredado desregistrado con éxito.');
+      });
+    }
+  });
+}
+
 const root = document.getElementById('root');
 
 if (!root) {

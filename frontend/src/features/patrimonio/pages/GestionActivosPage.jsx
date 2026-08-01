@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight, X, Eye, CheckCircle2, AlertCircle, RefreshCw, DollarSign } from 'lucide-react';
+import { PackagePlus, Search, Tags, ShieldCheck, ChevronLeft, ChevronRight, X, Eye, CheckCircle2, AlertCircle, RefreshCw, DollarSign, Edit, Trash2 } from 'lucide-react';
 import { useActivos } from '../hooks';
 import { Button, Input, Spinner, Modal, Select, ExportButtons } from '../../../components/ui';
 import { Table } from '../../../components/data-display';
@@ -8,6 +8,7 @@ import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { patrimonioApi } from '../api';
 import { useAuthStore } from '../../../store/authStore';
 import { cloudinaryService } from '../../../services/cloudinary';
+import { supabase } from '../../../services/supabase';
 
 export const GestionActivosPage = () => {
   const navigate = useNavigate();
@@ -40,6 +41,10 @@ export const GestionActivosPage = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [imageModal, setImageModal] = useState({ open: false, url: null });
   const [detalleModal, setDetalleModal] = useState({ open: false, activo: null });
+  const [editingActivo, setEditingActivo] = useState(null);
+  const [deletingActivo, setDeletingActivo] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
   const [activePlan, setActivePlan] = useState([]);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
@@ -169,17 +174,130 @@ export const GestionActivosPage = () => {
             <Eye className="h-3 w-3" />
             Detalle
           </Button>
+          <Button 
+            size="xs" 
+            variant="outline" 
+            className="text-amber-600 border-amber-200 hover:bg-amber-50 h-7 flex items-center gap-1"
+            onClick={() => handleOpenEdit(row)}
+          >
+            <Edit className="h-3 w-3" />
+            Editar
+          </Button>
+          <Button 
+            size="xs" 
+            variant="outline" 
+            className="text-red-600 border-red-200 hover:bg-red-50 h-7 flex items-center gap-1"
+            onClick={() => handleOpenDelete(row)}
+          >
+            <Trash2 className="h-3 w-3" />
+            Eliminar
+          </Button>
         </div>
       )
     }
   ];
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleOpenAdd = () => {
+    setEditingActivo(null);
+    setFormData({
+      nombre: '',
+      tipo_activo_id: '',
+      descripcion: '',
+      costo_total: 0,
+      fechaAdquisicion: '',
+      imagen: null
+    });
+    setImagePreview(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (activo) => {
+    setEditingActivo(activo);
+    setFormData({
+      nombre: activo.nombre || '',
+      tipo_activo_id: activo.tipo_activo_id || '',
+      descripcion: activo.descripcion || '',
+      costo_total: activo.costo_total || 0,
+      fechaAdquisicion: activo.fechaAdquisicion || '',
+      imagen: null
+    });
+    setImagePreview(activo.imagen_url || null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenDelete = (activo) => {
+    setDeletingActivo(activo);
+    setIsDeleteModalOpen(true);
+  };
+
+  const executeDelete = async () => {
+    if (!deletingActivo) return;
     setIsSubmitting(true);
-    setLoadingModal({ open: true, text: 'Registrando activo institucional...' });
+    setLoadingModal({ open: true, text: 'Eliminando activo institucional...' });
     try {
-      let imagen_url = null;
+      // Verificar si hay pagos registrados para este activo (en egresos o cuotas pagadas)
+      const { data: egresosRel, error: egErr } = await supabase
+        .from('egreso')
+        .select('id')
+        .eq('activo_id', deletingActivo.id)
+        .limit(1);
+
+      const { data: planRel, error: planErr } = await supabase
+        .from('plan_amortizacion')
+        .select('id')
+        .eq('activo_id', deletingActivo.id)
+        .eq('estado', 'pagada')
+        .limit(1);
+
+      if (egErr || planErr) {
+        throw new Error(egErr?.message || planErr?.message || 'Error verificando relaciones.');
+      }
+
+      if ((egresosRel && egresosRel.length > 0) || (planRel && planRel.length > 0)) {
+        setIsDeleteModalOpen(false);
+        setResultModal({
+          open: true,
+          type: 'error',
+          text: 'No se puede eliminar el activo',
+          details: `El activo "${deletingActivo.nombre}" tiene pagos o egresos registrados y no puede ser eliminado.`
+        });
+        return;
+      }
+
+      await patrimonioApi.eliminarActivo(deletingActivo.id);
+      setActivos(activos.filter(a => a.id !== deletingActivo.id));
+      setIsDeleteModalOpen(false);
+      setResultModal({
+        open: true,
+        type: 'success',
+        text: '¡Activo eliminado con éxito!',
+        details: `El activo "${deletingActivo.nombre}" y todos sus archivos/planes de amortización asociados fueron eliminados del sistema.`
+      });
+    } catch (err) {
+      console.error(err);
+      setResultModal({
+        open: true,
+        type: 'error',
+        text: 'Error al eliminar activo',
+        details: err instanceof Error ? err.message : 'No se pudo eliminar el activo.'
+      });
+    } finally {
+      setLoadingModal({ open: false, text: '' });
+      setIsSubmitting(false);
+      setDeletingActivo(null);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setIsConfirmSaveModalOpen(true);
+  };
+
+  const executeSubmit = async () => {
+    setIsSubmitting(true);
+    setLoadingModal({ open: true, text: editingActivo ? 'Actualizando activo...' : 'Registrando activo institucional...' });
+    try {
+      let imagen_url = editingActivo ? editingActivo.imagen_url : null;
       if (formData.imagen) {
         imagen_url = await cloudinaryService.uploadFile(formData.imagen, 'activos');
       }
@@ -190,22 +308,32 @@ export const GestionActivosPage = () => {
         nombre: formData.nombre,
         descripcion: formData.descripcion,
         costo_total: formData.costo_total,
-        saldo_pendiente: formData.costo_total, // Al inicio el saldo es igual al costo
+        saldo_pendiente: editingActivo ? Math.max(0, formData.costo_total - (editingActivo.costo_total - editingActivo.saldo_pendiente)) : formData.costo_total,
         fechaAdquisicion: formData.fechaAdquisicion,
         imagen_url,
-        estado: 'deuda'
+        estado: (editingActivo ? Math.max(0, formData.costo_total - (editingActivo.costo_total - editingActivo.saldo_pendiente)) : formData.costo_total) > 0 ? 'deuda' : 'pagado'
       };
 
-      const nuevoActivo = await patrimonioApi.registrarActivo(payload);
-      setActivos([nuevoActivo, ...activos]);
+      if (editingActivo) {
+        const updated = await patrimonioApi.actualizarActivo(editingActivo.id, payload);
+        setActivos(activos.map(a => a.id === editingActivo.id ? updated : a));
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Activo actualizado con éxito!',
+          details: `El activo "${formData.nombre}" ha sido actualizado correctamente.`
+        });
+      } else {
+        const nuevoActivo = await patrimonioApi.registrarActivo(payload);
+        setActivos([nuevoActivo, ...activos]);
+        setResultModal({
+          open: true,
+          type: 'success',
+          text: '¡Activo registrado con éxito!',
+          details: `El activo "${formData.nombre}" ha sido registrado correctamente.`
+        });
+      }
       
-      setLoadingModal({ open: false, text: '' });
-      setResultModal({
-        open: true,
-        type: 'success',
-        text: '¡Activo registrado con éxito!',
-        details: `El activo "${formData.nombre}" ha sido registrado correctamente en la base de datos.`
-      });
       setIsModalOpen(false);
       setFormData({ 
         nombre: '', 
@@ -215,16 +343,17 @@ export const GestionActivosPage = () => {
         fechaAdquisicion: '',
         imagen: null 
       });
+      setImagePreview(null);
     } catch (err) {
       console.error(err);
-      setLoadingModal({ open: false, text: '' });
       setResultModal({
         open: true,
         type: 'error',
-        text: 'No se pudo registrar el activo',
-        details: err instanceof Error ? err.message : 'Error desconocido de conexión o base de datos. Verifique si ejecutó el script setup.sql.'
+        text: 'Error en la operación',
+        details: err instanceof Error ? err.message : 'Error de conexión o base de datos.'
       });
     } finally {
+      setLoadingModal({ open: false, text: '' });
       setIsSubmitting(false);
     }
   };
@@ -255,7 +384,7 @@ export const GestionActivosPage = () => {
             filename="lista_activos" 
             title="Inventario de Activos Institucionales" 
           />
-          <Button type="button" onClick={() => setIsModalOpen(true)} className="h-9 flex items-center justify-center gap-2">
+          <Button type="button" onClick={handleOpenAdd} className="h-9 flex items-center justify-center gap-2">
             <PackagePlus className="h-4 w-4 shrink-0" />
             <span className="sm:hidden text-xs">Nuevo</span>
             <span className="hidden sm:inline text-sm">Registrar activo</span>
@@ -403,7 +532,7 @@ export const GestionActivosPage = () => {
         </div>
       </section>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Registrar nuevo activo">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingActivo ? "Editar activo" : "Registrar nuevo activo"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input 
             label="Nombre del Activo" 
@@ -726,6 +855,68 @@ export const GestionActivosPage = () => {
               onClick={() => setResultModal(prev => ({ ...prev, open: false }))}
             >
               Entendido
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => !isSubmitting && setIsDeleteModalOpen(false)}
+        title="Confirmar eliminación"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            ¿Está seguro de que desea eliminar el activo <strong>{deletingActivo?.nombre}</strong>?
+          </p>
+          <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-rose-800 text-xs flex items-start gap-2.5">
+            <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+            <div>
+              <strong>¡Esta acción no se puede deshacer!</strong> Se eliminarán de forma permanente todos los registros del activo, incluyendo su plan de amortización y archivos/fotos adjuntos.
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeDelete}
+              disabled={isSubmitting}
+              className="bg-red-600 hover:bg-red-700 text-white font-semibold"
+            >
+              {isSubmitting ? "Eliminando..." : "Sí, eliminar de todos modos"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isConfirmSaveModalOpen}
+        onClose={() => setIsConfirmSaveModalOpen(false)}
+        title="Confirmar Guardado"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            ¿Está seguro de que desea guardar los cambios para el activo <strong>{formData.nombre}</strong>?
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsConfirmSaveModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeSubmit}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              Confirmar y Guardar
             </Button>
           </div>
         </div>

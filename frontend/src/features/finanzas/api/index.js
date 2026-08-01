@@ -20,6 +20,7 @@ export const finanzasApi = {
         descripcion: sanitized.descripcion || 'Ingreso',
         estado: sanitized.estado || 'pagada',
         inscripcion_id: sanitized.inscripcionId || null,
+        qr_id: sanitized.qr_id || sanitized.qrId || null,
       }])
       .select();
 
@@ -35,15 +36,16 @@ export const finanzasApi = {
       }]);
     }
 
-    // Si el pago está vinculado a una inscripción de actividad, marcarla como pagada
-    if (pago.inscripcionId && pagoRegistrado) {
+    // Si el pago está vinculado a una inscripción de actividad, marcarla como pagada (solo si el pago ya está aprobado)
+    const esPagoPendiente = (pago.estado === 'pendiente');
+    if (pago.inscripcionId && pagoRegistrado && !esPagoPendiente) {
       await supabase
         .from('inscripcion')
         .update({ estado: 'pagado' })
         .eq('id', pago.inscripcionId);
     }
 
-    // Si el pago es de tipo cuota mensual/inscripción o la descripción indica que es pago de membresía/inscripción, marcar la cuota más antigua pendiente como pagada
+    // Si el pago es de tipo cuota mensual/inscripción o la descripción indica que es pago de membresía/inscripción, marcar la cuota más antigua pendiente como pagada (solo si el pago ya está aprobado)
     // Deteccion por descripcion o tipo_ingreso (sin UUIDs hardcodeados que cambian por BD)
     // Los UUIDs de tipo_ingreso varian por entorno; se usa el nombre/descripcion del pago.
     const esPagoCuotaOMembresia =
@@ -53,7 +55,7 @@ export const finanzasApi = {
         pago.descripcion.toLowerCase().includes('inscrip')
       ));
 
-    if (miembroId && esPagoCuotaOMembresia && pagoRegistrado) {
+    if (miembroId && esPagoCuotaOMembresia && pagoRegistrado && !esPagoPendiente) {
       try {
         const { data: cuotasPendientes } = await supabase
           .from('cuota_membresia')
@@ -128,7 +130,8 @@ export const finanzasApi = {
         tipo:tipo_ingreso(nombre),
         registrador:miembro!registrado_por(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
         socio:miembro!miembro_id(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
-        archivos:archivo(url, tipo)
+        archivos:archivo(url, tipo),
+        qr:qr_pago(id, nombre)
       `)
       .eq('id', pagoRegistrado.id)
       .single();
@@ -251,7 +254,8 @@ export const finanzasApi = {
       registrador:miembro!registrado_por(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
       socio:miembro!miembro_id(nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol),
       archivos:archivo(url, tipo),
-      inscripcion(id, actividad:actividad_id(id, titulo, costo))
+      inscripcion(id, actividad:actividad_id(id, titulo, costo)),
+      qr:qr_pago(id, nombre)
     `).order('creacion', { ascending: false });
 
     if (miembroId) {
@@ -274,7 +278,8 @@ export const finanzasApi = {
       registrado_por_telefono: d.registrador?.telefono || null,
       registrado_por_rol: d.registrador?.rol || null,
       comprobanteUrl: d.archivos?.find(a => a.tipo === 'comprobante_ingreso')?.url || d.archivos?.[0]?.url || null,
-      inscripcion: d.inscripcion
+      inscripcion: d.inscripcion,
+      qr_nombre: d.qr?.nombre || null
     })) || [];
 
     apiCache.set(cacheKey, result);
@@ -405,18 +410,29 @@ export const finanzasApi = {
       if (cNew) cuotasFisicasFinales = cNew;
     }
 
+    // 3.8. Obtener todos los ingresos aprobados
+    const { data: todosIngresosAprobados } = await supabase
+      .from('ingreso')
+      .select('miembro_id, descripcion, estado')
+      .eq('estado', 'pagada');
+
     const result = (miembrosFinales || []).map(m => {
       const cronogramaRaw = (cuotasFisicasFinales || [])
         .filter(c => c.miembro_id === m.id)
-        .map(c => ({
-          id: c.id,
-          mes: c.periodo,
-          monto_esperado: Number(c.monto_esperado),
-          pagado: c.estado === 'pagado',
-          ingreso_id: c.ingreso_id,
-          creacion: c.creacion,
-          fechaVencimientoAjustada: c.creacion, // fallback para compatibilidad UI
-        }))
+        .map(c => {
+          const hasApprovedPago = (todosIngresosAprobados || []).some(ai => 
+            ai.miembro_id === m.id && ai.descripcion && ai.descripcion.includes(`Reporte de cuota: ${c.periodo}`)
+          );
+          return {
+            id: c.id,
+            mes: c.periodo,
+            monto_esperado: Number(c.monto_esperado),
+            pagado: c.estado === 'pagado' || hasApprovedPago,
+            ingreso_id: c.ingreso_id,
+            creacion: c.creacion,
+            fechaVencimientoAjustada: c.creacion, // fallback para compatibilidad UI
+          };
+        })
         .sort((a, b) => new Date(a.creacion) - new Date(b.creacion));
 
       const seenPeriods = new Set();
@@ -1064,10 +1080,14 @@ export const finanzasApi = {
             if (Number(i.monto || 0) <= 0 || i.estado === 'devolucion') return false;
 
             const esTipoActividad = i.tipo?.nombre?.toLowerCase().includes('actividad');
-            // Excluir si el tipo es de membresía/mensualidad
+            // Excluir si el tipo o la descripción son de membresía/mensualidad/cuotas de inscripción a la asociación
             const esMembresia = i.tipo?.nombre?.toLowerCase().includes('membresía') || 
                                 i.tipo?.nombre?.toLowerCase().includes('membresia') || 
-                                i.tipo?.nombre?.toLowerCase().includes('mensual');
+                                i.tipo?.nombre?.toLowerCase().includes('mensual') ||
+                                i.descripcion?.toLowerCase().includes('cuota') ||
+                                i.descripcion?.toLowerCase().includes('membresía') ||
+                                i.descripcion?.toLowerCase().includes('membresia') ||
+                                i.descripcion?.toLowerCase().includes('mensual');
             if (esMembresia) return false;
 
             const esDescActividad = i.descripcion?.toLowerCase().includes('actividad') || i.descripcion?.toLowerCase().includes('inscrip');
@@ -1075,7 +1095,7 @@ export const finanzasApi = {
             // Excluir si la descripción es sobre la inscripción a la asociación
             const esAsociacion = i.descripcion?.toLowerCase().includes('asociación') || 
                                  i.descripcion?.toLowerCase().includes('asociacion') || 
-                                 i.descripcion?.includes('APF');
+                                 i.descripcion?.toLowerCase().includes('apf');
             if (esAsociacion) return false;
 
             return esTipoActividad || esDescActividad;
@@ -1114,5 +1134,176 @@ export const finanzasApi = {
     const combined = [...mappedInscripciones, ...mappedOrphans];
     combined.sort((a, b) => new Date(b.fecha_inscripcion) - new Date(a.fecha_inscripcion));
     return combined;
+  },
+
+  obtenerQrs: async () => {
+    const { data, error } = await supabase
+      .from('qr_pago')
+      .select(`
+        *,
+        archivos:archivo(url),
+        tipo:tipo_ingreso(nombre)
+      `)
+      .order('creacion', { ascending: false });
+
+    if (error) throw error;
+    return data?.map(d => ({
+      ...d,
+      url_qr: d.archivos && d.archivos.length > 0 ? d.archivos[0].url : null,
+      tipo_ingreso_nombre: d.tipo?.nombre || 'General / Todos'
+    })) || [];
+  },
+
+  crearQr: async (nombre, url_qr, activo = true, tipo_ingreso_id = null) => {
+    apiCache.invalidate('finanzas');
+    const { data, error } = await supabase
+      .from('qr_pago')
+      .insert([{ nombre, activo, tipo_ingreso_id }])
+      .select();
+
+    if (error) throw error;
+    const qrRegistrado = data?.[0];
+
+    if (url_qr && qrRegistrado) {
+      const { error: arcErr } = await supabase.from('archivo').insert([{
+        qr_id: qrRegistrado.id,
+        url: url_qr,
+        tipo: 'codigo_qr'
+      }]);
+      if (arcErr) throw arcErr;
+    }
+
+    return qrRegistrado;
+  },
+
+  actualizarQr: async (id, { nombre, url_qr, activo, tipo_ingreso_id }) => {
+    apiCache.invalidate('finanzas');
+    const { data, error } = await supabase
+      .from('qr_pago')
+      .update({ nombre, activo, tipo_ingreso_id, actualizacion: new Date().toISOString() })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    const qrActualizado = data?.[0];
+
+    if (url_qr && qrActualizado) {
+      // Eliminar archivo anterior si existe
+      await supabase.from('archivo').delete().eq('qr_id', id);
+      
+      const { error: arcErr } = await supabase.from('archivo').insert([{
+        qr_id: id,
+        url: url_qr,
+        tipo: 'codigo_qr'
+      }]);
+      if (arcErr) throw arcErr;
+    }
+
+    return qrActualizado;
+  },
+
+  eliminarQr: async (id) => {
+    apiCache.invalidate('finanzas');
+    const { error } = await supabase.from('qr_pago').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  aprobarPago: async (ingresoId, registradorId) => {
+    apiCache.invalidate('finanzas');
+    
+    // 1. Obtener detalles del ingreso
+    const { data: currentIngreso, error: fetchErr } = await supabase
+      .from('ingreso')
+      .select('*')
+      .eq('id', ingresoId)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+    if (!currentIngreso) throw new Error('No se encontró el registro de ingreso.');
+
+    // 2. Aprobar el ingreso
+    const { data: approvedIngreso, error: updateErr } = await supabase
+      .from('ingreso')
+      .update({
+        estado: 'pagada',
+        registrado_por: registradorId
+      })
+      .eq('id', ingresoId)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // 3. Si está vinculado a una inscripción, actualizar la inscripción a pagada
+    if (currentIngreso.inscripcion_id) {
+      const { error: insErr } = await supabase
+        .from('inscripcion')
+        .update({ estado: 'pagado' })
+        .eq('id', currentIngreso.inscripcion_id);
+      if (insErr) console.error('[aprobarPago] Error actualizando inscripción:', insErr);
+    } 
+    // 4. Si es una cuota (identificada por descripción), actualizar la cuota a pagada
+    else if (currentIngreso.descripcion && currentIngreso.descripcion.includes('Reporte de cuota:')) {
+      const match = currentIngreso.descripcion.match(/Reporte de cuota:\s*([^.\n]+)/i);
+      const period = match ? match[1].trim() : null;
+      if (period) {
+        const { error: cuotaErr } = await supabase
+          .from('cuota_membresia')
+          .update({ 
+            estado: 'pagado',
+            ingreso_id: ingresoId
+          })
+          .eq('miembro_id', currentIngreso.miembro_id)
+          .eq('periodo', period);
+        if (cuotaErr) console.error('[aprobarPago] Error actualizando cuota_membresia:', cuotaErr);
+      }
+    }
+
+    return approvedIngreso;
+  },
+
+  rechazarPago: async (ingresoId, motivo, registradorId) => {
+    apiCache.invalidate('finanzas');
+    
+    // 1. Obtener detalles del ingreso
+    const { data: currentIngreso, error: fetchErr } = await supabase
+      .from('ingreso')
+      .select('*')
+      .eq('id', ingresoId)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+    if (!currentIngreso) throw new Error('No se encontró el registro de ingreso.');
+
+    // 2. Rechazar el ingreso
+    const nuevaDesc = `${currentIngreso.descripcion || ''} [Rechazado. Motivo: ${motivo}]`.trim();
+    const { data: rejectedIngreso, error: updateErr } = await supabase
+      .from('ingreso')
+      .update({
+        estado: 'rechazado',
+        descripcion: nuevaDesc,
+        registrado_por: registradorId
+      })
+      .eq('id', ingresoId)
+      .select()
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // 3. Crear notificación para el socio
+    try {
+      if (currentIngreso.miembro_id) {
+        await supabase.from('notificacion').insert([{
+          miembro_id: currentIngreso.miembro_id,
+          titulo: 'Pago Rechazado',
+          descripcion: `Tu reporte de pago por Bs. ${Number(currentIngreso.monto).toFixed(2)} ha sido rechazado. Motivo: ${motivo}.`,
+          estado: 'pendiente'
+        }]);
+      }
+    } catch (notifErr) {
+      console.error('[rechazarPago] Error guardando notificación:', notifErr);
+    }
+
+    return rejectedIngreso;
   }
 };

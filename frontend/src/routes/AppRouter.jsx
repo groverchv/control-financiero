@@ -21,6 +21,7 @@ const HistorialCuotasPage = lazy(() => import("@/features/finanzas/pages/Histori
 const HistorialActividadesPage = lazy(() => import("@/features/finanzas/pages/HistorialActividadesPage").then(m => ({ default: m.HistorialActividadesPage })));
 const RegistroEgresosPage = lazy(() => import("@/features/finanzas/pages/RegistroEgresosPage").then(m => ({ default: m.RegistroEgresosPage })));
 const GestionTiposFinanzasPage = lazy(() => import("@/features/finanzas/pages/GestionTiposFinanzasPage").then(m => ({ default: m.GestionTiposFinanzasPage })));
+const GestionQrPage = lazy(() => import("@/features/finanzas/pages/GestionQrPage").then(m => ({ default: m.GestionQrPage })));
 
 const GestionActivosPage = lazy(() => import("@/features/patrimonio/pages/GestionActivosPage").then(m => ({ default: m.GestionActivosPage })));
 const CatalogoActivosPage = lazy(() => import("@/features/patrimonio/pages/CatalogoActivosPage").then(m => ({ default: m.CatalogoActivosPage })));
@@ -38,6 +39,7 @@ const SocioNotificacionesPage = lazy(() => import("@/features/administracion/pag
 const AdminNotificacionesPage = lazy(() => import("@/features/administracion/pages/NotificacionesPage").then(m => ({ default: m.NotificacionesPage })));
 
 const BackupPage = lazy(() => import("@/features/auditoria/pages/BackupPage").then(m => ({ default: m.BackupPage })));
+const SocioQrPage = lazy(() => import("@/features/administracion/pages/SocioQrPage").then(m => ({ default: m.SocioQrPage })));
 const PublicActividadesPage = lazy(() => import("@/features/academico/pages/PublicCursosPage").then(m => ({ default: m.PublicCursosPage })));
 const DetalleActividadPage = lazy(() => import("@/features/academico/pages/DetalleActividadPage").then(m => ({ default: m.DetalleActividadPage })));
 
@@ -175,6 +177,14 @@ export const AppRouter = () => {
               }
             />
             <Route
+              path="/socio/qr"
+              element={
+                <ProtectedRoute requiredRoles={["socio", "admin", "secretario"]}>
+                  <SocioQrPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/socio/notificaciones"
               element={
                 <ProtectedRoute requiredRoles={["socio", "admin", "secretario"]}>
@@ -248,6 +258,14 @@ export const AppRouter = () => {
               element={
                 <ProtectedRoute requiredRoles={["admin"]}>
                   <GestionTiposFinanzasPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/qr"
+              element={
+                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                  <GestionQrPage />
                 </ProtectedRoute>
               }
             />

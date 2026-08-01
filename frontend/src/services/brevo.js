@@ -340,7 +340,7 @@ export const brevoService = {
    * @param {string} params.nombre    Nombre completo o primer nombre del socio
    * @param {string} params.rol       Rol asignado al usuario
    */
-  enviarBienvenida: async ({ email, nombre, rol, montoInscripcion }) => {
+  enviarBienvenida: async ({ email, nombre, rol, montoInscripcion, ci }) => {
     const rolFormateado = rol ? (rol.charAt(0).toUpperCase() + rol.slice(1)) : 'Miembro';
     const montoFormateado = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(montoInscripcion) || 150);
 
@@ -361,8 +361,12 @@ export const brevoService = {
                 <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${email}</td>
               </tr>
               <tr style="border-top:1px solid #edf2f7;">
-                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Contraseña de Acceso</td>
-                <td style="padding:8px 0;color:#e11d48;font-size:13px;font-weight:700;text-align:right;">Usa la opción "Olvidé mi contraseña" para crear una.</td>
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Carnet de Identidad (CI)</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${ci || '—'}</td>
+              </tr>
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Contraseña Inicial</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">Su número de CI</td>
               </tr>
               <tr style="border-top:1px solid #edf2f7;">
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Rol asignado</td>
@@ -462,6 +466,68 @@ export const brevoService = {
       to: { email, name: nombreDisplay },
       subject: `[APF] Restablecimiento de Contraseña`,
       htmlContent: baseTemplate('Recuperación de Contraseña', content, '#4338ca'),
+    });
+  },
+
+  /**
+   * NOTIFICACIÓN DE INSCRIPCIÓN A ACTIVIDAD
+   * Se envía cuando un socio se inscribe o es inscrito a una actividad académica.
+   */
+  notificarInscripcionActividad: async ({ email, nombre, actividadTitulo, fecha, hora, modalidad, ubicacion, costo }) => {
+    const costoFormateado = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(costo) || 0);
+
+    const content = `
+      <h2 style="margin:0 0 4px;color:#1e3a5f;font-size:22px;font-weight:800;text-align:center;">CONFIRMACIÓN DE INSCRIPCIÓN</h2>
+      <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Actividad Académica Registrada</p>
+
+      <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+        Estimado/a <strong>${nombre}</strong>, te confirmamos que tu inscripción para participar en la actividad académica ha sido registrada de forma correcta.
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px;">
+        <tr>
+          <td style="padding:20px 24px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Actividad</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${actividadTitulo}</td>
+              </tr>
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Fecha</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${formatFecha(fecha)}</td>
+              </tr>
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Hora</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${hora || '—'}</td>
+              </tr>
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Modalidad</td>
+                <td style="padding:8px 0;color:#1e3a5f;font-size:13px;font-weight:700;text-align:right;text-transform:capitalize;">${modalidad || '—'}</td>
+              </tr>
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Ubicación / Enlace</td>
+                <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${ubicacion || '—'}</td>
+              </tr>
+              <tr style="border-top:1px solid #edf2f7;">
+                <td style="padding:12px 0 0;color:#1e3a5f;font-size:14px;font-weight:800;">INVERSIÓN</td>
+                <td style="padding:12px 0 0;color:#1e3a5f;font-size:18px;font-weight:800;text-align:right;">Bs. ${costoFormateado}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <p style="margin:0 0 20px;color:#475569;font-size:14px;line-height:1.6;text-align:center;">
+        ¡Agradecemos tu participación y te deseamos un excelente aprendizaje!
+      </p>
+    `;
+
+    if (!email || email === 'no-reply@control.com') return { success: true };
+
+    return enviarEmail({
+      to: { email, name: nombre },
+      subject: `[APF] Confirmación de Inscripción — ${actividadTitulo}`,
+      htmlContent: baseTemplate('Confirmación de Inscripción', content, '#1e3a5f'),
     });
   },
 };

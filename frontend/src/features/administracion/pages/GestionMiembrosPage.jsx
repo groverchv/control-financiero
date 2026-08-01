@@ -174,8 +174,8 @@ export const GestionMiembrosPage = () => {
       return;
     }
 
-    // Validación unificada de contraseña (crear o editar)
-    const needsPasswordValidation = !editingMember || (editingMember && formData.password);
+    // Validación unificada de contraseña (solo al editar y si se escribe una nueva)
+    const needsPasswordValidation = editingMember && formData.password;
     if (needsPasswordValidation) {
       if (formData.password !== formData.confirmPassword) {
         setResultModal({

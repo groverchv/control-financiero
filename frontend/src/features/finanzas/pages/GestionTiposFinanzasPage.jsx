@@ -233,12 +233,7 @@ export const GestionTiposFinanzasPage = () => {
         Disponible
       </span>
     ),
-    acciones: tiposIngresoEnUso[tipo.id] ? (
-      <div className="flex items-center gap-1.5 opacity-60">
-        <Lock className="h-3.5 w-3.5 text-slate-400" />
-        <span className="text-slate-400 text-[10px] italic whitespace-nowrap">En uso</span>
-      </div>
-    ) : (
+    acciones: (
       <div className="flex items-center gap-2">
         <button
           onClick={() => handleEditClick(tipo, 'ingreso')}
@@ -250,8 +245,13 @@ export const GestionTiposFinanzasPage = () => {
         </button>
         <button
           onClick={() => handleDeleteClick(tipo, 'ingreso')}
-          className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 border border-red-200 transition-colors"
-          title="Eliminar"
+          disabled={tiposIngresoEnUso[tipo.id]}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors ${
+            tiposIngresoEnUso[tipo.id]
+              ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed border border-slate-200'
+              : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+          }`}
+          title={tiposIngresoEnUso[tipo.id] ? "No se puede eliminar porque está en uso" : "Eliminar"}
         >
           <Trash2 className="h-3.5 w-3.5" />
           <span>Eliminar</span>
@@ -264,19 +264,14 @@ export const GestionTiposFinanzasPage = () => {
     ...tipo,
     estado_uso: tiposEgresoEnUso[tipo.id] ? (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
-        <Lock className="h-3 w-3" /> En uso
+        <Lock className="h-3.5 w-3.5" /> En uso
       </span>
     ) : (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
         Disponible
       </span>
     ),
-    acciones: tiposEgresoEnUso[tipo.id] ? (
-      <div className="flex items-center gap-1.5 opacity-60">
-        <Lock className="h-3.5 w-3.5 text-slate-400" />
-        <span className="text-slate-400 text-[10px] italic whitespace-nowrap">En uso</span>
-      </div>
-    ) : (
+    acciones: (
       <div className="flex items-center gap-2">
         <button
           onClick={() => handleEditClick(tipo, 'egreso')}
@@ -288,8 +283,13 @@ export const GestionTiposFinanzasPage = () => {
         </button>
         <button
           onClick={() => handleDeleteClick(tipo, 'egreso')}
-          className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 border border-red-200 transition-colors"
-          title="Eliminar"
+          disabled={tiposEgresoEnUso[tipo.id]}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors ${
+            tiposEgresoEnUso[tipo.id]
+              ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed border border-slate-200'
+              : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+          }`}
+          title={tiposEgresoEnUso[tipo.id] ? "No se puede eliminar porque está en uso" : "Eliminar"}
         >
           <Trash2 className="h-3.5 w-3.5" />
           <span>Eliminar</span>

@@ -14,15 +14,20 @@ import {
   Eye,
   AlertCircle,
   Info,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { useAuthStore } from "../../../store/authStore";
 import { administracionApi } from "../api";
+import { useTheme } from "../../../hooks/useTheme";
 import { Button, Input, Spinner, Modal } from "../../../components/ui";
 import { LoadingOverlay } from "../../../components/feedback";
 import { supabase } from "../../../services/supabase";
 
 export const PerfilSocioPage = () => {
   const { user, setUser } = useAuthStore();
+  const [theme, setTheme] = useTheme();
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -455,6 +460,52 @@ export const PerfilSocioPage = () => {
                   )
                 )}
               </label>
+            </div>
+          </section>
+
+          {/* Apariencia / Tema de la interfaz */}
+          <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+              <Sun className="h-4 w-4 text-blue-600" />
+              Tema de la Interfaz
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all text-center gap-1.5 ${
+                  theme === 'light'
+                    ? 'border-blue-500 bg-blue-50/50 text-blue-700 font-bold shadow-sm'
+                    : 'border-slate-100 hover:border-slate-200 text-slate-600 bg-slate-50/30'
+                }`}
+              >
+                <Sun className={`h-5 w-5 ${theme === 'light' ? 'text-amber-500' : 'text-slate-400'}`} />
+                <span className="text-xs">Claro</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all text-center gap-1.5 ${
+                  theme === 'dark'
+                    ? 'border-blue-500 bg-blue-50/50 text-blue-700 font-bold shadow-sm'
+                    : 'border-slate-100 hover:border-slate-200 text-slate-600 bg-slate-50/30'
+                }`}
+              >
+                <Moon className={`h-5 w-5 ${theme === 'dark' ? 'text-indigo-400' : 'text-slate-400'}`} />
+                <span className="text-xs">Oscuro</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('system')}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all text-center gap-1.5 ${
+                  theme === 'system'
+                    ? 'border-blue-500 bg-blue-50/50 text-blue-700 font-bold shadow-sm'
+                    : 'border-slate-100 hover:border-slate-200 text-slate-600 bg-slate-50/30'
+                }`}
+              >
+                <Monitor className={`h-5 w-5 ${theme === 'system' ? 'text-blue-500' : 'text-slate-400'}`} />
+                <span className="text-xs">Sistema</span>
+              </button>
             </div>
           </section>
         </div>

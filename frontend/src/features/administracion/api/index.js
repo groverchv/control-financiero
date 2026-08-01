@@ -29,6 +29,7 @@ export const administracionApi = {
           tiempo_restante_cuota,
           fecha_proxima_cuota,
           monto_inscripcion,
+          ci,
           archivos:archivo(url, tipo, estado)
         `);
 
@@ -57,15 +58,15 @@ export const administracionApi = {
       telefono: miembro.telefono,
       apellidoPaterno: miembro.apellidoPaterno,
       apellidoMaterno: miembro.apellidoMaterno,
-      monto_inscripcion: miembro.monto_inscripcion || 150
+      monto_inscripcion: miembro.monto_inscripcion || 150,
+      ci: miembro.ci
     });
 
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || '';
 
-    // HIGH-01: Contraseña temporal fuerte en lugar de 'password123'
-    const generatedPassword = crypto.randomUUID().slice(0, 12) + 'xX1!';
-    const passwordToUse = miembro.password || generatedPassword;
+    // La contraseña inicial del usuario es su CI
+    const passwordToUse = miembro.ci;
 
     const { data: resData, error: rpcError } = await supabase.rpc('crear_usuario_admin', {
       p_email: sanitized.email,
@@ -75,7 +76,8 @@ export const administracionApi = {
       p_telefono: sanitized.telefono || null,
       p_apellido_paterno: sanitized.apellidoPaterno || null,
       p_apellido_materno: sanitized.apellidoMaterno || null,
-      p_monto_inscripcion: Number(sanitized.monto_inscripcion) || 150
+      p_monto_inscripcion: Number(sanitized.monto_inscripcion) || 150,
+      p_ci: sanitized.ci
     });
 
     if (rpcError) {
@@ -109,7 +111,8 @@ export const administracionApi = {
         email: data.correoElectronico,
         nombre: `${data.nombre || ''} ${data.apellidoPaterno || ''}`.trim(),
         rol: data.rol,
-        montoInscripcion: data.monto_inscripcion || miembro.monto_inscripcion || 150
+        montoInscripcion: data.monto_inscripcion || miembro.monto_inscripcion || 150,
+        ci: data.ci
       }).catch(err => console.error('[Brevo] Error enviando email de bienvenida:', err));
     }
 

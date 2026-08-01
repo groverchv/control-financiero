@@ -22,7 +22,7 @@ const generateSql = () => {
     'archivo', 'detalles', 'plan_amortizacion', 'inscripcion', 'jurado', 
     'cuota_membresia', 'ingreso', 'egreso', 'activos', 'actividad', 
     'miembro', 'notificacion', 'configuracion_cuotas', 'tipo_actividad', 
-    'tipo_ingreso', 'tipo_egreso', 'tipo_activo'
+    'tipo_ingreso', 'tipo_egreso', 'tipo_activo', 'qr_pago'
   ];
 
   sql += `-- Deshabilitar triggers temporalmente para carga masiva rápida\n`;
@@ -41,6 +41,7 @@ const generateSql = () => {
     { key: 'tiposIngreso', table: 'tipo_ingreso' },
     { key: 'tiposActividad', table: 'tipo_actividad' },
     { key: 'configCuotas', table: 'configuracion_cuotas' },
+    { key: 'qrs', table: 'qr_pago' },
     { key: 'miembros', table: 'miembro' },
     { key: 'actividades', table: 'actividad' },
     { key: 'activos', table: 'activos' },

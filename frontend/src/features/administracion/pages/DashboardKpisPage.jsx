@@ -47,12 +47,12 @@ const KpiCard = ({ icon: Icon, label, value, sub, color = 'blue', trend }) => {
         <Icon className={`h-5 w-5 ${tc}`} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider truncate">{label}</p>
-        <p className="text-base sm:text-xl font-extrabold text-slate-900 mt-0.5 break-words sm:truncate">{value}</p>
-        {sub && <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 truncate">{sub}</p>}
+        <p className="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
+        <p className="text-base sm:text-xl font-extrabold text-slate-900 mt-0.5 break-words">{value}</p>
+        {sub && <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 break-words">{sub}</p>}
       </div>
       {trend !== undefined && (
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${trend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${trend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
           {trend >= 0 ? '+' : ''}{trend}%
         </span>
       )}
@@ -520,7 +520,7 @@ export const DashboardKpisPage = () => {
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                 <KpiCard 
                   icon={Clock} 
                   label="Membresías por Cobrar" 

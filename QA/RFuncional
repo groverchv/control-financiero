@@ -1,0 +1,96 @@
+# 📋 Requisitos Funcionales del Sistema (Control Financiero)
+
+Este documento contiene la especificación formal y descriptiva de los requisitos funcionales del sistema. Sirve como base técnica para las pruebas de calidad (QA) y auditorías.
+
+---
+
+## 👥 Módulo 1: Gestión de Miembros (Administración)
+*Control de socios, roles, estado en la institución, pausa de cuotas e historial.*
+
+*   **RF-1.1: Registro de Nuevos Miembros**
+    *   **Descripción:** Permite al administrador registrar socios ingresando Nombre, CI, Correo Electrónico, Teléfono, Rol, Profesión, Biografía y Monto de Inscripción.
+    *   **Impacto:** Crítico. Detona automáticamente la creación del perfil en la base de datos y la generación de la cuota inicial de inscripción.
+*   **RF-1.2: Edición de Perfiles**
+    *   **Descripción:** Permite modificar datos personales de contacto, actualizar biografías y reasignar roles administrativos.
+*   **RF-1.3: Control de Pausas e Inactividad**
+    *   **Descripción:** Permite suspender o pausar temporalmente a un socio. El sistema calcula y acumula los días pausados para la suspensión de cobros.
+*   **RF-1.4: Expediente de Detalles**
+    *   **Descripción:** Vista expandida que unifica la trayectoria académica, profesional, biografía y documentos del socio.
+*   **RF-1.5: Panel de Inscripciones**
+    *   **Descripción:** Listado que muestra todas las actividades y cursos en los que el socio se encuentra registrado.
+*   **RF-1.6: Estado de Cuenta Individual**
+    *   **Descripción:** Visualización analítica en tiempo real de deudas por cuotas, inscripciones por pagar y saldos a favor.
+*   **RF-1.7: Alertas y Notificaciones**
+    *   **Descripción:** Panel interactivo de notificaciones internas para informar al socio sobre recordatorios de cuotas y eventos asignados.
+*   **RF-1.8: Repositorio de Documentos (CV)**
+    *   **Descripción:** Permite cargar y asociar archivos digitales (como currículums o identificaciones) mediante URL enlazadas a Cloudinary.
+
+---
+
+## 🔍 Módulo 2: Búsqueda de Talento (Académico)
+*Motor de búsqueda para la identificación y localización de perfiles especializados.*
+
+*   **RF-2.1: Búsqueda Semántica y Filtros**
+    *   **Descripción:** Permite filtrar a los miembros por habilidades, profesiones y palabras clave en sus biografías.
+*   **RF-2.2: Tarjeta de Presentación Profesional**
+    *   **Descripción:** Fichas estructuradas que resumen la biografía del socio, permitiendo una rápida evaluación de su perfil.
+
+---
+
+## 📅 Módulo 3: Gestión de Actividades (Académico)
+*Administración de la oferta formativa, eventos, inscripciones y jurados.*
+
+*   **RF-3.1: Catálogo de Actividades**
+    *   **Descripción:** Creación y modificación de cursos y talleres con parámetros de costo, cupos, fecha, hora y certificación.
+*   **RF-3.2: Georreferenciación de Eventos**
+    *   **Descripción:** Mapa interactivo integrado (Leaflet) para establecer las coordenadas físicas del evento.
+*   **RF-3.3: Automatización de Cupos**
+    *   **Descripción:** Descuento automático de vacantes al inscribirse y restitución de las mismas en caso de cancelación del socio.
+*   **RF-3.4: Asignación de Jurados**
+    *   **Descripción:** Designación de evaluadores de actividades académicas e informando al miembro asignado mediante notificaciones.
+*   **RF-3.5: Auditoría de Fechas e Historial**
+    *   **Descripción:** Traspaso automático del estado del evento a "finalizado" al transcurrir la fecha programada.
+*   **RF-3.6: Categorización de Eventos**
+    *   **Descripción:** CRUD para mantener los tipos y clasificaciones de actividades de la institución.
+
+---
+
+## 🏢 Módulo 4: Gestión de Activos (Patrimonio)
+*Control de los bienes físicos, deudas de adquisición y amortización.*
+
+*   **RF-4.1: Registro de Bienes Patrimoniales**
+    *   **Descripción:** Registro detallado de activos indicando costo total, saldo deudor pendiente, fecha de compra y el miembro custodio.
+*   **RF-4.2: Clasificación de Patrimonio**
+    *   **Descripción:** CRUD de tipos de activos (Tecnológicos, Bienes Raíces, Mobiliario).
+*   **RF-4.3: Cronograma de Amortización**
+    *   **Descripción:** Generación de cuotas de pago fraccionadas con fecha límite para amortizar la deuda de compra del bien.
+*   **RF-4.4: Descuento Automático de Saldos**
+    *   **Descripción:** Al vincular un egreso a un activo, el saldo deudor pendiente disminuye automáticamente y el activo se marca como pagado si el saldo llega a cero.
+
+---
+
+## 💰 Módulo 5: Gestión Financiera (Ingresos, Egresos y Cuotas)
+*Control de flujos monetarios, arqueo de caja y cobros recurrentes.*
+
+*   **RF-5.1: Registro, Aprobación y Rechazo de Ingresos**
+    *   **Descripción:** Declaración de entradas de dinero clasificadas por concepto, emisor, receptor de caja y método de pago. Incluye el flujo de aprobación y rechazo de reportes de pago por parte del administrador. Al rechazar un pago, es obligatorio ingresar un motivo (soportando textos largos). El socio recibe una notificación detallada y puede ver el motivo del rechazo en un modal desde su portal, rehabilitando la opción de volver a reportar el pago del período correspondiente.
+*   **RF-5.2: Registro de Egresos**
+    *   **Descripción:** Declaración de gastos institucionales con vinculación opcional a amortización de activos.
+*   **RF-5.3: Generación Inteligente de Cuotas**
+    *   **Descripción:** Sistema anti-duplicados por concurrencia que previene emitir cuotas duplicadas para un socio en el mismo mes.
+*   **RF-5.4: Categorías de Transacción**
+    *   **Descripción:** CRUD para configurar las partidas contables (Tipos de Ingresos y Egresos).
+*   **RF-5.5: Recaudación Rápida por QR**
+    *   **Descripción:** Configuración de códigos QR de pago vinculados a cuentas de cobro para que el socio pague ágilmente desde su portal.
+*   **RF-5.6: Reportes de Balance y Exportación**
+    *   **Descripción:** Dashboards financieros interactivos con descarga de balances en PDF y libros mayores en Excel.
+
+---
+
+## 🛡️ Módulo 6: Auditoría y Seguridad
+*Resguardo de la información institucional y trazabilidad.*
+
+*   **RF-6.1: Copias de Seguridad y Restauración**
+    *   **Descripción:** Descarga completa del dataset de la institución en formatos SQL o JSON y capacidad de importación para restaurar el estado del sistema.
+*   **RF-6.2: Bitácora de Auditoría**
+    *   **Descripción:** Historial inmutable de operaciones y transacciones para garantizar la transparencia financiera.

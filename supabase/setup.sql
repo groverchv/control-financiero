@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS public.miembro (
     fecha_proxima_cuota  timestamptz DEFAULT NULL,
     tiempo_restante_cuota interval   DEFAULT NULL,
     monto_inscripcion    numeric     DEFAULT 150,
+    ci                   text,
     creacion             timestamptz DEFAULT now(),
     actualizacion        timestamptz DEFAULT now()
 );
@@ -176,6 +177,15 @@ CREATE TABLE IF NOT EXISTS public.activos (
     actualizacion   timestamptz DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.qr_pago (
+    id              uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    nombre          text NOT NULL,
+    tipo_ingreso_id uuid REFERENCES public.tipo_ingreso(id) ON DELETE SET NULL,
+    activo          boolean DEFAULT true,
+    creacion        timestamptz DEFAULT now(),
+    actualizacion   timestamptz DEFAULT now()
+);
+
 -- ── ingreso ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.ingreso (
     id              uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -184,6 +194,7 @@ CREATE TABLE IF NOT EXISTS public.ingreso (
     devuelto_por    uuid REFERENCES public.miembro(id) ON DELETE SET NULL,
     tipo_ingreso_id uuid REFERENCES public.tipo_ingreso(id),
     inscripcion_id  uuid REFERENCES public.inscripcion(id) ON DELETE SET NULL,
+    qr_id           uuid REFERENCES public.qr_pago(id) ON DELETE SET NULL,
     monto           numeric(12,2) NOT NULL
                         CONSTRAINT chk_ingreso_monto CHECK (monto >= 0),
     fecha           date NOT NULL,
@@ -191,7 +202,7 @@ CREATE TABLE IF NOT EXISTS public.ingreso (
     -- Estados: 'pagada' (default al registrar), 'devolucion' (reembolso total), 'pendiente'
     estado          text DEFAULT 'pagada'
                         CONSTRAINT chk_ingreso_estado
-                        CHECK (estado IN ('pagada', 'devolucion', 'pendiente')),
+                        CHECK (estado IN ('pagada', 'devolucion', 'pendiente', 'rechazado')),
     creacion        timestamptz DEFAULT now()
 );
 
@@ -230,6 +241,7 @@ CREATE TABLE IF NOT EXISTS public.archivo (
     ingreso_id   uuid REFERENCES public.ingreso(id)  ON DELETE CASCADE,
     activo_id    uuid REFERENCES public.activos(id)  ON DELETE CASCADE,
     actividad_id uuid REFERENCES public.actividad(id) ON DELETE CASCADE,
+    qr_id        uuid REFERENCES public.qr_pago(id)  ON DELETE CASCADE,
     url          text NOT NULL,
     tipo         text,
     estado       text DEFAULT 'activo',
@@ -239,7 +251,7 @@ CREATE TABLE IF NOT EXISTS public.archivo (
     CONSTRAINT chk_archivo_tiene_referencia CHECK (
         miembro_id IS NOT NULL OR egreso_id IS NOT NULL OR
         ingreso_id IS NOT NULL OR activo_id IS NOT NULL OR
-        actividad_id IS NOT NULL
+        actividad_id IS NOT NULL OR qr_id IS NOT NULL
     )
 );
 
@@ -539,14 +551,15 @@ BEGIN
         ELSE                   INTERVAL '1 month'
     END;
 
-    INSERT INTO public.miembro (id, nombre, "correoElectronico", rol, fecha_proxima_cuota, monto_inscripcion)
+    INSERT INTO public.miembro (id, nombre, "correoElectronico", rol, fecha_proxima_cuota, monto_inscripcion, ci)
     VALUES (
         new.id,
         COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
         new.email,
         v_rol,
         now() + v_interval,
-        v_monto_inscripcion
+        v_monto_inscripcion,
+        new.raw_user_meta_data->>'ci'
     )
     ON CONFLICT (id) DO NOTHING;
 
@@ -760,6 +773,7 @@ ALTER TABLE public.configuracion_cuotas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_amortizacion   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.jurado              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cuota_membresia     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.qr_pago             ENABLE ROW LEVEL SECURITY;
 
 -- ─────────────────────────────────────────────────────────────────────
 -- FUNCIÓN HELPER: obtiene el rol del usuario autenticado actual
@@ -840,6 +854,9 @@ DROP POLICY IF EXISTS "gestionar_config_cuotas"         ON public.configuracion_
 DROP POLICY IF EXISTS "ver_archivo"                     ON public.archivo;
 DROP POLICY IF EXISTS "insertar_archivo"                ON public.archivo;
 DROP POLICY IF EXISTS "eliminar_archivo"                ON public.archivo;
+
+DROP POLICY IF EXISTS "ver_qr_pago"                     ON public.qr_pago;
+DROP POLICY IF EXISTS "gestionar_qr_pago"               ON public.qr_pago;
 
 DROP POLICY IF EXISTS "ver_detalles"                    ON public.detalles;
 DROP POLICY IF EXISTS "gestionar_detalles"              ON public.detalles;
@@ -944,7 +961,10 @@ CREATE POLICY "ver_ingreso_propio" ON public.ingreso
 
 CREATE POLICY "insertar_ingreso" ON public.ingreso
   FOR INSERT TO authenticated
-  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
+  WITH CHECK (
+    public.current_user_rol() IN ('admin', 'secretario') OR
+    (public.current_user_rol() = 'socio' AND miembro_id = auth.uid() AND estado = 'pendiente')
+  );
 
 CREATE POLICY "actualizar_ingreso" ON public.ingreso
   FOR UPDATE TO authenticated
@@ -1047,24 +1067,38 @@ CREATE POLICY "ver_archivo" ON public.archivo
     miembro_id = auth.uid() OR
     ingreso_id IN (SELECT id FROM public.ingreso WHERE miembro_id = auth.uid()) OR
     public.current_user_rol() IN ('admin', 'secretario') OR
-    actividad_id IS NOT NULL  -- archivos de actividades son semi-públicos
+    actividad_id IS NOT NULL OR  -- archivos de actividades son semi-públicos
+    qr_id IS NOT NULL            -- archivos de QR son públicos para usuarios autenticados
   );
 
 -- Lectura pública solo para archivos de actividades (no comprobantes financieros)
 CREATE POLICY "lectura_publica_actividad_archivo" ON public.archivo
   FOR SELECT TO anon
-  USING (actividad_id IS NOT NULL AND miembro_id IS NULL AND egreso_id IS NULL AND ingreso_id IS NULL);
+  USING (actividad_id IS NOT NULL AND miembro_id IS NULL AND egreso_id IS NULL AND ingreso_id IS NULL AND qr_id IS NULL);
 
 CREATE POLICY "insertar_archivo" ON public.archivo
   FOR INSERT TO authenticated
   WITH CHECK (
     miembro_id = auth.uid() OR
-    public.current_user_rol() IN ('admin', 'secretario')
+    public.current_user_rol() IN ('admin', 'secretario') OR
+    (public.current_user_rol() = 'socio' AND ingreso_id IS NOT NULL AND (
+      SELECT i.miembro_id FROM public.ingreso i WHERE i.id = ingreso_id
+    ) = auth.uid())
   );
 
 CREATE POLICY "eliminar_archivo" ON public.archivo
   FOR DELETE TO authenticated
   USING (public.current_user_rol() IN ('admin', 'secretario'));
+
+-- ── qr_pago ──────────────────────────────────────────────────────────
+CREATE POLICY "ver_qr_pago" ON public.qr_pago
+  FOR SELECT TO authenticated
+  USING (true);
+
+CREATE POLICY "gestionar_qr_pago" ON public.qr_pago
+  FOR ALL TO authenticated
+  USING (public.current_user_rol() IN ('admin', 'secretario'))
+  WITH CHECK (public.current_user_rol() IN ('admin', 'secretario'));
 
 -- ── detalles (de egreso) ──────────────────────────────────────────────
 CREATE POLICY "ver_detalles" ON public.detalles
@@ -1196,7 +1230,8 @@ CREATE OR REPLACE FUNCTION public.crear_usuario_admin(
     p_telefono text,
     p_apellido_paterno text,
     p_apellido_materno text,
-    p_monto_inscripcion numeric
+    p_monto_inscripcion numeric,
+    p_ci text
 )
 RETURNS json AS $$
 DECLARE
@@ -1240,7 +1275,8 @@ BEGIN
         jsonb_build_object(
             'rol', p_rol, 
             'full_name', trim(concat(p_nombre, ' ', p_apellido_paterno, ' ', p_apellido_materno)),
-            'monto_inscripcion', p_monto_inscripcion
+            'monto_inscripcion', p_monto_inscripcion,
+            'ci', p_ci
         ),
         now(),
         now(),
@@ -1277,7 +1313,8 @@ BEGIN
         telefono = p_telefono,
         "apellidoPaterno" = p_apellido_paterno,
         "apellidoMaterno" = p_apellido_materno,
-        monto_inscripcion = p_monto_inscripcion
+        monto_inscripcion = p_monto_inscripcion,
+        ci = p_ci
     WHERE id = v_user_id;
 
     RETURN json_build_object('id', v_user_id, 'email', p_email);
@@ -1340,4 +1377,11 @@ BEGIN
     RETURN json_build_object('success', true);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- ── Migración para agregar tipo_ingreso_id a qr_pago ──
+ALTER TABLE public.qr_pago 
+  ADD COLUMN IF NOT EXISTS tipo_ingreso_id uuid REFERENCES public.tipo_ingreso(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_qr_pago_tipo_ingreso ON public.qr_pago(tipo_ingreso_id);
 

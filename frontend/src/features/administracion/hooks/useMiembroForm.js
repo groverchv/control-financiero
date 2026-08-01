@@ -6,6 +6,7 @@ const INITIAL_FORM_DATA = {
   apellidoMaterno: '', 
   email: '', 
   telefono: '', 
+  ci: '',
   password: '', 
   confirmPassword: '',
   rol: 'socio', 
@@ -54,6 +55,7 @@ export const useMiembroForm = (miembros) => {
     (formData.apellidoMaterno || '') === (editingMember.apellidoMaterno || '') &&
     formData.email === editingMember.email &&
     (formData.telefono || '') === (editingMember.telefono || '') &&
+    (formData.ci || '') === (editingMember.ci || '') &&
     formData.password === '' &&
     formData.confirmPassword === '' &&
     formData.rol === editingMember.rol &&
@@ -75,6 +77,7 @@ export const useMiembroForm = (miembros) => {
       apellidoMaterno: miembro.apellidoMaterno || '',
       email: miembro.email,
       telefono: miembro.telefono || '',
+      ci: miembro.ci || '',
       password: '',
       confirmPassword: '',
       rol: miembro.rol,

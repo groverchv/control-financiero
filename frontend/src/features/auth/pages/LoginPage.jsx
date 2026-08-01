@@ -6,6 +6,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { Button } from '../../../components/ui';
 import { toast } from 'react-toastify';
 import { translateAuthError } from '../../../utils/errorHandler';
+import { supabase } from '../../../services/supabase';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -70,7 +71,34 @@ export const LoginPage = () => {
 
     setLoading(true);
 
-    const { data, error: loginError } = await authApi.login(email, password);
+    let resolvedEmail = email.trim();
+
+    if (!resolvedEmail.includes('@')) {
+      try {
+        const { data: memberData, error: dbError } = await supabase
+          .from('miembro')
+          .select('correoElectronico')
+          .eq('ci', resolvedEmail)
+          .maybeSingle();
+
+        if (dbError) throw dbError;
+
+        if (memberData && memberData.correoElectronico) {
+          resolvedEmail = memberData.correoElectronico;
+        } else {
+          setError('No se encontró ningún miembro con el Carnet de Identidad ingresado.');
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Error resolviendo CI a correo:', err);
+        setError('Ocurrió un error al verificar su Carnet de Identidad.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    const { data, error: loginError } = await authApi.login(resolvedEmail, password);
 
     if (loginError) {
       const newAttempts = loginAttempts + 1;
@@ -124,18 +152,18 @@ export const LoginPage = () => {
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
             <label className="text-sm font-medium text-slate-700" htmlFor="email">
-              Correo
+              Correo o Carnet de Identidad (CI)
             </label>
             <div className="mt-2 flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 focus-within:ring-2 focus-within:ring-blue-600">
               <Mail className="h-4 w-4 text-slate-400" />
               <input
                 id="email"
                 name="email"
-                type="email"
-                autoComplete="email"
+                type="text"
+                autoComplete="username"
                 required
                 className="w-full border-0 p-0 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                placeholder="nombre@institucion.edu"
+                placeholder="nombre@institucion.edu o 1234567"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />

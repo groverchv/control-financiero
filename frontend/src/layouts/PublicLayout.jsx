@@ -57,6 +57,7 @@ export const PublicLayout = () => {
 
   const authLinks = [
     { to: '/socio/estado-cuenta', label: 'Estado de Cuenta' },
+    { to: '/socio/qr', label: 'Ver QR' },
     { to: '/socio/notificaciones', label: 'Notificaciones', showBadge: true },
     { to: '/socio/perfil', label: 'Mi Perfil' },
   ];
@@ -208,72 +209,7 @@ export const PublicLayout = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 ml-auto min-w-0 shrink-0">
-            {/* Selector de Tema Escritorio (Dropdown) */}
-            <div 
-              className="relative hidden md:block mr-2"
-              onMouseEnter={() => setIsThemeDropdownOpen(true)}
-              onMouseLeave={() => setIsThemeDropdownOpen(false)}
-            >
-              <button
-                onClick={() => setIsThemeDropdownOpen(!isThemeDropdownOpen)}
-                className="flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-slate-800/60 p-2 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/80 transition-all shadow-sm"
-                title="Cambiar Tema"
-              >
-                {theme === 'light' && <Sun className="h-4 w-4 text-amber-500" />}
-                {theme === 'dark' && <Moon className="h-4 w-4 text-indigo-400" />}
-                {theme === 'system' && <Monitor className="h-4 w-4 text-blue-500" />}
-                <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isThemeDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isThemeDropdownOpen && (
-                <div className="absolute top-full right-0 pt-2 w-36 z-50">
-                  <div className="rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-105 dark:border-slate-800 py-1.5 animate-in fade-in zoom-in-95 duration-200">
-                    <button
-                      onClick={() => {
-                        setTheme('light');
-                        setIsThemeDropdownOpen(false);
-                      }}
-                      className={`flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-bold transition-colors text-left ${
-                        theme === 'light' 
-                          ? 'text-blue-600 bg-blue-50/50 dark:text-blue-400 dark:bg-slate-800/50' 
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      <Sun className="h-4 w-4 text-amber-500" />
-                      <span>Claro</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTheme('dark');
-                        setIsThemeDropdownOpen(false);
-                      }}
-                      className={`flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-bold transition-colors text-left ${
-                        theme === 'dark' 
-                          ? 'text-blue-600 bg-blue-50/50 dark:text-blue-400 dark:bg-slate-800/50' 
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      <Moon className="h-4 w-4 text-indigo-400" />
-                      <span>Oscuro</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTheme('system');
-                        setIsThemeDropdownOpen(false);
-                      }}
-                      className={`flex items-center gap-2.5 w-full px-3.5 py-2 text-xs font-bold transition-colors text-left ${
-                        theme === 'system' 
-                          ? 'text-blue-600 bg-blue-50/50 dark:text-blue-400 dark:bg-slate-800/50' 
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      <Monitor className="h-4 w-4 text-blue-500" />
-                      <span>Sistema</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            
 
             <div className="hidden items-center gap-4 md:flex min-w-0">
               {isAuthenticated ? (

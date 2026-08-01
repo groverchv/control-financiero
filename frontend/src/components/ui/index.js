@@ -6,5 +6,6 @@ export { Modal } from './Modal';
 export { ExportButtons } from './ExportButtons';
 export { Skeleton } from './Skeleton';
 export { Confetti } from './Confetti';
+export { EmptyState } from './EmptyState';
 
 

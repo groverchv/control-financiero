@@ -215,7 +215,17 @@ const MiembroRow = ({ registro }) => {
                   let labelPrincipal;
                   let labelSecundario;
 
-                  if (c.mes.startsWith('Día ')) {
+                  if (c.mes.startsWith('Inscripción ')) {
+                    const datePart = c.mes.substring(12); // '2026-07'
+                    if (datePart.includes('-')) {
+                      const [year, month] = datePart.split('-').map(Number);
+                      labelPrincipal = 'Inscripción';
+                      labelSecundario = `${MESES_ES[month - 1]} ${year}`;
+                    } else {
+                      labelPrincipal = 'Inscripción';
+                      labelSecundario = datePart;
+                    }
+                  } else if (c.mes.startsWith('Día ')) {
                     const datePart = c.mes.substring(4);
                     const [year, month, day] = datePart.split('-').map(Number);
                     labelPrincipal = `${day} ${MESES_ES[month - 1]}`;

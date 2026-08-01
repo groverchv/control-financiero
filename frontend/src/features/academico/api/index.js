@@ -254,6 +254,30 @@ export const academicoApi = {
     };
   })(),
 
+  obtenerActividadPorId: async (id) => {
+    const { data, error } = await supabase
+      .from('actividad')
+      .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion), inscripcion(id)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    return {
+      ...data,
+      nombre: data.titulo,
+      tipo_nombre: data.tipo_actividad?.nombre || 'General',
+      imagen: data.archivo?.[0]?.url || null,
+      jurados: data.jurado?.map(j => {
+        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
+        const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
+        return extName || 'Jurado Externo';
+      }) || [],
+      inscritos_count: data.inscripcion?.length || 0
+    };
+  },
+
   actualizarActividad: async (id, updates, imagenFile = null) => {
     apiCache.invalidate('academico');
     apiCache.invalidate('finanzas');
@@ -673,27 +697,6 @@ export const academicoApi = {
       resumen: d.biografia,
       foto: d.archivos?.find(a => a.tipo === 'foto' && a.estado === 'activo')?.url || null
     }));
-  },
-
-  obtenerActividadPorId: async (id) => {
-    const { data, error } = await supabase
-      .from('actividad')
-      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion)')
-      .eq('id', id)
-      .single();
-
-    if (error) throw error;
-    return { 
-      ...data, 
-      nombre: data.titulo,
-      tipo_nombre: data.tipo_actividad?.nombre || 'General',
-      imagen: data.archivo?.[0]?.url || null,
-      jurados: data.jurado?.map(j => {
-        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''} ${j.miembro.apellidoMaterno || ''}`.trim();
-        const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
-        return extName || 'Jurado Externo';
-      }) || []
-    };
   },
 
   obtenerInscripcionesUsuario: async (miembroId) => {

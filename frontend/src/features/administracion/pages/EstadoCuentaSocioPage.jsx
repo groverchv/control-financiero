@@ -1,14 +1,16 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { 
   CreditCard, Search, ChevronLeft, ChevronRight, 
   CheckCircle2, AlertCircle, GraduationCap, Clock,
-  TrendingDown, BookOpen
+  TrendingDown, BookOpen, Upload
 } from 'lucide-react';
 import { finanzasApi } from '../../finanzas/api';
 import { useAuthStore } from '../../../store/authStore';
 import { Table } from '../../../components/data-display';
-import { Spinner, ExportButtons } from '../../../components/ui';
+import { Spinner, ExportButtons, Button, Modal, Input } from '../../../components/ui';
+import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { supabase } from '../../../services/supabase';
+import { cloudinaryService } from '../../../services/cloudinary';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -61,58 +63,159 @@ export const EstadoCuentaSocioPage = () => {
   const [pageActs, setPageActs] = useState(1);
   const [filtroEstadoActs, setFiltroEstadoActs] = useState('todas'); // 'todas', 'pendientes', 'pagadas'
 
+  // ─── Reporte Pago state ──────────────────────────────────────────
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [activeQrs, setActiveQrs] = useState([]);
+  const [tiposIngreso, setTiposIngreso] = useState([]);
+  const [conceptType, setConceptType] = useState('cuota'); // 'cuota' | 'actividad'
+  const [selectedConcept, setSelectedConcept] = useState(''); // mes (cuota) o inscripcionId (actividad)
+  const [reportAmount, setReportAmount] = useState('');
+  const [selectedQrId, setSelectedQrId] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [fechaTransferencia, setFechaTransferencia] = useState(new Date().toISOString().split('T')[0]);
+  const [reportNotes, setReportNotes] = useState('');
+  
+  // Carga/Feedback state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
+  const [toast, setToast] = useState({ open: false, type: 'success', text: '' });
+  const [imageModal, setImageModal] = useState({ open: false, url: null });
+  const [motivoRechazoModal, setMotivoRechazoModal] = useState({ open: false, motivo: '' });
+
+  const [reportedIngresos, setReportedIngresos] = useState([]);
+
+  const fetchReportedIngresos = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('ingreso')
+        .select('*')
+        .eq('miembro_id', user.id)
+        .in('estado', ['pendiente', 'rechazado']);
+      if (error) throw error;
+      setReportedIngresos(data || []);
+    } catch (err) {
+      console.error("Error al cargar ingresos reportados:", err);
+    }
+  }, [user]);
+
   // ─── Carga de cuotas del usuario ────────────────────────────────
-  useEffect(() => {
-    const fetchCuotas = async () => {
-      if (!user?.id) return;
-      try {
-        const historial = await finanzasApi.obtenerHistorialCuotasMiembro();
-        const miRegistro = historial.find(h => h.miembro?.id === user.id);
-        if (miRegistro) {
-          setCuotasData(miRegistro);
-        } else {
-          setCuotasData({ cronograma: [], mesesPagados: 0, mesesDeuda: 0 });
+  const fetchCuotas = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingCuotas(true);
+    try {
+      const historial = await finanzasApi.obtenerHistorialCuotasMiembro(true);
+      const miRegistro = historial.find(h => h.miembro?.id === user.id);
+      if (miRegistro) {
+        // Obtener todos los ingresos aprobados de tipo cuota del miembro para auto-sincronizar en el frontend
+        const { data: approvedIngresos } = await supabase
+          .from('ingreso')
+          .select('*')
+          .eq('miembro_id', user.id)
+          .eq('estado', 'pagada');
+
+        if (approvedIngresos && approvedIngresos.length > 0) {
+          miRegistro.cronograma = miRegistro.cronograma.map(c => {
+            const hasApprovedPago = approvedIngresos.some(ai => 
+              ai.descripcion && ai.descripcion.includes(`Reporte de cuota: ${c.mes}`)
+            );
+            if (hasApprovedPago) {
+              return {
+                ...c,
+                pagado: true,
+                monto_pagado: c.monto_esperado
+              };
+            }
+            return c;
+          });
+
+          // Recalcular meses de deuda y meses pagados
+          miRegistro.mesesDeuda = miRegistro.cronograma.filter(c => !c.pagado).length;
+          miRegistro.mesesPagados = miRegistro.cronograma.filter(c => c.pagado).length;
         }
-      } catch (error) {
-        console.error("Error al cargar cuotas:", error);
+
+        setCuotasData(miRegistro);
+      } else {
         setCuotasData({ cronograma: [], mesesPagados: 0, mesesDeuda: 0 });
-      } finally {
-        setLoadingCuotas(false);
       }
-    };
-    fetchCuotas();
+    } catch (error) {
+      console.error("Error al cargar cuotas:", error);
+      setCuotasData({ cronograma: [], mesesPagados: 0, mesesDeuda: 0 });
+    } finally {
+      setLoadingCuotas(false);
+    }
   }, [user]);
 
   // ─── Carga de inscripciones del usuario ─────────────────────────
-  useEffect(() => {
-    const fetchInscripciones = async () => {
-      if (!user?.id) return;
-      try {
-        const { data, error } = await supabase
-          .from('inscripcion')
-          .select(`
-            id,
-            estado,
-            fecha_inscripcion,
-            actividad:actividad_id(
-              id, titulo, costo, fecha, hora, modalidad,
-              tipo_actividad:tipo_actividad_id(nombre)
-            ),
-            ingreso(monto)
-          `)
-          .eq('miembro_id', user.id)
-          .order('fecha_inscripcion', { ascending: false });
+  const fetchInscripciones = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingActs(true);
+    try {
+      const { data, error } = await supabase
+        .from('inscripcion')
+        .select(`
+          id,
+          estado,
+          fecha_inscripcion,
+          actividad:actividad_id(
+            id, titulo, costo, fecha, hora, modalidad,
+            tipo_actividad:tipo_actividad_id(nombre)
+          ),
+          ingreso(monto, estado)
+        `)
+        .eq('miembro_id', user.id)
+        .order('fecha_inscripcion', { ascending: false });
 
-        if (error) throw error;
-        setInscripciones(data || []);
-      } catch (error) {
-        console.error("Error al cargar inscripciones:", error);
-      } finally {
-        setLoadingActs(false);
-      }
-    };
-    fetchInscripciones();
+      if (error) throw error;
+      setInscripciones(data || []);
+    } catch (error) {
+      console.error("Error al cargar inscripciones:", error);
+    } finally {
+      setLoadingActs(false);
+    }
   }, [user]);
+
+  const loadAllData = useCallback(async () => {
+    await Promise.all([fetchCuotas(), fetchInscripciones(), fetchReportedIngresos()]);
+  }, [fetchCuotas, fetchInscripciones, fetchReportedIngresos]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAllData();
+    /// eslint-disable-next-line react-hooks/set-state-in-effect
+    finanzasApi.obtenerTiposIngreso()
+      .then(setTiposIngreso)
+      .catch(err => console.error("Error cargando tipos de ingreso:", err));
+  }, [loadAllData]);
+
+  // Cargar códigos QR activos al abrir el modal de reporte
+  useEffect(() => {
+    if (isReportModalOpen) {
+      const fetchActiveQrs = async () => {
+        try {
+          const qrs = await finanzasApi.obtenerQrs();
+          setActiveQrs(qrs.filter(q => q.activo));
+        } catch (err) {
+          console.error("Error cargando QRs activos:", err);
+        }
+      };
+      fetchActiveQrs();
+    }
+  }, [isReportModalOpen]);
+
+  const filteredActiveQrs = useMemo(() => {
+    if (!conceptType) return activeQrs;
+    const targetTipo = tiposIngreso.find(t => 
+      conceptType === 'cuota'
+        ? (t.nombre.toLowerCase().includes('cuota') || t.nombre.toLowerCase().includes('membres'))
+        : (t.nombre.toLowerCase().includes('actividad') || t.nombre.toLowerCase().includes('curso') || t.nombre.toLowerCase().includes('evento') || t.nombre.toLowerCase().includes('inscrip'))
+    );
+    if (!targetTipo) {
+      return activeQrs.filter(q => !q.tipo_ingreso_id);
+    }
+    return activeQrs.filter(q => !q.tipo_ingreso_id || q.tipo_ingreso_id === targetTipo.id);
+  }, [activeQrs, conceptType, tiposIngreso]);
 
   // ─── Formatters ─────────────────────────────────────────────────
   const formatCurrency = (val) => `Bs ${Number(val || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -182,20 +285,23 @@ export const EstadoCuentaSocioPage = () => {
   const cuotasPendientes = cronograma.filter(c => !c.pagado);
   const totalPendienteCuotas = cuotasPendientes.reduce((sum, c) => sum + Number(c.monto_esperado || 0), 0);
 
-  const actsPendientes = inscripciones.filter(i => {
-    const costo = i.actividad?.costo || 0;
-    const totalPaid = i.ingreso && i.ingreso.length > 0
-      ? i.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
-      : (i.estado === 'pagado' ? costo : 0);
-    return totalPaid < costo && costo > 0;
-  });
-  const totalPendienteActs = actsPendientes.reduce((sum, i) => {
-    const costo = i.actividad?.costo || 0;
-    const totalPaid = i.ingreso && i.ingreso.length > 0
-      ? i.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
-      : (i.estado === 'pagado' ? costo : 0);
-    return sum + (costo - totalPaid);
-  }, 0);
+  const actsPendientes = useMemo(() => {
+    return inscripciones.filter(i => {
+      const costo = i.actividad?.costo || 0;
+      const validIngresos = i.ingreso ? i.ingreso.filter(ing => ing.estado !== 'devolucion') : [];
+      const totalPaid = validIngresos.reduce((sum, ing) => sum + Number(ing.monto || 0), 0);
+      return totalPaid < costo && costo > 0;
+    });
+  }, [inscripciones]);
+
+  const totalPendienteActs = useMemo(() => {
+    return actsPendientes.reduce((sum, i) => {
+      const costo = i.actividad?.costo || 0;
+      const validIngresos = i.ingreso ? i.ingreso.filter(ing => ing.estado !== 'devolucion') : [];
+      const totalPaid = validIngresos.reduce((sum, ing) => sum + Number(ing.monto || 0), 0);
+      return sum + (costo - totalPaid);
+    }, 0);
+  }, [actsPendientes]);
 
   const deudaGlobalTotal = totalPendienteCuotas + totalPendienteActs;
 
@@ -204,28 +310,79 @@ export const EstadoCuentaSocioPage = () => {
     { key: 'periodo', label: 'Periodo' },
     { key: 'monto_display', label: 'Monto' },
     { key: 'estado_display', label: 'Estado' },
+    { key: 'acciones', label: 'Acción' },
   ];
 
-  const cuotasRows = paginatedCuotas.map((c, idx) => ({
-    id: c.mes + '-' + ((pageCuotas - 1) * ITEMS_PER_PAGE + idx),
-    periodo: (
-      <span className="font-semibold text-slate-800 text-sm">{c.mes}</span>
-    ),
-    monto_display: (
-      <span className={`font-bold text-sm ${c.pagado ? 'text-emerald-600' : 'text-red-600'}`}>
-        {c.pagado ? formatCurrency(c.monto_pagado || c.monto_esperado) : formatCurrency(c.monto_esperado)}
-      </span>
-    ),
-    estado_display: c.pagado ? (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-        <CheckCircle2 className="h-3 w-3" /> PAGADA
-      </span>
-    ) : (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-xs font-bold text-red-700">
-        <AlertCircle className="h-3 w-3" /> PENDIENTE
-      </span>
-    ),
-  }));
+  const cuotasRows = paginatedCuotas.map((c, idx) => {
+    const reportedPago = reportedIngresos.find(pi => 
+      pi.descripcion && pi.descripcion.includes(`Reporte de cuota: ${c.mes}`)
+    );
+    const esPendienteRevision = reportedPago && reportedPago.estado === 'pendiente';
+    const esRechazado = reportedPago && reportedPago.estado === 'rechazado';
+
+    return {
+      id: c.mes + '-' + ((pageCuotas - 1) * ITEMS_PER_PAGE + idx),
+      periodo: (
+        <span className="font-semibold text-slate-800 text-sm">{c.mes}</span>
+      ),
+      monto_display: (
+        <span className={`font-bold text-sm ${c.pagado ? 'text-emerald-600' : 'text-red-600'}`}>
+          {c.pagado ? formatCurrency(c.monto_pagado || c.monto_esperado) : formatCurrency(c.monto_esperado)}
+        </span>
+      ),
+      estado_display: c.pagado ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+          <CheckCircle2 className="h-3 w-3" /> PAGADA
+        </span>
+      ) : esPendienteRevision ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+          <Clock className="h-3 w-3" /> EN REVISIÓN
+        </span>
+      ) : esRechazado ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-xs font-bold text-red-700">
+          <AlertCircle className="h-3 w-3" /> RECHAZADA
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-xs font-bold text-red-700">
+          <AlertCircle className="h-3 w-3" /> PENDIENTE
+        </span>
+      ),
+      acciones: (c.pagado || esPendienteRevision) ? (
+        <span className="text-slate-400 text-xs font-semibold">—</span>
+      ) : esRechazado ? (
+        <div className="flex items-center gap-2 flex-wrap">
+          {(() => {
+            const matchMotivo = reportedPago.descripcion.match(/\[Rechazado\. Motivo:\s*([^\]]+)\]/i);
+            const motivoText = matchMotivo ? matchMotivo[1] : 'Comprobante rechazado';
+            return (
+              <button
+                onClick={() => setMotivoRechazoModal({ open: true, motivo: motivoText })}
+                className="inline-flex items-center gap-1 rounded-md bg-red-50 border border-red-200 hover:bg-red-100 px-2 py-1 text-xs font-bold text-red-700 transition-colors shadow-sm"
+                title="Ver motivo del rechazo del pago"
+              >
+                <AlertCircle className="h-3 w-3" /> Ver Detalle
+              </button>
+            );
+          })()}
+          <button
+            onClick={() => handleReportPagoItem('cuota', c.mes)}
+            className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700 transition-colors shadow-sm"
+            title="Volver a reportar pago de esta cuota"
+          >
+            <Upload className="h-3 w-3" /> Volver a reportar
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => handleReportPagoItem('cuota', c.mes)}
+          className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700 transition-colors shadow-sm"
+          title="Reportar Pago de esta cuota"
+        >
+          <Upload className="h-3 w-3" /> Reportar Pago
+        </button>
+      ),
+    };
+  });
 
   // ─── Columns actividades ────────────────────────────────────────
   const actsColumns = [
@@ -233,91 +390,118 @@ export const EstadoCuentaSocioPage = () => {
     { key: 'fecha_inscripcion_display', label: 'Inscripción' },
     { key: 'costo_display', label: 'Costo' },
     { key: 'estado_display', label: 'Estado' },
+    { key: 'acciones', label: 'Acción' },
   ];
 
-  const actsRows = paginatedActs.map((ins, idx) => ({
-    id: ins.id || ((pageActs - 1) * ITEMS_PER_PAGE + idx),
-    actividad: (
-      <div className="flex flex-col">
-        <span className="font-semibold text-slate-800 text-sm">{ins.actividad?.titulo || 'Sin nombre'}</span>
-        <span className="text-[10px] text-slate-400">
-          {ins.actividad?.fecha ? formatDateShort(ins.actividad.fecha) : ''} 
-          {ins.actividad?.hora ? ` · ${ins.actividad.hora.substring(0, 5)}` : ''}
-        </span>
-      </div>
-    ),
-    fecha_inscripcion_display: (
-      <span className="text-sm text-slate-600">{formatDate(ins.fecha_inscripcion)}</span>
-    ),
-    costo_display: (() => {
-      const costo = ins.actividad?.costo || 0;
-      const totalPaid = ins.ingreso && ins.ingreso.length > 0
-        ? ins.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
-        : (ins.estado === 'pagado' ? costo : 0);
-      
-      if (totalPaid > costo && costo > 0) {
-        return (
-          <div className="flex flex-col">
-            <span className="font-bold text-sm text-slate-800">
-              {formatCurrency(costo)}
-            </span>
-            <span className="text-[10px] text-slate-400">
-              Pagado: {formatCurrency(totalPaid)}
-            </span>
-          </div>
-        );
-      }
-      
-      const isFullyPaid = totalPaid >= costo || costo === 0;
-      const displayMonto = isFullyPaid ? totalPaid : costo;
-      return (
-        <span className={`font-bold text-sm ${Number(displayMonto || 0) > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
-          {formatCurrency(displayMonto || 0)}
-        </span>
-      );
-    })(),
-    estado_display: (() => {
-      const costo = ins.actividad?.costo || 0;
-      const totalPaid = ins.ingreso && ins.ingreso.length > 0
-        ? ins.ingreso.reduce((sum, ing) => sum + Number(ing.monto || 0), 0)
-        : (ins.estado === 'pagado' ? costo : 0);
-      
-      if (totalPaid > costo && costo > 0) {
-        const refund = totalPaid - costo;
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-bold text-blue-700">
-            <AlertCircle className="h-3 w-3" /> DEVOLUCIÓN (Bs. {Number(refund).toFixed(2)} a favor)
-          </span>
-        );
-      }
-      
-      const isFullyPaid = totalPaid >= costo || costo === 0;
-      
-      if (isFullyPaid) {
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-            <CheckCircle2 className="h-3 w-3" /> PAGADO
-          </span>
-        );
-      }
-      
-      if (totalPaid > 0) {
-        const remaining = costo - totalPaid;
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-xs font-bold text-red-700">
-            <AlertCircle className="h-3 w-3" /> DEUDA (Resta Bs. {Number(remaining).toFixed(2)})
-          </span>
-        );
-      }
-      
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-          <Clock className="h-3 w-3" /> PENDIENTE
-        </span>
-      );
-    })(),
-  }));
+  const actsRows = paginatedActs.map((ins, idx) => {
+    const tienePagoEnRevision = ins.ingreso && ins.ingreso.some(ing => ing.estado === 'pendiente');
+    const validIngresos = ins.ingreso ? ins.ingreso.filter(ing => ing.estado === 'pagada') : [];
+    const totalPaid = validIngresos.reduce((sum, ing) => sum + Number(ing.monto || 0), 0);
+    const costo = ins.actividad?.costo || 0;
+    const isFullyPaid = totalPaid >= costo || costo === 0;
 
+    return {
+      id: ins.id || ((pageActs - 1) * ITEMS_PER_PAGE + idx),
+      actividad: (
+        <div className="flex flex-col">
+          <span className="font-semibold text-slate-800 text-sm">{ins.actividad?.titulo || 'Sin nombre'}</span>
+          <span className="text-[10px] text-slate-400">
+            {ins.actividad?.fecha ? formatDateShort(ins.actividad.fecha) : ''} 
+            {ins.actividad?.hora ? ` · ${ins.actividad.hora.substring(0, 5)}` : ''}
+          </span>
+        </div>
+      ),
+      fecha_inscripcion_display: (
+        <span className="text-sm text-slate-600">{formatDate(ins.fecha_inscripcion)}</span>
+      ),
+      costo_display: (() => {
+        if (totalPaid > costo && costo > 0) {
+          return (
+            <div className="flex flex-col">
+              <span className="font-bold text-sm text-slate-800">
+                {formatCurrency(costo)}
+              </span>
+              <span className="text-[10px] text-slate-400">
+                Pagado: {formatCurrency(totalPaid)}
+              </span>
+            </div>
+          );
+        }
+        
+        const displayMonto = isFullyPaid ? totalPaid : costo;
+        return (
+          <span className={`font-bold text-sm ${Number(displayMonto || 0) > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+            {formatCurrency(displayMonto || 0)}
+          </span>
+        );
+      })(),
+      estado_display: (() => {
+        if (totalPaid > costo && costo > 0) {
+          const refund = totalPaid - costo;
+          return (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-bold text-blue-700">
+              <AlertCircle className="h-3 w-3" /> DEVOLUCIÓN (Bs. {Number(refund).toFixed(2)} a favor)
+            </span>
+          );
+        }
+        
+        if (isFullyPaid) {
+          return (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+              <CheckCircle2 className="h-3 w-3" /> PAGADO
+            </span>
+          );
+        }
+
+        if (tienePagoEnRevision) {
+          return (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+              <Clock className="h-3 w-3" /> EN REVISIÓN
+            </span>
+          );
+        }
+        
+        if (totalPaid > 0) {
+          const remaining = costo - totalPaid;
+          return (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-xs font-bold text-red-700">
+              <AlertCircle className="h-3 w-3" /> DEUDA (Resta Bs. {Number(remaining).toFixed(2)})
+            </span>
+          );
+        }
+        
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+            <Clock className="h-3 w-3" /> PENDIENTE
+          </span>
+        );
+      })(),
+      acciones: (isFullyPaid || tienePagoEnRevision) ? (
+        <span className="text-slate-400 text-xs font-semibold">—</span>
+      ) : (
+        <button
+          onClick={() => handleReportPagoItem('actividad', ins.id)}
+          className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700 transition-colors shadow-sm"
+          title="Reportar Pago de esta actividad"
+        >
+          <Upload className="h-3 w-3" /> Reportar Pago
+        </button>
+      ),
+    };
+  });
+
+  const pendingCuotasOptions = useMemo(() => {
+    return cronograma.filter(c => !c.pagado);
+  }, [cronograma]);
+
+  const pendingActsOptions = useMemo(() => {
+    return inscripciones.filter(ins => {
+      const costo = ins.actividad?.costo || 0;
+      const validIngresos = ins.ingreso ? ins.ingreso.filter(ing => ing.estado !== 'devolucion') : [];
+      const totalPaid = validIngresos.reduce((sum, ing) => sum + Number(ing.monto || 0), 0);
+      return totalPaid < costo && costo > 0;
+    });
+  }, [inscripciones]);
   // ─── Export data ────────────────────────────────────────────────
   const exportCuotas = filteredCuotas.map(c => ({
     Periodo: c.mes,
@@ -325,40 +509,143 @@ export const EstadoCuentaSocioPage = () => {
     Estado: c.pagado ? 'Pagada' : 'Pendiente'
   }));
 
-  const exportActs = filteredActs.map(i => {
-    const actualPaid = i.estado === 'pagado' && i.ingreso && i.ingreso.length > 0 ? i.ingreso[0].monto : i.actividad?.costo;
-    return {
-      Actividad: i.actividad?.titulo || 'Sin nombre',
-      Inscripción: i.fecha_inscripcion ? new Date(i.fecha_inscripcion).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
-      Costo: actualPaid || 0,
-      Estado: i.estado === 'pagado' ? 'Pagado' : 'Pendiente'
-    };
-  });
+  // ─── Reporte Pago Handlers ─────────────────────────────────────
+  const handleReportPagoItem = (type, conceptId) => {
+    setConceptType(type);
+    setSelectedConcept(conceptId);
+    setSelectedQrId('');
+    setSelectedFile(null);
+    setFilePreview(null);
+    setReportNotes('');
+    setFechaTransferencia(new Date().toISOString().split('T')[0]);
 
+    if (type === 'cuota') {
+      const selected = pendingCuotasOptions.find(c => c.mes === conceptId);
+      if (selected) {
+        setReportAmount(String(selected.monto_esperado));
+      } else {
+        setReportAmount('');
+      }
+    } else {
+      const selected = pendingActsOptions.find(ins => ins.id === conceptId);
+      if (selected) {
+        const costo = selected.actividad?.costo || 0;
+        const validIngresos = selected.ingreso ? selected.ingreso.filter(ing => ing.estado !== 'devolucion') : [];
+        const totalPaid = validIngresos.reduce((sum, ing) => sum + Number(ing.monto || 0), 0);
+        setReportAmount(String(costo - totalPaid));
+      } else {
+        setReportAmount('');
+      }
+    }
+    setIsReportModalOpen(true);
+  };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+        setToast({ open: true, type: 'error', text: 'El comprobante debe ser una imagen o PDF.' });
+        return;
+      }
+      setSelectedFile(file);
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => setFilePreview(reader.result);
+        reader.readAsDataURL(file);
+      } else {
+        setFilePreview(null); // PDF preview simple
+      }
+    }
+  };
+
+  const handleReportSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedConcept) {
+      setToast({ open: true, type: 'error', text: 'Debe seleccionar el periodo o actividad a pagar.' });
+      return;
+    }
+    if (!reportAmount || Number(reportAmount) <= 0) {
+      setToast({ open: true, type: 'error', text: 'El monto debe ser mayor a 0.' });
+      return;
+    }
+    if (!selectedFile) {
+      setToast({ open: true, type: 'error', text: 'El comprobante de pago es obligatorio.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitMessage('Registrando reporte de pago y subiendo comprobante...');
+
+    try {
+      // 1. Subir comprobante a Cloudinary
+      const comprobanteUrl = await cloudinaryService.uploadFile(selectedFile, 'ingresos');
+
+      // 2. Determinar tipo de ingreso ID de forma inteligente
+      const tipos = await finanzasApi.obtenerTiposIngreso();
+      let tipoIngresoId = null;
+
+      if (conceptType === 'cuota') {
+        const cuotaTipo = tipos.find(t => 
+          t.nombre === 'Membresía Ordinaria' || 
+          t.nombre === 'Cuota Mensual' || 
+          t.nombre.toLowerCase().includes('cuota')
+        );
+        tipoIngresoId = cuotaTipo?.id || tipos[0]?.id;
+      } else {
+        const actTipo = tipos.find(t => t.nombre.toLowerCase().includes('actividad') || t.nombre.toLowerCase().includes('curso'));
+        tipoIngresoId = actTipo?.id || tipos[0]?.id;
+      }
+
+      // 3. Generar descripción
+      let descFinal = reportNotes.trim();
+      const prependedDesc = conceptType === 'cuota'
+        ? `Reporte de cuota: ${selectedConcept}.`
+        : `Reporte de actividad pendiente.`;
+      
+      descFinal = descFinal ? `${prependedDesc} Nota: ${descFinal}` : prependedDesc;
+
+      // 4. Crear el registro en ingreso con estado 'pendiente'
+      await finanzasApi.registrarPago({
+        miembroId: user.id,
+        registradoPor: null, // Sin aprobar aún
+        tipo_ingreso_id: tipoIngresoId,
+        monto: Number(reportAmount),
+        descripcion: descFinal,
+        fecha: fechaTransferencia,
+        estado: 'pendiente', // Reportado, pendiente de aprobación
+        comprobanteUrl,
+        inscripcionId: conceptType === 'actividad' ? selectedConcept : null,
+        qr_id: selectedQrId || null
+      });
+
+      setToast({ open: true, type: 'success', text: '¡Reporte de pago enviado correctamente! Queda pendiente de aprobación del administrador.' });
+      setIsReportModalOpen(false);
+      loadAllData();
+    } catch (err) {
+      console.error("Error al reportar pago:", err);
+      setToast({ open: true, type: 'error', text: err.message || 'No se pudo registrar el reporte de pago.' });
+    } finally {
+      setIsSubmitting(false);
+      setSubmitMessage('');
+    }
+  };
 
   const isLoading = loadingCuotas || loadingActs;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* ── Header ──────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-center justify-between gap-4">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-5">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Estado de Cuenta</h1>
           <p className="text-sm sm:text-base text-slate-500 mt-1">Historial completo de tus cuotas, actividades y deudas pendientes.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
           <ExportButtons 
             data={exportCuotas} 
             filename="estado_de_cuenta_cuotas" 
             title={`Reporte de Cuotas - ${user?.nombre || 'Socio'}`} 
-            customLabel="Reporte de Cuotas"
-          />
-          <ExportButtons 
-            data={exportActs} 
-            filename="estado_de_cuenta_actividades" 
-            title={`Reporte de Actividades - ${user?.nombre || 'Socio'}`} 
-            customLabel="Reporte de Actividades"
+            customLabel="Descargar Cuotas"
           />
         </div>
       </header>
@@ -401,7 +688,7 @@ export const EstadoCuentaSocioPage = () => {
                 <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                   <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 </div>
-                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Deuda Total</p>
+                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Deuda Consolidada</p>
               </div>
               <p className="text-xl font-black text-slate-900 dark:text-white">{formatCurrency(deudaGlobalTotal)}</p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Cuotas + Cursos pendientes</p>
@@ -549,6 +836,160 @@ export const EstadoCuentaSocioPage = () => {
           </>
         )}
       </section>
+
+      {/* ── Modal Reportar Pago ──────────────────────────────── */}
+      <Modal
+        isOpen={isReportModalOpen}
+        onClose={() => !isSubmitting && setIsReportModalOpen(false)}
+        title="Reportar Transferencia / Pago Realizado"
+        size="md"
+      >
+        <form onSubmit={handleReportSubmit} className="space-y-4 p-1">
+          {/* Los campos de Tipo, Concepto, Monto y Fecha se llenan automáticamente al hacer clic en 'Reportar Pago' y se envían del estado del componente */}
+
+          {/* Selector de código QR oficial */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-slate-700 block">Código QR Oficial Utilizado (Opcional)</label>
+            <select
+              value={selectedQrId}
+              onChange={(e) => setSelectedQrId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+              disabled={isSubmitting}
+            >
+              <option value="">-- Seleccionar QR de pago --</option>
+              {filteredActiveQrs.map(q => (
+                <option key={q.id} value={q.id}>{q.nombre}</option>
+              ))}
+            </select>
+            {selectedQrId && filteredActiveQrs.find(q => q.id === selectedQrId)?.url_qr && (
+              <div className="mt-2 flex items-center gap-3 p-2 bg-slate-50 border rounded-lg max-w-xs">
+                <img
+                  src={filteredActiveQrs.find(q => q.id === selectedQrId).url_qr}
+                  alt="QR Oficial"
+                  className="h-16 w-16 object-contain mix-blend-multiply cursor-zoom-in"
+                  onClick={() => setImageModal({ open: true, url: filteredActiveQrs.find(q => q.id === selectedQrId).url_qr })}
+                />
+                <div className="text-xs text-slate-500">
+                  <span className="font-semibold text-slate-700 block">QR Seleccionado</span>
+                  Haz clic en la imagen si deseas ampliar el código QR oficial.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Carga del comprobante */}
+          <div className="space-y-2">
+            <span className="block text-xs font-bold text-slate-700">Comprobante de Pago (Imagen / PDF) <span className="text-red-500">*</span></span>
+            <div className="flex gap-4 items-center">
+              <div className="w-24 h-24 bg-slate-50 border rounded-xl flex items-center justify-center overflow-hidden shrink-0 relative">
+                {filePreview ? (
+                  <img src={filePreview} alt="Preview" className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <Upload className="h-8 w-8 text-slate-300" />
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg shadow-sm text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 cursor-pointer">
+                  <Upload className="h-3.5 w-3.5" />
+                  Subir Comprobante
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    disabled={isSubmitting}
+                  />
+                </label>
+                <p className="text-[10px] text-slate-400">
+                  {selectedFile ? `Archivo: ${selectedFile.name}` : 'Sube la captura de pantalla o recibo bancario.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Notas */}
+          <Input
+            label="Notas / Observaciones (Opcional)"
+            placeholder="Ej. Transferencia Banco Unión nro. 12345"
+            value={reportNotes}
+            onChange={(e) => setReportNotes(e.target.value)}
+            disabled={isSubmitting}
+          />
+
+          <div className="flex justify-end gap-3 pt-3 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsReportModalOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {isSubmitting ? submitMessage : 'Enviar Reporte'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Zoom QR */}
+      <Modal
+        isOpen={imageModal.open}
+        onClose={() => setImageModal({ open: false, url: null })}
+        title="Código QR Oficial"
+        size="sm"
+      >
+        <div className="flex flex-col items-center justify-center p-2 bg-white rounded-2xl">
+          {imageModal.url && (
+            <img
+              src={imageModal.url}
+              alt="QR Oficial"
+              className="max-h-[60vh] object-contain rounded-xl"
+            />
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal Motivo Rechazo */}
+      <Modal
+        isOpen={motivoRechazoModal.open}
+        onClose={() => setMotivoRechazoModal({ open: false, motivo: '' })}
+        title="Detalle de Rechazo de Pago"
+        width="max-w-md"
+      >
+        <div className="space-y-4 py-2">
+          <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-xs text-red-800 space-y-2">
+            <span className="font-extrabold uppercase block text-red-700">Motivo del Rechazo:</span>
+            <p className="font-medium text-slate-700 whitespace-pre-wrap leading-relaxed text-sm bg-white p-3 rounded-lg border">
+              {motivoRechazoModal.motivo}
+            </p>
+          </div>
+          <p className="text-xs text-slate-500 text-center leading-normal">
+            Por favor, vuelve a reportar el pago subiendo un nuevo comprobante válido o corrigiendo la información indicada.
+          </p>
+          <div className="flex justify-end pt-2 border-t">
+            <Button
+              type="button"
+              onClick={() => setMotivoRechazoModal({ open: false, motivo: '' })}
+              className="bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs"
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Overlay de carga */}
+      {isSubmitting && <LoadingOverlay text={submitMessage} />}
+
+      {/* Toast notifications */}
+      {toast.open && (
+        <Toast
+          type={toast.type}
+          text={toast.text}
+          onClose={() => setToast(prev => ({ ...prev, open: false }))}
+        />
+      )}
     </div>
   );
 };

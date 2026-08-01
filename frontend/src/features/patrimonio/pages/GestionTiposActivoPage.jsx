@@ -114,20 +114,6 @@ export const GestionTiposActivoPage = () => {
   const executeSubmit = async () => {
     setConfirmSubmitModal({ open: false });
 
-    // Programmatic Blockade for active category
-    if (editingTipo && tiposEnUso[editingTipo.id]) {
-      setResultModal({
-        open: true,
-        type: 'error',
-        text: 'Acción Bloqueada',
-        details: 'Esta categoría de activo no puede ser modificada bajo ninguna circunstancia porque está asignada a uno o más activos.'
-      });
-      setIsModalOpen(false);
-      setFormData({ nombre: '', descripcion: '' });
-      setEditingTipo(null);
-      return;
-    }
-
     setIsSubmitting(true);
     setLoadingModal({
       open: true,
@@ -195,13 +181,8 @@ export const GestionTiposActivoPage = () => {
         <div className="flex gap-2 items-center">
           <button 
             onClick={() => handleOpenEdit(tipo)}
-            disabled={inUse}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-              inUse 
-                ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500' 
-                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
-            }`}
-            title={inUse ? 'No se puede editar porque está en uso' : 'Editar'}
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+            title="Editar"
           >
             <Edit className="h-3.5 w-3.5" />
             <span>Editar</span>

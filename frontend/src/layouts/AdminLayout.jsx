@@ -21,6 +21,7 @@ import {
   Monitor,
   Database,
   Search,
+  QrCode,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { supabase } from "../services/supabase";
@@ -260,6 +261,20 @@ export const AdminLayout = () => {
                   >
                     <Tags className="h-4 w-4" />
                     Tipos de Ingreso y Egreso
+                  </NavLink>
+                </li>
+              )}
+              {(user?.rol === "admin" || user?.rol === "secretario") && (
+                <li>
+                  <NavLink
+                    to="/admin/qr"
+                    onClick={closeSidebar}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 rounded-md px-3 py-2 ${isActive ? "bg-slate-100 text-slate-900" : "text-slate-700 hover:bg-slate-100"}`
+                    }
+                  >
+                    <QrCode className="h-4 w-4" />
+                    Gestionar QR
                   </NavLink>
                 </li>
               )}

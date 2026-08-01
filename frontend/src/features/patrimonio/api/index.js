@@ -40,6 +40,57 @@ export const patrimonioApi = {
     };
   },
 
+  actualizarActivo: async (id, activo) => {
+    // eslint-disable-next-line no-unused-vars
+    const { imagen_url, ...activoData } = activo;
+    const { data, error } = await supabase
+      .from('activos')
+      .update(activoData)
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    const activoActualizado = data?.[0];
+
+    if (activo.imagen_url && activoActualizado) {
+      await supabase.from('archivo').delete().eq('activo_id', id).eq('tipo', 'imagen_activo');
+      await supabase.from('archivo').insert([{
+        activo_id: id,
+        miembro_id: activo.miembro_id,
+        url: activo.imagen_url,
+        tipo: 'imagen_activo'
+      }]);
+    }
+
+    const { data: fullAsset, error: fetchError } = await supabase
+      .from('activos')
+      .select('*, tipo_activo(nombre), archivo(url)')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+        return activoActualizado;
+    }
+
+    return { 
+      ...fullAsset, 
+      imagen_url: fullAsset.archivo?.[0]?.url || null
+    };
+  },
+
+  eliminarActivo: async (id) => {
+    await supabase.from('archivo').delete().eq('activo_id', id);
+    await supabase.from('plan_amortizacion').delete().eq('activo_id', id);
+    
+    const { error } = await supabase
+      .from('activos')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  },
+
   obtenerActivos: (() => {
     const cachedFn = withCache('patrimonio:activos', async () => {
       const { data, error } = await supabase

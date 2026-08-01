@@ -266,6 +266,10 @@ export const MiembroDetailModal = ({
               <span className="text-slate-800 font-medium">{detailModal.miembro?.telefono || '-'}</span>
             </div>
             <div>
+              <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Carnet de Identidad (CI)</span> 
+              <span className="text-slate-800 font-medium">{detailModal.miembro?.ci || '—'}</span>
+            </div>
+            <div>
               <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">Estado</span> 
               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold uppercase mt-0.5 ${detailModal.miembro?.estado === 'activo' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-600'}`}>{detailModal.miembro?.estado}</span>
             </div>

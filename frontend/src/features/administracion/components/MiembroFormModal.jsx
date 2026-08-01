@@ -55,25 +55,16 @@ export const MiembroFormModal = ({
               onChange={(e) => setFormData({ ...formData, apellidoMaterno: e.target.value })} 
             />
           </div>
-        </div>
-
-        {/* Sección de Contacto */}
-        <div className="space-y-3 pt-2">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Información de Contacto</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input 
-              label="Correo Electrónico" 
-              type="email"
-              placeholder="Ej: juan.perez@correo.com"
-              value={formData.email} 
-              onChange={(e) => {
-                const val = e.target.value;
-                setFormData({ ...formData, email: val });
-                checkEmailUniqueness(val);
-              }} 
-              error={emailError}
+              label="Carnet de Identidad (CI)" 
+              placeholder="Ej: 1234567"
+              value={formData.ci || ''} 
+              onChange={(e) => setFormData({ ...formData, ci: e.target.value })} 
               required 
+              disabled={!!editingMember}
+              info="El CI será utilizado como contraseña inicial del socio."
             />
             <Input 
               label="Teléfono" 
@@ -83,46 +74,65 @@ export const MiembroFormModal = ({
             />
           </div>
         </div>
-        
-        {/* Sección de Credenciales */}
+
+        {/* Sección de Contacto */}
         <div className="space-y-3 pt-2">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            {editingMember ? 'Actualizar Credenciales (Dejar en blanco para mantener la actual)' : 'Credenciales de Acceso'}
-          </h3>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Información de Contacto</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Input 
-                label="Contraseña" 
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password} 
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
-                required={!editingMember} 
-                placeholder={editingMember ? 'Dejar en blanco para mantener la actual' : 'Mínimo 8 caracteres'}
-                autoComplete="new-password"
-                error={passwordsMismatch ? ' ' : ''}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
-                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            <Input 
-              label="Confirmar Contraseña" 
-              type={showPassword ? 'text' : 'password'}
-              value={formData.confirmPassword} 
-              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
-              required={!editingMember}
-              placeholder={editingMember ? 'Dejar en blanco para mantener la actual' : 'Mínimo 8 caracteres'}
-              autoComplete="new-password"
-              error={passwordsMismatch ? 'Las contraseñas no coinciden' : ''}
-            />
-          </div>
+          <Input 
+            label="Correo Electrónico" 
+            type="email"
+            placeholder="Ej: juan.perez@correo.com"
+            value={formData.email} 
+            onChange={(e) => {
+              const val = e.target.value;
+              setFormData({ ...formData, email: val });
+              checkEmailUniqueness(val);
+            }} 
+            error={emailError}
+            required 
+          />
         </div>
+        
+        {/* Sección de Credenciales (Solo en edición) */}
+        {editingMember && (
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-bold text-slate-500">
+              Actualizar Credenciales (Dejar en blanco para mantener la actual)
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <Input 
+                  label="Nueva Contraseña" 
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password} 
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })} 
+                  placeholder="Mínimo 8 caracteres"
+                  autoComplete="new-password"
+                  error={passwordsMismatch ? ' ' : ''}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <Input 
+                label="Confirmar Contraseña" 
+                type={showPassword ? 'text' : 'password'}
+                value={formData.confirmPassword} 
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} 
+                placeholder="Mínimo 8 caracteres"
+                autoComplete="new-password"
+                error={passwordsMismatch ? 'Las contraseñas no coinciden' : ''}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Sección de Configuración Administrativa */}
         <div className="space-y-3 pt-2">

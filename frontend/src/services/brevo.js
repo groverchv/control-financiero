@@ -214,7 +214,7 @@ export const brevoService = {
               </tr>
               <tr style="border-top:1px solid #fde68a;">
                 <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Estado de Pago</td>
-                <td style="padding:8px 0;color:#b45309;font-size:13px;font-weight:700;text-align:right;">⚠️ Pendiente</td>
+                <td style="padding:8px 0;color:#b45309;font-size:13px;font-weight:700;text-align:right;">Pendiente</td>
               </tr>
               <tr style="border-top:1px solid #fde68a;">
                 <td style="padding:10px 0 0;color:#78716c;font-size:13px;font-weight:600;">Monto Cuota</td>

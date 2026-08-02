@@ -26,38 +26,38 @@ export const finanzasApi = {
 
     if (error) throw error;
     const pagoRegistrado = data?.[0];
-
-    // Registrar archivo si se proporcionó una URL de comprobante
-    if (pago.comprobanteUrl && pagoRegistrado) {
-      await supabase.from('archivo').insert([{
-        ingreso_id: pagoRegistrado.id,
-        url: pago.comprobanteUrl,
-        tipo: 'comprobante_ingreso'
-      }]);
-    }
-
-    // Si el pago está vinculado a una inscripción de actividad, marcarla como pagada (solo si el pago ya está aprobado)
     const esPagoPendiente = (pago.estado === 'pendiente');
-    if (pago.inscripcionId && pagoRegistrado && !esPagoPendiente) {
-      await supabase
-        .from('inscripcion')
-        .update({ estado: 'pagado' })
-        .eq('id', pago.inscripcionId);
-    }
 
-    // Si el pago es de tipo cuota mensual/inscripción o la descripción indica que es pago de membresía/inscripción, marcar la cuota más antigua pendiente como pagada (solo si el pago ya está aprobado)
-    // Deteccion por descripcion o tipo_ingreso (sin UUIDs hardcodeados que cambian por BD)
-    // Los UUIDs de tipo_ingreso varian por entorno; se usa el nombre/descripcion del pago.
-    const esPagoCuotaOMembresia =
-      (pago.descripcion && (
-        pago.descripcion.toLowerCase().includes('cuota') ||
-        pago.descripcion.toLowerCase().includes('membres') ||
-        pago.descripcion.toLowerCase().includes('inscrip')
-      ));
+    try {
+      // Registrar archivo si se proporcionó una URL de comprobante
+      if (pago.comprobanteUrl && pagoRegistrado) {
+        const { error: archErr } = await supabase.from('archivo').insert([{
+          ingreso_id: pagoRegistrado.id,
+          url: pago.comprobanteUrl,
+          tipo: 'comprobante_ingreso'
+        }]);
+        if (archErr) throw archErr;
+      }
 
-    if (miembroId && esPagoCuotaOMembresia && pagoRegistrado && !esPagoPendiente) {
-      try {
-        const { data: cuotasPendientes } = await supabase
+      // Si el pago está vinculado a una inscripción de actividad, marcarla como pagada (solo si el pago ya está aprobado)
+      if (pago.inscripcionId && pagoRegistrado && !esPagoPendiente) {
+        const { error: inscErr } = await supabase
+          .from('inscripcion')
+          .update({ estado: 'pagado' })
+          .eq('id', pago.inscripcionId);
+        if (inscErr) throw inscErr;
+      }
+
+      // Si el pago es de tipo cuota mensual/inscripción o la descripción indica que es pago de membresía/inscripción, marcar la cuota más antigua pendiente como pagada (solo si el pago ya está aprobado)
+      const esPagoCuotaOMembresia =
+        (pago.descripcion && (
+          pago.descripcion.toLowerCase().includes('cuota') ||
+          pago.descripcion.toLowerCase().includes('membres') ||
+          pago.descripcion.toLowerCase().includes('inscrip')
+        ));
+
+      if (miembroId && esPagoCuotaOMembresia && pagoRegistrado && !esPagoPendiente) {
+        const { data: cuotasPendientes, error: fetchCuotasErr } = await supabase
           .from('cuota_membresia')
           .select('id')
           .eq('miembro_id', miembroId)
@@ -65,15 +65,22 @@ export const finanzasApi = {
           .order('creacion', { ascending: true })
           .limit(1);
 
+        if (fetchCuotasErr) throw fetchCuotasErr;
+
         if (cuotasPendientes && cuotasPendientes.length > 0) {
-          await supabase
+          const { error: cuotaUpdErr } = await supabase
             .from('cuota_membresia')
             .update({ estado: 'pagado', ingreso_id: pagoRegistrado.id })
             .eq('id', cuotasPendientes[0].id);
+          if (cuotaUpdErr) throw cuotaUpdErr;
         }
-      } catch (err) {
-        console.error('[registrarPago] Error vinculando cuota_membresia:', err);
       }
+    } catch (transactionErr) {
+      console.error('[registrarPago] Falla en la transacción secundaria de BD. Ejecutando Rollback...', transactionErr);
+      if (pagoRegistrado) {
+        await supabase.from('ingreso').delete().eq('id', pagoRegistrado.id);
+      }
+      throw transactionErr;
     }
 
 
@@ -747,17 +754,19 @@ export const finanzasApi = {
     if (error) throw error;
     const egresoRegistrado = data?.[0];
 
-    // Si hay activo asociado, actualizar el saldo pendiente del activo y amortizacion
-    if (activoId && egresoRegistrado) {
-      try {
+    try {
+      // Si hay activo asociado, actualizar el saldo pendiente del activo y amortizacion
+      if (activoId && egresoRegistrado) {
         // Obtenemos un plan pendiente de amortizacion para este activo
-        const { data: planesPendientes } = await supabase
+        const { data: planesPendientes, error: planesErr } = await supabase
           .from('plan_amortizacion')
           .select('*')
           .eq('activo_id', activoId)
           .eq('estado', 'pendiente')
           .order('numero', { ascending: true })
           .limit(1);
+
+        if (planesErr) throw planesErr;
 
         if (planesPendientes && planesPendientes.length > 0) {
           const cuotaAPagar = planesPendientes[0];
@@ -766,44 +775,54 @@ export const finanzasApi = {
           
           if (montoEgreso >= montoCuota - 5) {
             // Pago total (o casi total)
-            await supabase
+            const { error: updPlanErr } = await supabase
               .from('plan_amortizacion')
               .update({ estado: 'pagado', monto: 0 }) // R17: Se marca como pagado y saldo 0
               .eq('id', cuotaAPagar.id);
+            if (updPlanErr) throw updPlanErr;
           } else {
             // R17: Pago parcial
-            await supabase
+            const { error: updPlanErr } = await supabase
               .from('plan_amortizacion')
               .update({ monto: montoCuota - montoEgreso }) // Reducimos el monto de la cuota
               .eq('id', cuotaAPagar.id);
+            if (updPlanErr) throw updPlanErr;
           }
         }
 
         // Verificar si el activo quedó pagado para actualizar su estado
-        const { data: activoActualizado } = await supabase
+        const { data: activoActualizado, error: activoErr } = await supabase
           .from('activos')
           .select('saldo_pendiente')
           .eq('id', activoId)
           .single();
         
+        if (activoErr) throw activoErr;
+        
         if (activoActualizado && activoActualizado.saldo_pendiente <= 0) {
-          await supabase
+          const { error: updActivoErr } = await supabase
             .from('activos')
             .update({ estado: 'pagado' })
             .eq('id', activoId);
+          if (updActivoErr) throw updActivoErr;
         }
-      } catch (err) {
-        console.warn('[Egreso] Error verificando estado y amortizacion del activo:', err);
       }
-    }
 
-    // Registrar archivo si se proporcionó una URL de comprobante
-    if (egreso.comprobanteUrl && egresoRegistrado) {
-      await supabase.from('archivo').insert([{
-        egreso_id: egresoRegistrado.id,
-        url: egreso.comprobanteUrl,
-        tipo: 'comprobante_egreso'
-      }]);
+      // Registrar archivo si se proporcionó una URL de comprobante
+      if (egreso.comprobanteUrl && egresoRegistrado) {
+        const { error: archErr } = await supabase.from('archivo').insert([{
+          egreso_id: egresoRegistrado.id,
+          url: egreso.comprobanteUrl,
+          tipo: 'comprobante_egreso'
+        }]);
+        if (archErr) throw archErr;
+      }
+    } catch (transactionErr) {
+      console.error('[registrarEgreso] Falla en la transacción secundaria de BD. Ejecutando Rollback...', transactionErr);
+      if (egresoRegistrado) {
+        await supabase.from('egreso').delete().eq('id', egresoRegistrado.id);
+      }
+      throw transactionErr;
     }
 
     // R15: Recargar el objeto completo (con tipo, activo y archivos) para actualizar la UI sin F5

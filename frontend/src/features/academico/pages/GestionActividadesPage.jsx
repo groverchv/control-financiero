@@ -1515,7 +1515,8 @@ export const GestionActividadesPage = () => {
                 </select>
                 {tipos.length === 0 && (
                   <p className="text-xs font-semibold text-amber-600 mt-1.5 flex items-center gap-1">
-                    ⚠️ No hay categorías registradas. Por favor, crea al menos una en el menú "Tipos de Actividades".
+                    <AlertTriangle className="h-3.5 w-3.5 inline text-amber-600 shrink-0" />
+                    No hay categorías registradas. Por favor, crea al menos una en el menú "Tipos de Actividades".
                   </p>
                 )}
                 {formErrors.tipo_actividad_id && (
@@ -2107,8 +2108,8 @@ export const GestionActividadesPage = () => {
                   }`}
                 >
                   {detalleModal.actividad.incluye_certificacion
-                    ? "✓ Sí, incluye certificación"
-                    : "✗ No incluye certificación"}
+                    ? "Sí, incluye certificación"
+                    : "No incluye certificación"}
                 </span>
               </div>
 

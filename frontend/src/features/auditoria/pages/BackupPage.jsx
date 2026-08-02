@@ -1174,7 +1174,7 @@ export const BackupPage = () => {
       <Modal
         isOpen={showRestoreModal}
         onClose={() => setShowRestoreModal(false)}
-        title="⚠️ ADVERTENCIA CRÍTICA DE SEGURIDAD"
+        title="ADVERTENCIA CRÍTICA DE SEGURIDAD"
         size="md"
       >
         <div className="space-y-4 text-center">

@@ -1,4 +1,5 @@
 import { useEffect, lazy, Suspense } from "react";
+import { Search } from "lucide-react";
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from "react-router-dom";
 import { supabase } from "@/services/supabase";
 import { PublicLayout } from "@/layouts/PublicLayout";
@@ -72,7 +73,9 @@ const AdminIndex = () => {
 const NotFoundPage = () => (
   <div className="min-h-screen flex items-center justify-center bg-slate-900 p-6">
     <div className="bg-slate-800 border border-slate-700 rounded-3xl p-10 max-w-md w-full text-center shadow-2xl">
-      <div className="text-6xl mb-6">🔍</div>
+      <div className="flex justify-center mb-6">
+        <Search className="w-16 h-16 text-slate-400" />
+      </div>
       <h1 className="text-2xl font-bold text-white mb-2">Página no encontrada</h1>
       <p className="text-slate-400 mb-8 text-sm">
         Lo sentimos, la ruta que intentas buscar no existe o ha sido movida.

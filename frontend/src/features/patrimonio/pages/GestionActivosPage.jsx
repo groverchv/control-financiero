@@ -704,7 +704,7 @@ export const GestionActivosPage = () => {
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
                   detalleModal.activo.estado === 'pagado' ? 'bg-emerald-100 text-emerald-800' : 'bg-orange-100 text-orange-800'
                 }`}>
-                  {detalleModal.activo.estado === 'pagado' ? '✓ Pagado' : '⚠ Deuda'}
+                  {detalleModal.activo.estado === 'pagado' ? 'Pagado' : 'Deuda'}
                 </span>
               </div>
               <div>

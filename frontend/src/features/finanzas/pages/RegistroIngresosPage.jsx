@@ -1570,9 +1570,9 @@ export const RegistroCuotasPage = () => {
           {/* ── MODO INGRESO EXTRA ── */}
           {modoIngreso === "extra" && (
             <div className="space-y-4">
-              <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700 font-medium">
-                ℹ️ Para ingresos adicionales (multas, donaciones, eventos,
-                etc.). El tipo de ingreso es obligatorio.
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700 font-medium flex items-center gap-1.5">
+                <Info className="w-4 h-4 inline shrink-0 text-blue-600" />
+                Para ingresos adicionales (multas, donaciones, eventos, etc.). El tipo de ingreso es obligatorio.
               </div>
 
               {/* Buscar socio (opcional en extra) */}

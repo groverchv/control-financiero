@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 /**
  * ErrorBoundary global para capturar errores en el árbol de componentes React.
@@ -54,7 +55,9 @@ export class ErrorBoundary extends Component {
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <AlertTriangle style={{ width: '56px', height: '56px', color: '#f59e0b' }} />
+            </div>
             <h1
               style={{
                 fontSize: '20px',

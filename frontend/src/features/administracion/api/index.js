@@ -222,12 +222,12 @@ export const administracionApi = {
     return data;
   },
 
-  subirArchivo: async (miembroId, file, tipo = 'foto') => {
-    // 1. Subir a Cloudinary
+  subirArchivo: async (miembroId, file, tipo = 'foto', onProgress) => {
+    // 1. Subir a Cloudinary con reporte de avance
     const isImage = file.type.startsWith('image/');
     const publicUrl = isImage 
-      ? await cloudinaryService.uploadFile(file, `miembros/${miembroId}`)
-      : await cloudinaryService.uploadDocument(file, `miembros/${miembroId}`);
+      ? await cloudinaryService.uploadFile(file, `miembros/${miembroId}`, onProgress)
+      : await cloudinaryService.uploadDocument(file, `miembros/${miembroId}`, onProgress);
 
     // 2. Verificar si ya existe un archivo de este tipo para este miembro
     const { data: existente } = await supabase

@@ -1,12 +1,11 @@
 /**
- * Servicio de gestión de imágenes con Cloudinary.
+ * Servicio de gestión de imágenes y documentos con Cloudinary.
  *
  * Estándar: Fácil de Mantener — documentación de módulo.
  *
  * Responsabilidades:
- *  1. Compresión de imágenes del lado del cliente (Canvas API)
- *  2. Subida directa a Cloudinary (unsigned upload con preset)
- *  3. Eliminación de imágenes por public_id
+ *  1. Subida directa a Cloudinary (unsigned upload con preset) con indicador de progreso en tiempo real (%)
+ *  2. Gestión de imágenes y documentos (PDF, etc.)
  *
  * Variables de entorno requeridas:
  *  - VITE_CLOUDINARY_CLOUD_NAME: Nombre del cloud en Cloudinary
@@ -18,106 +17,114 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
 
 /**
- * Comprime una imagen en el lado del cliente usando un elemento Canvas
- * @param {File} file - El archivo original
- * @param {number} maxQuality - Calidad inicial del JPG (0.1 a 1.0)
- * @returns {Promise<File>} - El archivo comprimido
+ * Descarga un archivo CV asignando automáticamente el nombre con el formato "[Nombre_Socio]-CV.pdf"
+ * @param {string} url - La URL del archivo en Cloudinary o backend
+ * @param {string} nombreSocio - El nombre completo del socio
  */
-const compressImage = (file, maxQuality = 0.75) => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
+export const downloadCvFile = async (url, nombreSocio = 'Socio') => {
+  if (!url) return;
 
-        // Limitar dimensiones máximas si la imagen es masiva (ej. > 3000px)
-        const MAX_DIM = 2400;
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
+  // Sanitizar el nombre del socio para el archivo de descarga (ej: Grover_Chavez)
+  const cleanName = (nombreSocio || 'Socio')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Eliminar acentos
+    .replace(/[^a-zA-Z0-9\s-_]/g, '') // Eliminar caracteres especiales
+    .trim()
+    .replace(/\s+/g, '_'); // Reemplazar espacios por guion bajo
+
+  const ext = url.toLowerCase().endsWith('.doc') ? '.doc' : url.toLowerCase().endsWith('.docx') ? '.docx' : '.pdf';
+  const filename = `${cleanName}-CV${ext}`;
+
+  try {
+    // 1. Usar Fetch + Blob local para forzar a Windows y Chrome a mostrar "[Nombre_Socio]-CV.pdf" en el cuadro "Guardar como"
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Respuesta de red no ok');
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  } catch (err) {
+    console.warn('[Cloudinary Service] Fallback de descarga por fl_attachment:', err);
+    // 2. Fallback mediante Cloudinary fl_attachment
+    const downloadUrl = url.includes('/upload/') 
+      ? url.replace('/upload/', `/upload/fl_attachment:${encodeURIComponent(cleanName + '-CV')}/`)
+      : url;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+};
+
+/**
+ * Helper para realizar peticiones de subida XHR reportando eventos de progreso en tiempo real
+ */
+const uploadWithXHR = (url, formData, onProgress) => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+
+    if (xhr.upload && typeof onProgress === 'function') {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          onProgress(percent);
         }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Convertir canvas a Blob en formato JPEG con calidad optimizada
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              resolve(file); // Fallback al original si falla el canvas
-              return;
-            }
-            // Crear el nuevo archivo conservando el nombre original
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
-              type: 'image/jpeg',
-              lastModified: Date.now()
-            });
-            resolve(compressedFile);
-          },
-          'image/jpeg',
-          maxQuality
-        );
       };
-      img.onerror = () => resolve(file);
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (err) {
+          reject(err);
+        }
+      } else {
+        try {
+          const errorData = JSON.parse(xhr.responseText);
+          reject(new Error(errorData.error?.message || 'Error al subir a Cloudinary'));
+        } catch {
+          reject(new Error(`Error de subida HTTP (${xhr.status})`));
+        }
+      }
     };
-    reader.onerror = () => resolve(file);
+
+    xhr.onerror = () => reject(new Error('Error de conexión de red al subir el archivo.'));
+    xhr.send(formData);
   });
 };
 
 /**
- * Servicio para gestionar la subida de archivos a Cloudinary con compresión local
+ * Servicio para gestionar la subida de archivos a Cloudinary con reporte de avance
  */
 export const cloudinaryService = {
   /**
-   * Sube un archivo a Cloudinary usando el API REST (Unsigned Upload)
+   * Sube una imagen a Cloudinary usando el API REST (Unsigned Upload)
    * @param {File} file - El archivo a subir
    * @param {string} folder - Carpeta de destino opcional
+   * @param {Function} onProgress - Callback opcional para reportar % de avance (0-100)
    * @returns {Promise<string>} - La URL del archivo subido
    */
-  uploadFile: async (file, folder = 'miembros') => {
+  uploadFile: async (file, folder = 'miembros', onProgress) => {
     try {
-      let fileToUpload = file;
-      const TEN_MB = 10 * 1024 * 1024;
-
-      // 2. Compresión automática si supera los 10MB
-      if (file.size > TEN_MB && file.type.startsWith('image/')) {
-        console.log(`[Cloudinary Service] Archivo original pesa ${(file.size / 1024 / 1024).toFixed(2)}MB. Comprimiendo localmente...`);
-        fileToUpload = await compressImage(file, 0.7);
-        console.log(`[Cloudinary Service] Archivo comprimido pesa ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB.`);
-      }
-
       const formData = new FormData();
-      formData.append('file', fileToUpload);
+      formData.append('file', file);
       formData.append('upload_preset', UPLOAD_PRESET);
       formData.append('folder', folder);
 
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Error al subir a Cloudinary');
-      }
-
-      const data = await response.json();
+      const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+      const data = await uploadWithXHR(endpoint, formData, onProgress);
       return data.secure_url;
     } catch (error) {
       console.error('Cloudinary Upload Error:', error);
@@ -126,37 +133,28 @@ export const cloudinaryService = {
   },
 
   /**
-   * Sube un archivo PDF u otros documentos
+   * Sube un archivo PDF u otros documentos a Cloudinary
+   * @param {File} file - El archivo a subir
+   * @param {string} folder - Carpeta de destino opcional
+   * @param {Function} onProgress - Callback opcional para reportar % de avance (0-100)
+   * @returns {Promise<string>} - La URL del documento subido
    */
-  uploadDocument: async (file, folder = 'documentos') => {
+  uploadDocument: async (file, folder = 'documentos', onProgress) => {
     try {
-
-      const TEN_MB = 10 * 1024 * 1024;
-      if (file.size > TEN_MB) {
-        // Mensaje preventivo sobre PDFs demasiado pesados
-        console.warn(`[Cloudinary Service] Advertencia: El documento ${file.name} pesa más de 10MB. Puede tardar o ser rechazado por la red.`);
-      }
-
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', UPLOAD_PRESET);
       formData.append('folder', folder);
 
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Error al subir documento a Cloudinary');
+      const autoEndpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`;
+      try {
+        const data = await uploadWithXHR(autoEndpoint, formData, onProgress);
+        return data.secure_url;
+      } catch {
+        const rawEndpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`;
+        const data = await uploadWithXHR(rawEndpoint, formData, onProgress);
+        return data.secure_url;
       }
-
-      const data = await response.json();
-      return data.secure_url;
     } catch (error) {
       console.error('Cloudinary Document Upload Error:', error);
       throw error;

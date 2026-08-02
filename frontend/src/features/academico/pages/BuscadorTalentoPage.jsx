@@ -4,6 +4,7 @@ import { useTalentos } from '../hooks';
 import { Button, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
 import { administracionApi } from '../../administracion/api';
+import { downloadCvFile } from '../../../services/cloudinary';
 
 const renderFormattedResumen = (text) => {
   if (!text) return "No ha proporcionado un resumen profesional aún.";
@@ -224,13 +225,12 @@ export const BuscadorTalentoPage = () => {
                       <ExternalLink className="h-4 w-4" />
                       Pantalla Completa
                     </Button>
-                    <a 
-                      href={cvUrl.replace('/upload/', '/upload/fl_attachment/')} 
-                      download 
-                      className="flex-1 bg-slate-100 text-slate-700 rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors"
+                    <button 
+                      onClick={() => downloadCvFile(cvUrl, selectedSocio?.nombre_completo || `${selectedSocio?.nombres || ''} ${selectedSocio?.apellidos || ''}`.trim())}
+                      className="flex-1 bg-slate-100 text-slate-700 rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors cursor-pointer"
                     >
                       Descargar PDF
-                    </a>
+                    </button>
                   </div>
                 </div>
               ) : (

@@ -13,14 +13,23 @@ export const patrimonioApi = {
     if (error) throw error;
     const activoRegistrado = data?.[0];
 
-    // Registrar en la tabla archivo si hay imagen
-    if (activo.imagen_url && activoRegistrado) {
-      await supabase.from('archivo').insert([{
-        activo_id: activoRegistrado.id,
-        miembro_id: activo.miembro_id,
-        url: activo.imagen_url,
-        tipo: 'imagen_activo'
-      }]);
+    try {
+      // Registrar en la tabla archivo si hay imagen
+      if (activo.imagen_url && activoRegistrado) {
+        const { error: archError } = await supabase.from('archivo').insert([{
+          activo_id: activoRegistrado.id,
+          miembro_id: activo.miembro_id,
+          url: activo.imagen_url,
+          tipo: 'imagen_activo'
+        }]);
+        if (archError) throw archError;
+      }
+    } catch (transactionError) {
+      console.error('[registrarActivo] Falla en registro secundario de imagen en BD. Ejecutando Rollback...', transactionError);
+      if (activoRegistrado) {
+        await supabase.from('activos').delete().eq('id', activoRegistrado.id);
+      }
+      throw transactionError;
     }
 
     // R15: Recargar el objeto completo (con tipo e imagen) para actualizar la UI sin F5

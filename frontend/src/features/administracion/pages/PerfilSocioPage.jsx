@@ -24,6 +24,8 @@ import { useTheme } from "../../../hooks/useTheme";
 import { Button, Input, Spinner, Modal } from "../../../components/ui";
 import { LoadingOverlay } from "../../../components/feedback";
 import { supabase } from "../../../services/supabase";
+import { downloadCvFile } from "../../../services/cloudinary";
+
 
 export const PerfilSocioPage = () => {
   const { user, setUser } = useAuthStore();
@@ -34,6 +36,7 @@ export const PerfilSocioPage = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showSizeErrorModal, setShowSizeErrorModal] = useState(false);
+  const [sizeErrorDetails, setSizeErrorDetails] = useState(null);
   const [archivos, setArchivos] = useState([]);
   const [fileChanged, setFileChanged] = useState(false);
 
@@ -236,9 +239,14 @@ export const PerfilSocioPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // R4: Modal para archivos > 10MB
-    const MAX_SIZE = 10 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
+    const MAX_ALLOWED_SIZE = 10 * 1024 * 1024; // Límite estricto de 10MB admitido por Cloudinary
+
+    // Validación preventiva antes de iniciar la subida
+    if (file.size > MAX_ALLOWED_SIZE) {
+      setSizeErrorDetails({
+        name: file.name,
+        sizeMB: (file.size / (1024 * 1024)).toFixed(1),
+      });
       setShowSizeErrorModal(true);
       return;
     }
@@ -246,10 +254,13 @@ export const PerfilSocioPage = () => {
     setLoadingModal({
       open: true,
       text: `Subiendo y procesando archivo ${tipo === "foto" ? "de foto de perfil" : "de currículum vitae"} de forma segura...`,
+      progress: 0,
     });
 
     try {
-      await administracionApi.subirArchivo(user.id, file, tipo);
+      await administracionApi.subirArchivo(user.id, file, tipo, (pct) => {
+        setLoadingModal(prev => ({ ...prev, progress: pct }));
+      });
       const files = await administracionApi.obtenerArchivosMiembro(user.id);
       setArchivos(files);
       setFileChanged(true);
@@ -681,10 +692,24 @@ export const PerfilSocioPage = () => {
           <div className="h-16 w-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto">
             <X className="h-10 w-10" />
           </div>
-          <p className="text-slate-600">
-            El documento excede el límite permitido de <strong>10MB</strong>.
-            Por favor, intente con uno más ligero.
-          </p>
+          <div className="space-y-1">
+            <h4 className="font-bold text-slate-800 text-base">
+              Límite de tamaño excedido
+            </h4>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              El archivo {sizeErrorDetails?.name ? <strong className="text-slate-900">"{sizeErrorDetails.name}"</strong> : "seleccionado"}{" "}
+              pesa <strong className="text-red-600">{sizeErrorDetails?.sizeMB || ""} MB</strong>, lo cual supera el tamaño máximo permitido por Cloudinary (<strong className="text-slate-900">10 MB</strong>).
+            </p>
+          </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-600 text-left space-y-1">
+            <p className="font-bold text-slate-800 flex items-center gap-1.5">
+              <Info className="h-4 w-4 text-blue-600 inline shrink-0" />
+              Para evitar hacerte perder tiempo:
+            </p>
+            <p className="leading-relaxed">
+              El envío se canceló preventivamente antes de subirlo. Por favor selecciona un archivo que pesa <strong>menos de 10 MB</strong>.
+            </p>
+          </div>
           <Button
             onClick={() => setShowSizeErrorModal(false)}
             className="w-full"
@@ -711,14 +736,13 @@ export const PerfilSocioPage = () => {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={cvFile.replace("/upload/", "/upload/fl_attachment/")}
-                  download
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-100"
+                <button
+                  onClick={() => downloadCvFile(cvFile, user?.nombre_completo || `${user?.nombres || user?.nombre || ''} ${user?.apellidos || user?.apellido || ''}`.trim() || 'Socio')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-100 cursor-pointer"
                 >
                   <Upload className="h-3 w-3 rotate-180" />
-                  Descargar
-                </a>
+                  Descargar CV
+                </button>
                 <button
                   onClick={() => setShowPdfModal(false)}
                   className="text-slate-500 hover:text-slate-800 transition-colors p-2 hover:bg-slate-100 rounded-xl"
@@ -840,7 +864,7 @@ export const PerfilSocioPage = () => {
         </div>
       </Modal>
 
-      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} />
+      <LoadingOverlay open={loadingModal.open} text={loadingModal.text} progress={loadingModal.progress} />
     </div>
   );
 };

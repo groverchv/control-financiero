@@ -184,7 +184,7 @@ const MiembroRow = ({ registro }) => {
                       minute: '2-digit' 
                     })
                   ) : (
-                    'Al día ✓'
+                    'Al día'
                   )}
                 </p>
               </div>
@@ -292,7 +292,7 @@ const MiembroRow = ({ registro }) => {
                   );
                 })}
                 {cronograma.filter(c => !c.pagado).length === 0 && (
-                  <p className="text-sm text-slate-400 italic py-4">No hay cuotas pendientes. ¡Al día! ✓</p>
+                  <p className="text-sm text-slate-400 italic py-4">No hay cuotas pendientes. ¡Al día!</p>
                 )}
               </div>
             </div>
@@ -699,7 +699,7 @@ export const HistorialCuotasPage = () => {
 
           {/* Advertencia o Nota informativa */}
           <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-700 leading-relaxed box-blue">
-            <strong>✓ Conteo de fechas robusto:</strong> Al cambiar la frecuencia, los vencimientos se calcularán dinámicamente desde la fecha de registro original del socio. No se perderá ningún dato histórico ni pagos existentes.
+            <strong>Conteo de fechas robusto:</strong> Al cambiar la frecuencia, los vencimientos se calcularán dinámicamente desde la fecha de registro original del socio. No se perderá ningún dato histórico ni pagos existentes.
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">

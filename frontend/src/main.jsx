@@ -7,10 +7,27 @@ import App from './App';
 // Desregistrar cualquier service worker heredado (como sw-custom.js) que cause errores en caché
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister().then(() => {
-        console.log('Service Worker heredado desregistrado con éxito.');
-      });
+    if (registrations.length > 0) {
+      for (const registration of registrations) {
+        registration.unregister().then(() => {
+          console.log('Service Worker heredado desregistrado con éxito.');
+        });
+      }
+      
+      // Borrar caches almacenados por el SW antiguo para evitar cargar archivos viejos
+      if (window.caches) {
+        caches.keys().then((keyList) => {
+          Promise.all(keyList.map((key) => caches.delete(key)));
+        });
+      }
+      
+      // Forzar una recarga única para limpiar la memoria del navegador del SW obsoleto
+      if (!sessionStorage.getItem('sw_cleared')) {
+        sessionStorage.setItem('sw_cleared', 'true');
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
     }
   });
 }

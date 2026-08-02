@@ -25,29 +25,39 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:40px 20px;">
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;padding:30px 10px;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+          <!-- Header Banner -->
           <tr>
-            <td style="background:linear-gradient(135deg, ${accentColor}, ${accentColor}dd);padding:32px 40px;">
-              <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:600;letter-spacing:0.5px;">
+            <td bgcolor="${accentColor}" style="background-color:${accentColor};padding:32px 40px;text-align:center;">
+              <p style="color:#ffffff;margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;opacity:0.9;">
+                ASOCIACIÓN DE PROFESIONALES FINANCIEROS
+              </p>
+              <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:800;letter-spacing:0.5px;">
                 ${title}
               </h1>
             </td>
           </tr>
+          <!-- Body Content -->
           <tr>
-            <td style="padding:40px;">
+            <td style="padding:36px 32px;background-color:#ffffff;">
               ${content}
             </td>
           </tr>
+          <!-- Footer -->
           <tr>
-            <td style="background-color:#f8fafc;padding:24px 40px;border-top:1px solid #e2e8f0;text-align:center;">
-              <p style="margin:0;color:#64748b;font-size:13px;line-height:1.5;">
+            <td bgcolor="#f8fafc" style="background-color:#f8fafc;padding:24px 32px;border-top:1px solid #e2e8f0;text-align:center;">
+              <p style="margin:0 0 6px;color:#475569;font-size:12px;font-weight:700;">
+                Asociación de Profesionales Financieros de Santa Cruz
+              </p>
+              <p style="margin:0;color:#94a3b8;font-size:11px;line-height:1.5;">
                 Este es un mensaje automático generado por el Sistema de Control Financiero.<br>
-                Por favor, no respondas a este correo.
+                Por favor, no respondas directamente a este correo.
               </p>
             </td>
           </tr>
@@ -55,7 +65,8 @@ const baseTemplate = (title, content, accentColor = '#1e3a5f') => `
       </td>
     </tr>
   </table>
-</body>`;
+</body>
+</html>`;
 
 const enviarEmail = async ({ to, subject, htmlContent }) => {
   try {
@@ -183,16 +194,16 @@ export const brevoService = {
 
     const content = `
       <h2 style="margin:0 0 4px;color:#d97706;font-size:22px;font-weight:800;text-align:center;">FACTURA DE CUOTA</h2>
-      <p style="margin:0 0 24px;color:#94a3b8;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;">Aviso de cobro generado automáticamente</p>
+      <p style="margin:0 0 24px;color:#64748b;font-size:12px;text-align:center;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Aviso de cobro generado automáticamente</p>
 
-      <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
-        Estimado/a <strong>${nombre}</strong>, te informamos que se ha generado tu ${conceptoLimpio.toLowerCase()} correspondiente al período de <strong>${periodoLimpio}</strong>.
+      <p style="margin:0 0 20px;color:#334155;font-size:15px;line-height:1.6;">
+        Estimado/a <strong style="color:#0f172a;">${nombre}</strong>, te informamos que se ha generado tu ${conceptoLimpio.toLowerCase()} correspondiente al período de <strong>${periodoLimpio}</strong>.
       </p>
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;margin-bottom:${hayDeudasExtra ? '16px' : '24px'};">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fffbeb" style="background-color:#fffbeb;border:2px solid #fde68a;border-radius:12px;margin-bottom:${hayDeudasExtra ? '16px' : '24px'};">
         <tr>
           <td style="padding:20px 24px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Concepto</td>
                 <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${conceptoLimpio}</td>
@@ -203,7 +214,7 @@ export const brevoService = {
               </tr>
               <tr style="border-top:1px solid #fde68a;">
                 <td style="padding:8px 0;color:#78716c;font-size:13px;font-weight:600;">Estado de Pago</td>
-                <td style="padding:8px 0;color:#b45309;font-size:13px;font-weight:700;text-align:right;">Pendiente</td>
+                <td style="padding:8px 0;color:#b45309;font-size:13px;font-weight:700;text-align:right;">⚠️ Pendiente</td>
               </tr>
               <tr style="border-top:1px solid #fde68a;">
                 <td style="padding:10px 0 0;color:#78716c;font-size:13px;font-weight:600;">Monto Cuota</td>
@@ -215,11 +226,11 @@ export const brevoService = {
       </table>
 
       ${hayDeudasExtra ? `
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:12px;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fef3c7" style="background-color:#fef3c7;border:2px solid #fcd34d;border-radius:12px;margin-bottom:24px;">
         <tr>
           <td style="padding:16px 24px;">
             <p style="margin:0 0 12px;color:#92400e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Importante: También tienes cuotas pendientes anteriores</p>
-            <table width="100%" cellpadding="0" cellspacing="0">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
               ${filasDeudaExtra}
               <tr style="border-top:2px solid #fcd34d;">
                 <td style="padding:12px 0 0;color:#92400e;font-size:14px;font-weight:800;">TOTAL ADEUDADO</td>
@@ -230,9 +241,13 @@ export const brevoService = {
         </tr>
       </table>` : ''}
 
-      <div style="background-color:#fffbeb;border-radius:8px;padding:12px 20px;margin-bottom:20px;text-align:center;">
-        <p style="margin:0;color:#b45309;font-size:13px;font-weight:700;">Acérquese a secretaría para realizar su pago.</p>
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fffbeb" style="background-color:#fffbeb;border-radius:8px;border:1px solid #fde68a;margin-bottom:20px;">
+        <tr>
+          <td style="padding:14px 20px;text-align:center;">
+            <p style="margin:0;color:#b45309;font-size:13px;font-weight:700;">Acérquese a secretaría o escanee su código QR para realizar su pago.</p>
+          </td>
+        </tr>
+      </table>
     `;
 
     if (!email || email === 'no-reply@control.com') return { success: true };
@@ -276,10 +291,10 @@ export const brevoService = {
         Estimado/a <strong>${nombre}</strong>, nos complace confirmar que tu pago ha sido registrado y procesado exitosamente en nuestra secretaría:
       </p>
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0fdf4;border:1px solid #86efac;border-radius:12px;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f0fdf4" style="background-color:#f0fdf4;border:2px solid #86efac;border-radius:12px;margin-bottom:24px;">
         <tr>
           <td style="padding:20px 24px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">N° Recibo</td>
                 <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${numeroRecibo}</td>
@@ -299,7 +314,7 @@ export const brevoService = {
               </tr>` : ''}
               <tr style="border-top:1px solid #bbf7d0;">
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Estado de Transacción</td>
-                <td style="padding:8px 0;color:#16a34a;font-size:13px;font-weight:700;text-align:right;">Confirmado y Sellado</td>
+                <td style="padding:8px 0;color:#16a34a;font-size:13px;font-weight:700;text-align:right;">✓ Confirmado y Sellado</td>
               </tr>
               <tr style="border-top:1px solid #bbf7d0;">
                 <td style="padding:12px 0 0;color:#166534;font-size:14px;font-weight:800;">MONTO PAGADO</td>
@@ -310,9 +325,13 @@ export const brevoService = {
         </tr>
       </table>
 
-      <div style="background-color:#dcfce7;border-radius:8px;padding:12px 20px;margin-bottom:${cuotasPendientes > 0 ? '16px' : '0'};text-align:center;">
-        <p style="margin:0;color:#166534;font-size:14px;font-weight:700;">COMPROBANTE DE PAGO REGISTRADO</p>
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#dcfce7" style="background-color:#dcfce7;border-radius:8px;margin-bottom:${cuotasPendientes > 0 ? '16px' : '0'};">
+        <tr>
+          <td style="padding:14px 20px;text-align:center;">
+            <p style="margin:0;color:#166534;font-size:14px;font-weight:700;">✓ COMPROBANTE DE PAGO REGISTRADO</p>
+          </td>
+        </tr>
+      </table>
 
       ${cuotasPendientes > 0 ? `
       <div style="background-color:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 20px;text-align:center;">
@@ -342,7 +361,7 @@ export const brevoService = {
    */
   enviarBienvenida: async ({ email, nombre, rol, montoInscripcion, ci }) => {
     const rolFormateado = rol ? (rol.charAt(0).toUpperCase() + rol.slice(1)) : 'Miembro';
-    const montoFormateado = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(montoInscripcion) || 150);
+    const montoFormateado = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(montoInscripcion === '' || montoInscripcion == null ? 150 : Number(montoInscripcion));
 
     const content = `
       <h2 style="margin:0 0 4px;color:#1e3a5f;font-size:22px;font-weight:800;text-align:center;">¡TE DAMOS LA BIENVENIDA!</h2>
@@ -352,10 +371,10 @@ export const brevoService = {
         Estimado/a <strong>${nombre}</strong>, nos alegra mucho darte la bienvenida a nuestra institución. Tu cuenta de acceso al sistema de <strong>Asociación de Profesionales Financieros</strong> ya está activa.
       </p>
 
-      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8fafc" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px;">
         <tr>
           <td style="padding:20px 24px;">
-            <table width="100%" cellpadding="0" cellspacing="0">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="padding:8px 0;color:#64748b;font-size:13px;font-weight:600;">Correo Registrado</td>
                 <td style="padding:8px 0;color:#0f172a;font-size:13px;font-weight:700;text-align:right;">${email}</td>
@@ -381,18 +400,22 @@ export const brevoService = {
         </tr>
       </table>
 
-      <div style="background-color:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px 20px;margin-bottom:24px;text-align:center;">
-        <p style="margin:0 0 8px;color:#b45309;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">MONTO DE INSCRIPCIÓN</p>
-        <p style="margin:0 0 8px;color:#475569;font-size:14px;line-height:1.5;">
-          Recuerda que debes cancelar el monto de inscripción asignado de:
-        </p>
-        <p style="margin:0 0 8px;color:#d97706;font-size:24px;font-weight:800;">
-          Bs. ${montoFormateado}
-        </p>
-        <p style="margin:0;color:#78716c;font-size:12px;font-style:italic;">
-          Por favor, realiza este pago a la brevedad posible para formalizar tu registro.
-        </p>
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#fffbeb" style="background-color:#fffbeb;border:2px solid #fde68a;border-radius:12px;margin-bottom:24px;">
+        <tr>
+          <td style="padding:20px;text-align:center;">
+            <p style="margin:0 0 8px;color:#b45309;font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">MONTO DE INSCRIPCIÓN</p>
+            <p style="margin:0 0 8px;color:#475569;font-size:14px;line-height:1.5;">
+              Recuerda que debes cancelar el monto de inscripción asignado de:
+            </p>
+            <p style="margin:0 0 8px;color:#d97706;font-size:24px;font-weight:800;">
+              Bs. ${montoFormateado}
+            </p>
+            <p style="margin:0;color:#78716c;font-size:12px;font-style:italic;">
+              Por favor, realiza este pago a la brevedad posible para formalizar tu registro.
+            </p>
+          </td>
+        </tr>
+      </table>
 
       <p style="margin:0 0 20px;color:#475569;font-size:14px;line-height:1.6;text-align:center;">
         Ahora puedes iniciar sesión para ver tus actividades académicas, estado de cuenta, realizar pagos de cuotas y más.

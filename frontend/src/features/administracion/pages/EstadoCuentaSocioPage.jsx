@@ -92,7 +92,8 @@ export const EstadoCuentaSocioPage = () => {
         .from('ingreso')
         .select('*')
         .eq('miembro_id', user.id)
-        .in('estado', ['pendiente', 'rechazado']);
+        .in('estado', ['pendiente', 'rechazado'])
+        .order('creacion', { ascending: false });
       if (error) throw error;
       setReportedIngresos(data || []);
     } catch (err) {
@@ -314,9 +315,10 @@ export const EstadoCuentaSocioPage = () => {
   ];
 
   const cuotasRows = paginatedCuotas.map((c, idx) => {
-    const reportedPago = reportedIngresos.find(pi => 
+    const matchingIngresos = reportedIngresos.filter(pi => 
       pi.descripcion && pi.descripcion.includes(`Reporte de cuota: ${c.mes}`)
     );
+    const reportedPago = matchingIngresos.length > 0 ? matchingIngresos[0] : null;
     const esPendienteRevision = reportedPago && reportedPago.estado === 'pendiente';
     const esRechazado = reportedPago && reportedPago.estado === 'rechazado';
 
@@ -352,8 +354,8 @@ export const EstadoCuentaSocioPage = () => {
       ) : esRechazado ? (
         <div className="flex items-center gap-2 flex-wrap">
           {(() => {
-            const matchMotivo = reportedPago.descripcion.match(/\[Rechazado\. Motivo:\s*([^\]]+)\]/i);
-            const motivoText = matchMotivo ? matchMotivo[1] : 'Comprobante rechazado';
+            const matches = [...(reportedPago.descripcion || '').matchAll(/\[Rechazado\. Motivo:\s*([^\]]+)\]/gi)];
+            const motivoText = matches.length > 0 ? matches[matches.length - 1][1] : 'Comprobante rechazado';
             return (
               <button
                 onClick={() => setMotivoRechazoModal({ open: true, motivo: motivoText })}

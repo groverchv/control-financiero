@@ -179,27 +179,27 @@ export const GestionTiposActivoPage = () => {
       ),
       acciones: (
         <div className="flex gap-2 items-center">
-          <button 
+          <Button
+            size="xs"
+            variant="outline"
             onClick={() => handleOpenEdit(tipo)}
-            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+            className="text-amber-600 border-amber-200 hover:bg-amber-50 flex items-center gap-1 h-7 font-bold"
             title="Editar"
           >
             <Edit className="h-3.5 w-3.5" />
             <span>Editar</span>
-          </button>
-          <button 
+          </Button>
+          <Button
+            size="xs"
+            variant="outline"
             onClick={() => handleDeleteClick(tipo)}
             disabled={inUse}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-bold transition-colors ${
-              inUse 
-                ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500' 
-                : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
-            }`}
+            className={inUse ? "opacity-40 cursor-not-allowed text-slate-400 h-7 font-bold" : "text-red-600 border-red-200 hover:bg-red-50 flex items-center gap-1 h-7 font-bold"}
             title={inUse ? 'No se puede eliminar porque está en uso' : 'Eliminar'}
           >
             <Trash2 className="h-3.5 w-3.5" />
             <span>Eliminar</span>
-          </button>
+          </Button>
         </div>
       )
     };

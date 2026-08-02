@@ -55,7 +55,7 @@ export async function handler(event, context) {
         telefono: telefono || null,
         "apellidoPaterno": apellidoPaterno || null,
         "apellidoMaterno": apellidoMaterno || null,
-        monto_inscripcion: monto_inscripcion || 150
+        monto_inscripcion: monto_inscripcion ?? 150
       })
       .eq('id', authData.user.id);
 

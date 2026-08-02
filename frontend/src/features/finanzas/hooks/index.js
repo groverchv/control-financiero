@@ -7,10 +7,14 @@ export const usePagos = (miembroId) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const load = async () => {
+  const load = async (force = false) => {
     setLoading(true);
     setError(null);
     try {
+      if (force) {
+        const { apiCache } = await import('../../../utils/apiCache');
+        apiCache.invalidate('finanzas:cuotas');
+      }
       const data = await finanzasApi.obtenerCuotas(miembroId);
       setCuotas(data);
     } catch (err) {
@@ -46,7 +50,7 @@ export const usePagos = (miembroId) => {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { cuotas, loading, error, setCuotas, refetch: load };
+  return { cuotas, loading, error, setCuotas, refetch: () => load(true) };
 };
 
 export const useFlujoCaja = () => {
@@ -67,10 +71,14 @@ export const useEgresos = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const load = async () => {
+  const load = async (force = false) => {
     setLoading(true);
     setError(null);
     try {
+      if (force) {
+        const { apiCache } = await import('../../../utils/apiCache');
+        apiCache.invalidate('finanzas:egresos');
+      }
       const data = await finanzasApi.obtenerEgresos();
       setEgresos(data);
     } catch (err) {
@@ -83,9 +91,21 @@ export const useEgresos = () => {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
+
+    const channel = supabase
+      .channel('realtime-use-egresos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'egreso' }, () => {
+        import('../../../utils/apiCache').then(({ apiCache }) => apiCache.invalidate('finanzas:egresos'));
+        load(true);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  return { egresos, loading, error, setEgresos, refetch: load };
+  return { egresos, loading, error, setEgresos, refetch: () => load(true) };
 };
 
 export const useIngresosExtras = () => {
@@ -93,22 +113,34 @@ export const useIngresosExtras = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await finanzasApi.obtenerIngresosExtras();
-        setIngresos(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const load = async () => {
+    try {
+      const data = await finanzasApi.obtenerIngresosExtras();
+      setIngresos(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
+
+    const channel = supabase
+      .channel('realtime-use-ingresos-extras')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ingreso' }, () => {
+        load();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  return { ingresos, loading, error };
+  return { ingresos, loading, error, refetch: load };
 };
 
 export const useReportesFinancieros = () => {

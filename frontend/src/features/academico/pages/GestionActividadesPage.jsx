@@ -982,7 +982,6 @@ export const GestionActividadesPage = () => {
         );
         setLoadingModal({ open: false, text: "" });
         clearDraft();
-        setShowConfetti(true);
         setResultModal({
           open: true,
           type: "success",

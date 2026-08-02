@@ -106,7 +106,7 @@ export const DashboardKpisPage = () => {
         // 1. Fetch pending cuotas
         const fetchCuotas = async () => {
           try {
-            const res = await finanzasApi.obtenerHistorialCuotasMiembro();
+            const res = await finanzasApi.obtenerHistorialCuotasMiembro(true);
             let total = 0;
             res.forEach(item => {
               if (item.cronograma) {
@@ -190,7 +190,21 @@ export const DashboardKpisPage = () => {
     };
 
     loadPendientes();
-    return () => { cancelled = true; };
+
+    const channel = supabase
+      .channel('realtime-kpis-pendientes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cuota_membresia' }, () => {
+        loadPendientes();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ingreso' }, () => {
+        loadPendientes();
+      })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Amortization alerts
@@ -214,18 +228,33 @@ export const DashboardKpisPage = () => {
   // Fetch miembros for Gestión de Miembros tab
   useEffect(() => {
     let cancelled = false;
-    administracionApi.obtenerMiembros()
-      .then(data => {
-        if (!cancelled) {
-          setTodosMiembros(data || []);
-          setLoadingMiembros(false);
-        }
+    const fetchMiembrosLocal = () => {
+      administracionApi.obtenerMiembros()
+        .then(data => {
+          if (!cancelled) {
+            setTodosMiembros(data || []);
+            setLoadingMiembros(false);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching members:', err);
+          if (!cancelled) setLoadingMiembros(false);
+        });
+    };
+
+    fetchMiembrosLocal();
+
+    const channel = supabase
+      .channel('realtime-kpis-miembros')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'miembro' }, () => {
+        fetchMiembrosLocal();
       })
-      .catch(err => {
-        console.error('Error fetching members:', err);
-        if (!cancelled) setLoadingMiembros(false);
-      });
-    return () => { cancelled = true; };
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // ─── Computed financial data ─────────────────────────────────────────────
@@ -245,7 +274,7 @@ export const DashboardKpisPage = () => {
     return q === 'Q1' ? m <= 2 : q === 'Q2' ? m >= 3 && m <= 5 : q === 'Q3' ? m >= 6 && m <= 8 : m >= 9;
   });
 
-  const fI = useMemo(() => filterQ(allI.filter(i => i.estado !== 'devolucion'), quarterFilter, selectedYear), [allI, quarterFilter, selectedYear]);
+  const fI = useMemo(() => filterQ(allI.filter(i => i.estado === 'pagada' || i.estado === 'aprobado'), quarterFilter, selectedYear), [allI, quarterFilter, selectedYear]);
   const fE = useMemo(() => filterQ(allE, quarterFilter, selectedYear), [allE, quarterFilter, selectedYear]);
 
   const totalI = fI.reduce((s, x) => s + Number(x.monto || 0), 0);

@@ -281,17 +281,42 @@ export const DetalleActividadPage = () => {
                   Jurado Evaluador Designado
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {actividad.jurados.map((jurado, i) => (
-                    <div key={i} className="flex items-center gap-3 bg-indigo-50/50 dark:bg-indigo-500/10 border border-indigo-100/50 dark:border-indigo-500/20 p-4 rounded-2xl shadow-none">
-                      <div className="h-10 w-10 rounded-xl bg-indigo-600 dark:bg-indigo-500/20 flex items-center justify-center text-white dark:text-indigo-400 shrink-0">
-                        <GraduationCap className="h-5 w-5" />
+                  {actividad.jurados.map((jurado, i) => {
+                    const isObj = typeof jurado === 'object' && jurado !== null;
+                    const isExterno = isObj ? jurado.isExterno : (typeof jurado === 'string' && jurado.includes('Externo'));
+                    const rawName = isObj ? jurado.nombre : jurado;
+                    let nombre = typeof rawName === 'string' ? rawName.replace(/\[JURADO EXTERNO:\s*(.*?)\]/, '$1').trim() : 'Jurado';
+                    
+                    if (!nombre || nombre === 'Jurado Externo' || nombre === 'Invitado') {
+                      nombre = 'Jurado Invitado';
+                    }
+                    
+                    // Subtítulo:
+                    // 1. Si es externo y el nombre NO es "Jurado Invitado", muestra "Invitado"
+                    // 2. Si es socio, muestra su profesión registrada (si la tiene). Si no la tiene, NO MUESTRA NINGÚN SUBTÍTULO.
+                    let subtitle = null;
+                    if (isExterno) {
+                      if (nombre !== 'Jurado Invitado') {
+                        subtitle = 'Invitado';
+                      }
+                    } else if (isObj && jurado.profesion && jurado.profesion !== 'Socio' && jurado.profesion !== 'Socio Institucional') {
+                      subtitle = jurado.profesion;
+                    }
+
+                    return (
+                      <div key={i} className="flex items-center gap-3 bg-indigo-50/50 dark:bg-indigo-500/10 border border-indigo-100/50 dark:border-indigo-500/20 p-4 rounded-2xl shadow-none">
+                        <div className="h-10 w-10 rounded-xl bg-indigo-600 dark:bg-indigo-500/20 flex items-center justify-center text-white dark:text-indigo-400 shrink-0">
+                          <GraduationCap className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{nombre}</p>
+                          {subtitle && (
+                            <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">{subtitle}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{jurado}</p>
-                        <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Jurado de Actividad</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -264,7 +264,7 @@ export const AdminLayout = () => {
                   </NavLink>
                 </li>
               )}
-              {(user?.rol === "admin" || user?.rol === "secretario") && (
+              {user?.rol === "admin" && (
                 <li>
                   <NavLink
                     to="/admin/qr"

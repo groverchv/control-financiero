@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, Save, CheckCircle2, AlertCircle, Edit, Trash2, Eye, Shield, ShieldCheck, Info, RefreshCw, Users, BookOpen } from 'lucide-react';
+import { Search, Plus, Save, CheckCircle2, AlertCircle, Edit, Trash2, Eye, ShieldCheck, Info, RefreshCw, Users, BookOpen } from 'lucide-react';
 import { Button, Input, Modal, Select, Spinner } from '../../../components/ui';
 import { Toast, LoadingOverlay } from '../../../components/feedback';
 import { administracionApi } from '../../administracion/api';
@@ -54,7 +54,7 @@ export const AsignarJuradoPage = () => {
       const [acts, miems, jurs, tipos] = await Promise.all([
         academicoApi.obtenerActividades(),
         administracionApi.obtenerMiembros(),
-        supabase.from('jurado').select('*, miembro(id, nombre, "apellidoPaterno", "apellidoMaterno"), actividad(id, titulo, fecha, hora)'),
+        supabase.from('jurado').select('*, miembro(id, nombre, "apellidoPaterno", "apellidoMaterno", profesion), actividad(id, titulo, fecha, hora)'),
         academicoApi.obtenerTiposActividad()
       ]);
       
@@ -375,6 +375,10 @@ export const AsignarJuradoPage = () => {
         ? (j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1] || 'Jurado Externo')
         : (j.miembro ? `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''} ${j.miembro.apellidoMaterno || ''}`.trim() : 'Miembro');
 
+      const profesion = isExterno
+        ? 'Invitado'
+        : (j.miembro?.profesion || null);
+
       if (isExterno) {
         originalDescripcion = j.descripcion?.replace(/\[JURADO EXTERNO:\s*(.*?)\]/, '').trim() || '';
       }
@@ -383,6 +387,7 @@ export const AsignarJuradoPage = () => {
         id: j.id,
         miembro_id: j.miembro_id,
         nombre,
+        profesion,
         isExterno,
         originalDescripcion,
         rawItem: j
@@ -547,18 +552,24 @@ export const AsignarJuradoPage = () => {
                         {g.juradosList.map((jur, idx) => (
                           <span 
                             key={idx} 
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
+                            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold border ${
                               jur.isExterno 
-                                ? 'bg-amber-50 text-amber-800 border-amber-200' 
-                                : 'bg-blue-50 text-blue-800 border-blue-200'
+                                ? 'bg-amber-50 text-amber-900 border-amber-200' 
+                                : 'bg-blue-50 text-blue-900 border-blue-200'
                             }`}
                           >
-                            {jur.nombre}
-                            <span className={`text-[9px] font-extrabold uppercase tracking-wider ${
-                              jur.isExterno ? 'text-amber-500' : 'text-blue-500'
-                            }`}>
-                              {jur.isExterno ? 'Invitado' : 'Socio'}
-                            </span>
+                            <span className="font-bold">{jur.nombre}</span>
+                            {jur.isExterno ? (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-200/60 text-amber-900">
+                                Invitado
+                              </span>
+                            ) : (
+                              jur.profesion && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-200/60 text-blue-900">
+                                  {jur.profesion}
+                                </span>
+                              )
+                            )}
                           </span>
                         ))}
                         {g.juradosList.length === 0 && (
@@ -570,32 +581,38 @@ export const AsignarJuradoPage = () => {
                       {g.descripcionActividad || <span className="text-slate-400 italic text-xs">Sin descripción</span>}
                     </td>
                     <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-1.5 items-center">
-                            <button
-                              type="button"
-                              onClick={() => handleVerDetalle(g)}
-                              className="rounded p-1 text-blue-600 hover:bg-blue-50 transition-colors"
-                              title="Ver detalles de asignación"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleModificar(g)}
-                              className="rounded p-1 text-amber-600 hover:bg-amber-50 transition-colors"
-                              title="Modificar"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleEliminarGrupo(g)}
-                              className="rounded p-1 text-red-500 hover:bg-red-50 transition-colors"
-                              title="Eliminar permanentemente"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                      <div className="flex justify-end gap-2 items-center">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="text-blue-600 border-blue-200 hover:bg-blue-50 flex items-center gap-1 h-7 font-bold"
+                          onClick={() => handleVerDetalle(g)}
+                          title="Ver detalles de asignación"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Detalle</span>
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="text-amber-600 border-amber-200 hover:bg-amber-50 flex items-center gap-1 h-7 font-bold"
+                          onClick={() => handleModificar(g)}
+                          title="Modificar"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                          <span>Editar</span>
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="text-red-600 border-red-200 hover:bg-red-50 flex items-center gap-1 h-7 font-bold"
+                          onClick={() => handleEliminarGrupo(g)}
+                          title="Eliminar permanentemente"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Eliminar</span>
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -701,7 +718,16 @@ export const AsignarJuradoPage = () => {
                           }}
                           className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="font-semibold text-slate-800">{m.nombre} {m.apellidoPaterno || ''} {m.apellidoMaterno || ''}</span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-slate-800 text-xs sm:text-sm">
+                            {m.nombre} {m.apellidoPaterno || ''} {m.apellidoMaterno || ''}
+                          </span>
+                          {m.profesion && (
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              🎓 {m.profesion}
+                            </span>
+                          )}
+                        </div>
                       </label>
                     );
                   })

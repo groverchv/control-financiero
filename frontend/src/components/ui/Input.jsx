@@ -74,7 +74,9 @@ export const Input = ({
       textLabel = label.props.children.toLowerCase();
     }
 
-    if (textLabel.includes('nombre') || textLabel.includes('socio') || textLabel.includes('miembro')) {
+    if (textLabel.includes('activo') || textLabel.includes('equipo') || textLabel.includes('patrimonio') || textLabel.includes('bien')) {
+      placeholder = 'Ej. Laptop Lenovo ThinkPad';
+    } else if (textLabel.includes('nombre') || textLabel.includes('socio') || textLabel.includes('miembro') || textLabel.includes('persona')) {
       placeholder = 'Ej. Juan Pérez';
     } else if (textLabel.includes('email') || textLabel.includes('correo')) {
       placeholder = 'Ej. usuario@dominio.com';

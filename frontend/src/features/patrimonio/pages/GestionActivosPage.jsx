@@ -50,7 +50,12 @@ export const GestionActivosPage = () => {
   const [resultModal, setResultModal] = useState({ open: false, type: 'success', text: '', details: '' });
   const [loadingModal, setLoadingModal] = useState({ open: false, text: '' });
 
-  const isSubmitDisabled = !formData.nombre.trim() || !formData.tipo_activo_id || !formData.costo_total || !formData.fechaAdquisicion;
+  const isSubmitDisabled = 
+    !formData.nombre.trim() || 
+    !formData.tipo_activo_id || 
+    formData.costo_total === '' || 
+    formData.costo_total === null || 
+    Number(formData.costo_total) < 0;
 
   useEffect(() => {
     if (detalleModal.activo) {
@@ -294,6 +299,7 @@ export const GestionActivosPage = () => {
   };
 
   const executeSubmit = async () => {
+    setIsConfirmSaveModalOpen(false);
     setIsSubmitting(true);
     setLoadingModal({ open: true, text: editingActivo ? 'Actualizando activo...' : 'Registrando activo institucional...' });
     try {
@@ -538,6 +544,7 @@ export const GestionActivosPage = () => {
             label="Nombre del Activo" 
             value={formData.nombre} 
             onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} 
+            placeholder="Ej. Laptop Lenovo ThinkPad"
             required 
           />
           <Select

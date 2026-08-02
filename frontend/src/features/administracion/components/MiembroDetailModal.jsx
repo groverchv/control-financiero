@@ -432,7 +432,7 @@ export const MiembroDetailModal = ({
             <div className="grid grid-cols-3 gap-4">
               <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Monto Inscripción</span>
-                <span className="text-lg font-black text-slate-700">{formatCurrency(detailModal.miembro?.monto_inscripcion || 150)}</span>
+                <span className="text-lg font-black text-slate-700">{formatCurrency(detailModal.miembro?.monto_inscripcion ?? 150)}</span>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 shadow-sm">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Cuota Mensual</span>

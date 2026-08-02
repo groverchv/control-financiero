@@ -77,49 +77,51 @@ export const finanzasApi = {
     }
 
 
-    // Enviar recibo de pago al socio si existe miembroId (en segundo plano)
-    try {
-      if (miembroId) {
-        const { data: miembro } = await supabase
-          .from('miembro')
-          .select('nombre, "correoElectronico"')
-          .eq('id', miembroId)
-          .single();
+    // Enviar recibo de pago al socio si existe miembroId (en segundo plano) y NO es un pago pendiente
+    if (!esPagoPendiente) {
+      try {
+        if (miembroId) {
+          const { data: miembro } = await supabase
+            .from('miembro')
+            .select('nombre, "correoElectronico"')
+            .eq('id', miembroId)
+            .single();
 
-        // Calcular cuotas que quedan pendientes después de este pago
-        let cuotasPendientesRestantes = 0;
-        try {
-          const historial = await finanzasApi.obtenerHistorialCuotasMiembro();
-          const dataMiembro = historial.find(h => h.miembro.id === miembroId);
-          cuotasPendientesRestantes = dataMiembro?.mesesDeuda || 0;
-        } catch {
-          // No es crítico si falla
+          // Calcular cuotas que quedan pendientes después de este pago
+          let cuotasPendientesRestantes = 0;
+          try {
+            const historial = await finanzasApi.obtenerHistorialCuotasMiembro();
+            const dataMiembro = historial.find(h => h.miembro.id === miembroId);
+            cuotasPendientesRestantes = dataMiembro?.mesesDeuda || 0;
+          } catch {
+            // No es crítico si falla
+          }
+
+          brevoService.notificarPagoRegistrado({
+            email: miembro?.correoElectronico || 'no-reply@control.com',
+            nombre: miembro?.nombre || 'Socio',
+            monto: pago.monto,
+            fecha: pago.fecha || new Date().toISOString().split('T')[0],
+            concepto: pago.descripcion || 'Cuota de membresía',
+            miembroId,
+            cuotasPendientes: cuotasPendientesRestantes,
+          }).catch(err => console.error('[Brevo] Error enviando recibo de pago:', err));
+
+          // Registrar notificación en el sistema (avisos en la web)
+          try {
+            await supabase.from('notificacion').insert([{
+              miembro_id: miembroId,
+              titulo: 'Pago Registrado',
+              descripcion: `Se ha registrado exitosamente un pago por Bs. ${Number(pago.monto).toFixed(2)}: ${pago.descripcion || 'Cuota de membresía'}.`,
+              estado: 'pendiente'
+            }]);
+          } catch (notifErr) {
+            console.error('[registrarPago] Error insertando notificación en BD:', notifErr);
+          }
         }
-
-        brevoService.notificarPagoRegistrado({
-          email: miembro?.correoElectronico || 'no-reply@control.com',
-          nombre: miembro?.nombre || 'Socio',
-          monto: pago.monto,
-          fecha: pago.fecha || new Date().toISOString().split('T')[0],
-          concepto: pago.descripcion || 'Cuota de membresía',
-          miembroId,
-          cuotasPendientes: cuotasPendientesRestantes,
-        }).catch(err => console.error('[Brevo] Error enviando recibo de pago:', err));
-
-        // Registrar notificación en el sistema (avisos en la web)
-        try {
-          await supabase.from('notificacion').insert([{
-            miembro_id: miembroId,
-            titulo: 'Pago Registrado',
-            descripcion: `Se ha registrado exitosamente un pago por Bs. ${Number(pago.monto).toFixed(2)}: ${pago.descripcion || 'Cuota de membresía'}.`,
-            estado: 'pendiente'
-          }]);
-        } catch (notifErr) {
-          console.error('[registrarPago] Error insertando notificación en BD:', notifErr);
-        }
+      } catch (emailErr) {
+        console.error('[Brevo] Error enviando recibo de pago:', emailErr);
       }
-    } catch (emailErr) {
-      console.error('[Brevo] Error enviando recibo de pago:', emailErr);
     }
 
     // R15: Recargar el objeto completo (con tipo, socio y archivos) para actualizar la UI sin F5
@@ -893,11 +895,11 @@ export const finanzasApi = {
   },
 
   obtenerFlujoCaja: async () => {
-    // 1. Obtener ingresos activos (excluir devoluciones para calcular saldo real)
+    // 1. Obtener ingresos aprobados (solo pagos confirmados para el saldo real de caja)
     const { data: ingresos } = await supabase
       .from('ingreso')
       .select('monto, estado')
-      .neq('estado', 'devolucion');
+      .eq('estado', 'pagada');
     const ingresosTotales = (ingresos || []).reduce((acc, curr) => acc + Number(curr.monto), 0);
 
     // 2. Obtener suma de egresos (todos son positivos por CHECK constraint)
@@ -1259,11 +1261,56 @@ export const finanzasApi = {
       }
     }
 
+    // 5. Enviar recibo de pago y registrar notificación
+    const miembroId = currentIngreso.miembro_id;
+    if (miembroId) {
+      try {
+        const { data: miembro } = await supabase
+          .from('miembro')
+          .select('nombre, "correoElectronico"')
+          .eq('id', miembroId)
+          .single();
+
+        let cuotasPendientesRestantes = 0;
+        try {
+          const historial = await finanzasApi.obtenerHistorialCuotasMiembro();
+          const dataMiembro = historial.find(h => h.miembro.id === miembroId);
+          cuotasPendientesRestantes = dataMiembro?.mesesDeuda || 0;
+        } catch {
+          // No es crítico si falla
+        }
+
+        brevoService.notificarPagoRegistrado({
+          email: miembro?.correoElectronico || 'no-reply@control.com',
+          nombre: miembro?.nombre || 'Socio',
+          monto: currentIngreso.monto,
+          fecha: currentIngreso.fecha || new Date().toISOString().split('T')[0],
+          concepto: currentIngreso.descripcion || 'Cuota de membresía',
+          miembroId,
+          cuotasPendientes: cuotasPendientesRestantes,
+        }).catch(err => console.error('[Brevo] Error enviando recibo de pago:', err));
+
+        try {
+          await supabase.from('notificacion').insert([{
+            miembro_id: miembroId,
+            titulo: 'Pago Aprobado',
+            descripcion: `Se ha aprobado exitosamente tu pago por Bs. ${Number(currentIngreso.monto).toFixed(2)}: ${currentIngreso.descripcion || 'Cuota de membresía'}.`,
+            estado: 'pendiente'
+          }]);
+        } catch (notifErr) {
+          console.error('[aprobarPago] Error insertando notificación en BD:', notifErr);
+        }
+      } catch (emailErr) {
+        console.error('[Brevo] Error enviando recibo de pago:', emailErr);
+      }
+    }
+
     return approvedIngreso;
   },
 
   rechazarPago: async (ingresoId, motivo, registradorId) => {
     apiCache.invalidate('finanzas');
+    apiCache.invalidate('ingreso');
     
     // 1. Obtener detalles del ingreso
     const { data: currentIngreso, error: fetchErr } = await supabase
@@ -1275,8 +1322,9 @@ export const finanzasApi = {
     if (fetchErr) throw fetchErr;
     if (!currentIngreso) throw new Error('No se encontró el registro de ingreso.');
 
-    // 2. Rechazar el ingreso
-    const nuevaDesc = `${currentIngreso.descripcion || ''} [Rechazado. Motivo: ${motivo}]`.trim();
+    // 2. Rechazar el ingreso acumulando/actualizando el motivo más reciente
+    const descLimpia = (currentIngreso.descripcion || '').replace(/\s*\[Rechazado\. Motivo:[^\]]+\]/gi, '').trim();
+    const nuevaDesc = `${descLimpia} [Rechazado. Motivo: ${motivo}]`.trim();
     const { data: rejectedIngreso, error: updateErr } = await supabase
       .from('ingreso')
       .update({

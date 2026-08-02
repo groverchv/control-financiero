@@ -242,9 +242,12 @@ export const academicoApi = {
         tipo_nombre: d.tipo_actividad?.nombre || 'General',
         imagen: d.archivo?.[0]?.url || null,
         jurados: d.jurado?.map(j => {
-          if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
+          if (j.miembro) {
+            const fullName = `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''} ${j.miembro.apellidoMaterno || ''}`.trim();
+            return { nombre: fullName, profesion: j.miembro.profesion || null, isExterno: false };
+          }
           const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
-          return extName || 'Jurado Externo';
+          return { nombre: extName || 'Invitado', profesion: 'Invitado', isExterno: true };
         }) || [],
         inscritos_count: d.inscripcion?.length || 0
       }));
@@ -257,7 +260,7 @@ export const academicoApi = {
   obtenerActividadPorId: async (id) => {
     const { data, error } = await supabase
       .from('actividad')
-      .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion), inscripcion(id)')
+      .select('*, tipo_actividad(id, nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno", profesion), descripcion), inscripcion(id)')
       .eq('id', id)
       .maybeSingle();
 
@@ -270,9 +273,12 @@ export const academicoApi = {
       tipo_nombre: data.tipo_actividad?.nombre || 'General',
       imagen: data.archivo?.[0]?.url || null,
       jurados: data.jurado?.map(j => {
-        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
+        if (j.miembro) {
+          const fullName = `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''} ${j.miembro.apellidoMaterno || ''}`.trim();
+          return { nombre: fullName, profesion: j.miembro.profesion || null, isExterno: false };
+        }
         const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
-        return extName || 'Jurado Externo';
+        return { nombre: extName || 'Invitado', profesion: 'Invitado', isExterno: true };
       }) || [],
       inscritos_count: data.inscripcion?.length || 0
     };
@@ -485,7 +491,7 @@ export const academicoApi = {
     // Volver a obtener la actividad completa para devolver el objeto con todas las relaciones (imagen, tipo, etc.)
     const { data: updatedAct, error: fetchErr } = await supabase
       .from('actividad')
-      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno"), descripcion)')
+      .select('*, tipo_actividad(nombre), archivo(url), jurado(miembro(nombre, "apellidoPaterno", "apellidoMaterno", profesion), descripcion)')
       .eq('id', id)
       .single();
 
@@ -497,9 +503,12 @@ export const academicoApi = {
       tipo_nombre: updatedAct.tipo_actividad?.nombre || 'General',
       imagen: updatedAct.archivo?.[0]?.url || null,
       jurados: updatedAct.jurado?.map(j => {
-        if (j.miembro) return `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''}`.trim();
+        if (j.miembro) {
+          const fullName = `${j.miembro.nombre} ${j.miembro.apellidoPaterno || ''} ${j.miembro.apellidoMaterno || ''}`.trim();
+          return { nombre: fullName, profesion: j.miembro.profesion || null, isExterno: false };
+        }
         const extName = j.descripcion?.match(/\[JURADO EXTERNO:\s*(.*?)\]/)?.[1];
-        return extName || 'Jurado Externo';
+        return { nombre: extName || 'Invitado', profesion: 'Invitado', isExterno: true };
       }) || []
     };
   },
@@ -625,6 +634,7 @@ export const academicoApi = {
   },
 
   asignarJurado: async (payload) => {
+    apiCache.invalidate('academico');
     // Si es actividad del sistema, verificar que no esté finalizada o cancelada
     if (payload.actividad_id) {
       const { data: act } = await supabase
@@ -783,8 +793,8 @@ export const academicoApi = {
         descripcion: `Inscripción a "${itemInfo?.titulo || 'Actividad'}" confirmada. Inicio: ${fechaInsc} a las ${itemInfo?.hora ? itemInfo.hora.substring(0, 5) : '—'} Hrs.${itemInfo?.costo > 0 ? ` Costo: Bs. ${itemInfo.costo}. Por favor, cancele este monto en secretaría.` : ''}`,
         estado: 'pendiente'
       }]);
-    } catch (emailErr) {
-      console.error('[Notif] Error enviando confirmación de inscripción:', emailErr);
+    } catch (notifErr) {
+      console.warn('[Notif] Nota sobre notificación de inscripción:', notifErr);
     }
 
     return true;

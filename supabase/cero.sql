@@ -2,9 +2,15 @@
 -- SCRIPT UNIFICADO: REINICIO, ESQUEMA Y POBLACIÓN DE DATOS
 -- control-financiero — revisión experta v3 (auditoría integral)
 -- =====================================================================
--- ADVERTENCIA: Este script ES PARA MANTENIMIENTO. 
--- No elimina datos existentes, pero actualiza esquemas y configuraciones.
+-- ADVERTENCIA: Este script ELIMINA todo el esquema público y todos sus
+-- datos. No lo use en producción sin confirmar que tiene respaldo.
 -- =====================================================================
+
+-- =====================================================================
+-- 1. REINICIO DEL ESQUEMA
+-- =====================================================================
+DROP SCHEMA IF EXISTS public CASCADE;
+CREATE SCHEMA public;
 
 -- Restablecer permisos básicos para Supabase / PostgREST
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role, authenticator;
@@ -16,6 +22,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres, an
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto"  SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"   SCHEMA public;
+
+-- Limpiar usuarios de auth trabados (solo en reset local)
+DELETE FROM auth.identities;
+DELETE FROM auth.users;
+
+SELECT 'Esquema público reiniciado exitosamente.' AS status;
 
 
 -- =====================================================================

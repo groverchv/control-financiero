@@ -264,7 +264,7 @@ export const AppRouter = () => {
             <Route
               path="/admin/qr"
               element={
-                <ProtectedRoute requiredRoles={["admin", "secretario"]}>
+                <ProtectedRoute requiredRoles={["admin"]}>
                   <GestionQrPage />
                 </ProtectedRoute>
               }

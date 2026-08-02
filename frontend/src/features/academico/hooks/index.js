@@ -142,6 +142,17 @@ export const useAsignacionesJurado = () => {
     };
 
     load();
+
+    const channel = supabase
+      .channel('realtime-use-asignaciones-jurado')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jurado' }, () => {
+        load();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { asignaciones, loading, error };

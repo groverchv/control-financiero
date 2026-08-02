@@ -1,5 +1,5 @@
 import { supabase } from '../../../services/supabase';
-import { withCache } from '../../../utils/apiCache';
+import { withCache, apiCache } from '../../../utils/apiCache';
 
 export const patrimonioApi = {
   registrarActivo: async (activo) => {
@@ -34,6 +34,7 @@ export const patrimonioApi = {
         return activoRegistrado;
     }
 
+    apiCache.invalidate('patrimonio');
     return { 
       ...fullAsset, 
       imagen_url: fullAsset.archivo?.[0]?.url || null
@@ -72,6 +73,7 @@ export const patrimonioApi = {
         return activoActualizado;
     }
 
+    apiCache.invalidate('patrimonio');
     return { 
       ...fullAsset, 
       imagen_url: fullAsset.archivo?.[0]?.url || null
@@ -88,6 +90,7 @@ export const patrimonioApi = {
       .eq('id', id);
 
     if (error) throw error;
+    apiCache.invalidate('patrimonio');
     return true;
   },
 

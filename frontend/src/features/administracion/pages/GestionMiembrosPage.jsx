@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Edit, Eye, Plus, Search, Lightbulb, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2, UserCircle, RefreshCw, Info } from 'lucide-react';
+import { Edit, Eye, Plus, Search, ChevronLeft, ChevronRight, UserX, UserCheck, AlertTriangle, CheckCircle2, UserCircle, RefreshCw, Info } from 'lucide-react';
 import { useMiembros } from '../hooks';
 import { useMiembroForm } from '../hooks/useMiembroForm';
 import { useMiembroDetail } from '../hooks/useMiembroDetail';
@@ -264,7 +264,6 @@ export const GestionMiembrosPage = () => {
 
         setLoadingModal({ open: false, text: '' });
         clearDraft();
-        setShowConfetti(true);
         setResultModal({
           open: true,
           type: 'success',
@@ -674,7 +673,7 @@ export const GestionMiembrosPage = () => {
                     </strong>
                     , le enviará un correo de bienvenida con sus credenciales de acceso y{' '}
                     <strong className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 block mt-2 text-xs">
-                      ⚠️ Se le generará automáticamente una deuda de {formData.monto_inscripcion || 150} Bs. por motivo de inscripción.
+                      ⚠️ Se le generará automáticamente una deuda de {formData.monto_inscripcion ?? 150} Bs. por motivo de inscripción.
                     </strong>
                   </>
                 )}

@@ -29,7 +29,6 @@ export const LoginPage = () => {
     if (timeLeft <= 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLockoutUntil(null);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoginAttempts(0);
       return;
     }
@@ -152,7 +151,7 @@ export const LoginPage = () => {
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
             <label className="text-sm font-medium text-slate-700" htmlFor="email">
-              Correo o Carnet de Identidad (CI)
+              Correo electrónico
             </label>
             <div className="mt-2 flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 focus-within:ring-2 focus-within:ring-blue-600">
               <Mail className="h-4 w-4 text-slate-400" />
@@ -163,7 +162,7 @@ export const LoginPage = () => {
                 autoComplete="username"
                 required
                 className="w-full border-0 p-0 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                placeholder="nombre@institucion.edu o 1234567"
+                placeholder="nombre@institucion.edu"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />

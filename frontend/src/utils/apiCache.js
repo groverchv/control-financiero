@@ -4,7 +4,7 @@
  * 
  * Pilar: Eficiencia — evita peticiones redundantes con TTL configurable.
  */
-export const withCache = (cacheKey, asyncFn, maxAgeMs = 5 * 60 * 1000) => {
+export const withCache = (cacheKey, asyncFn, maxAgeMs = 15 * 1000) => {
   return async (...args) => {
     const key = `${cacheKey}_${JSON.stringify(args)}`;
     
@@ -32,7 +32,7 @@ export const withCache = (cacheKey, asyncFn, maxAgeMs = 5 * 60 * 1000) => {
   };
 };
 
-// Objeto apiCache para compatibilidad y uso directo en finanzasApi
+// Objeto apiCache para compatibilidad y uso directo en los APIs de la app
 export const apiCache = {
   get: (key) => {
     try {
@@ -59,12 +59,20 @@ export const apiCache = {
     try {
       const keys = Object.keys(sessionStorage);
       for (const key of keys) {
-        if (key.startsWith(pattern) || key.includes(pattern)) {
+        if (!pattern || key.startsWith(pattern) || key.includes(pattern)) {
           sessionStorage.removeItem(key);
         }
       }
     } catch (e) {
       console.error('Error al invalidar caché:', e);
+    }
+  },
+
+  clearAll: () => {
+    try {
+      sessionStorage.clear();
+    } catch (e) {
+      console.error('Error al limpiar todo el caché:', e);
     }
   }
 };

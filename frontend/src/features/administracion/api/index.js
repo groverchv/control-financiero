@@ -4,9 +4,8 @@ import { brevoService } from '../../../services/brevo';
 
 // encryptPassword eliminado: la columna 'contrasena' en miembro no debe poblarse desde el frontend.
 // Supabase Auth gestiona las credenciales con bcrypt. El backend usa service_role para crear usuarios.
-import { withCache } from '../../../utils/apiCache';
+import { withCache, apiCache } from '../../../utils/apiCache';
 import { sanitizeObject } from '../../../utils/sanitize';
-import { BACKEND_API } from '../../../config/api';
 
 export const administracionApi = {
   obtenerMiembros: (() => {
@@ -58,12 +57,9 @@ export const administracionApi = {
       telefono: miembro.telefono,
       apellidoPaterno: miembro.apellidoPaterno,
       apellidoMaterno: miembro.apellidoMaterno,
-      monto_inscripcion: miembro.monto_inscripcion || 150,
+      monto_inscripcion: miembro.monto_inscripcion ?? 150,
       ci: miembro.ci
     });
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token || '';
 
     // La contraseña inicial del usuario es su CI
     const passwordToUse = miembro.ci;
@@ -76,7 +72,7 @@ export const administracionApi = {
       p_telefono: sanitized.telefono || null,
       p_apellido_paterno: sanitized.apellidoPaterno || null,
       p_apellido_materno: sanitized.apellidoMaterno || null,
-      p_monto_inscripcion: Number(sanitized.monto_inscripcion) || 150,
+      p_monto_inscripcion: Number(sanitized.monto_inscripcion || 150),
       p_ci: sanitized.ci
     });
 
@@ -111,10 +107,12 @@ export const administracionApi = {
         email: data.correoElectronico,
         nombre: `${data.nombre || ''} ${data.apellidoPaterno || ''}`.trim(),
         rol: data.rol,
-        montoInscripcion: data.monto_inscripcion || miembro.monto_inscripcion || 150,
+        montoInscripcion: data.monto_inscripcion ?? miembro.monto_inscripcion ?? 150,
         ci: data.ci
       }).catch(err => console.error('[Brevo] Error enviando email de bienvenida:', err));
     }
+
+    apiCache.invalidate('obtenerMiembros');
 
     return {
       ...data,
@@ -168,6 +166,7 @@ export const administracionApi = {
       .select('id, nombre, "apellidoPaterno", "apellidoMaterno", "correoElectronico", telefono, rol, estado, fecha_pausa, tiempo_restante_cuota, fecha_proxima_cuota');
 
     if (error) throw error;
+    apiCache.invalidate('obtenerMiembros');
     const res = data?.[0];
     return res ? { ...res, email: res.correoElectronico } : null;
   },

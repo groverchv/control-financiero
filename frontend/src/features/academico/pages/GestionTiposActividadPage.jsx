@@ -163,32 +163,50 @@ export const GestionTiposActividadPage = () => {
   const columns = [
     { key: 'nombre', label: 'Nombre' },
     { key: 'descripcion', label: 'Descripción' },
+    { key: 'estado_uso', label: 'Estado' },
     { key: 'acciones', label: 'Acciones' }
   ];
 
-  const rows = tipos.map(tipo => ({
-    ...tipo,
-    acciones: (
-      <div className="flex gap-2 items-center">
-        {tiposEnUso[tipo.id] ? (
-          <>
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100" title="Esta categoría está en uso por actividades existentes">
-              <Lock className="h-3 w-3" /> En uso
-            </span>
-          </>
-        ) : (
-          <>
-            <button onClick={() => openEditModal(tipo)} className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors" title="Editar">
-              <Edit className="h-4 w-4" />
-            </button>
-            <button onClick={() => handleDelete(tipo.id)} className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors" title="Eliminar">
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </>
-        )}
-      </div>
-    )
-  }));
+  const rows = tipos.map(tipo => {
+    const inUse = tiposEnUso[tipo.id];
+    return {
+      ...tipo,
+      estado_uso: inUse ? (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
+          <Lock className="h-3 w-3" /> En uso
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
+          Disponible
+        </span>
+      ),
+      acciones: (
+        <div className="flex gap-2 items-center">
+          <Button 
+            size="xs"
+            variant="outline"
+            onClick={() => openEditModal(tipo)} 
+            className="text-amber-600 border-amber-200 hover:bg-amber-50 flex items-center gap-1 h-7 font-bold" 
+            title="Editar"
+          >
+            <Edit className="h-3.5 w-3.5" />
+            <span>Editar</span>
+          </Button>
+          <Button 
+            size="xs"
+            variant="outline"
+            onClick={() => handleDelete(tipo.id)} 
+            disabled={inUse}
+            className={inUse ? "opacity-40 cursor-not-allowed text-slate-400 h-7 font-bold" : "text-red-600 border-red-200 hover:bg-red-50 flex items-center gap-1 h-7 font-bold"}
+            title={inUse ? 'No se puede eliminar porque está en uso' : 'Eliminar'}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Eliminar</span>
+          </Button>
+        </div>
+      )
+    };
+  });
 
   const totalTipos = tipos.length;
   const enUsoCount = Object.values(tiposEnUso).filter(Boolean).length;

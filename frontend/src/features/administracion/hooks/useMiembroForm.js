@@ -60,7 +60,7 @@ export const useMiembroForm = (miembros) => {
     formData.confirmPassword === '' &&
     formData.rol === editingMember.rol &&
     formData.estado === editingMember.estado &&
-    Number(formData.monto_inscripcion || 150) === Number(editingMember.monto_inscripcion || 150);
+    Number(formData.monto_inscripcion ?? 150) === Number(editingMember.monto_inscripcion ?? 150);
 
   const handleOpenCreate = useCallback(() => {
     setEditingMember(null);
@@ -82,7 +82,7 @@ export const useMiembroForm = (miembros) => {
       confirmPassword: '',
       rol: miembro.rol,
       estado: miembro.estado,
-      monto_inscripcion: miembro.monto_inscripcion || 150
+      monto_inscripcion: miembro.monto_inscripcion ?? 150
     });
     setEmailError('');
     setIsModalOpen(true);

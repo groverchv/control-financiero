@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { patrimonioApi } from '../api';
+import { supabase } from '../../../services/supabase';
 
 export const useActivos = () => {
   const [activos, setActivos] = useState([]);
@@ -22,6 +23,17 @@ export const useActivos = () => {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
+
+    const channel = supabase
+      .channel('realtime-use-activos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activos' }, () => {
+        load();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { activos, loading, error, setActivos, refetch: load };

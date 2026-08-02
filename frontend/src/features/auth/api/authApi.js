@@ -1,7 +1,11 @@
 import { supabase } from '../../../services/supabase';
+import { apiCache } from '../../../utils/apiCache';
 
 export const authApi = {
   login: async (email, password) => {
+    // Limpiar cualquier caché residual de una sesión previa antes de iniciar sesión
+    apiCache.clearAll();
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.user) return { data, error };
 
@@ -16,6 +20,7 @@ export const authApi = {
       if (profile.estado === 'inactivo') {
         // Cerrar sesión inmediatamente en Supabase Auth
         await supabase.auth.signOut();
+        apiCache.clearAll();
         return {
           data: null,
           error: { message: 'Esta cuenta se encuentra inactiva y no tiene permiso para iniciar sesión. Por favor, contacte al administrador.' }
@@ -29,6 +34,7 @@ export const authApi = {
   },
 
   logout: async () => {
+    apiCache.clearAll();
     const { error } = await supabase.auth.signOut();
     return { error };
   },

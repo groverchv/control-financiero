@@ -1,3 +1,5 @@
+const https = require('https');
+
 exports.handler = async (event, context) => {
   // Solo permitir peticiones POST
   if (event.httpMethod !== 'POST') {
@@ -32,35 +34,62 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Petición a la API de OneSignal para enviar la notificación push
-    const response = await fetch('https://api.onesignal.com/notifications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Authorization': `Key ${onesignalRestApiKey}`,
-      },
-      body: JSON.stringify({
-        app_id: onesignalAppId,
-        include_external_user_ids: [miembro_id],
-        headings: { en: titulo, es: titulo },
-        contents: { en: descripcion, es: descripcion },
-      }),
+    // Petición HTTPS nativa a la API de OneSignal para evitar problemas de compatibilidad con fetch
+    const postData = JSON.stringify({
+      app_id: onesignalAppId,
+      include_external_user_ids: [miembro_id],
+      headings: { en: titulo, es: titulo },
+      contents: { en: descripcion, es: descripcion },
     });
 
-    const result = await response.json();
+    const result = await new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: 'api.onesignal.com',
+          path: '/notifications',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Authorization': `Key ${onesignalRestApiKey}`,
+            'Content-Length': Buffer.byteLength(postData),
+          },
+        },
+        (res) => {
+          let data = '';
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          res.on('end', () => {
+            resolve({
+              statusCode: res.statusCode,
+              body: data,
+            });
+          });
+        }
+      );
 
-    if (!response.ok) {
-      console.error('OneSignal API Error:', result);
+      req.on('error', (e) => {
+        reject(e);
+      });
+
+      req.write(postData);
+      req.end();
+    });
+
+    const responseBody = JSON.parse(result.body || '{}');
+
+    if (result.statusCode < 200 || result.statusCode >= 300) {
+      console.error('OneSignal API Error:', responseBody);
       return {
-        statusCode: response.status,
-        body: JSON.stringify({ error: 'Failed to send notification via OneSignal', details: result }),
+        statusCode: result.statusCode,
+        body: JSON.stringify({ error: 'Failed to send notification via OneSignal', details: responseBody }),
       };
     }
 
-    console.log('Push notification sent successfully:', result);
+    console.log('Push notification sent successfully:', responseBody);
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Notification sent successfully', result }),
+      body: JSON.stringify({ message: 'Notification sent successfully', result: responseBody }),
     };
 
   } catch (error) {

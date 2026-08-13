@@ -1,4 +1,4 @@
-export const sendPushNotification = async (miembroId, titulo, descripcion) => {
+export const sendPushNotification = async (miembroId, titulo, descripcion, options = {}) => {
   try {
     const response = await fetch('/api/notifications/push', {
       method: 'POST',
@@ -9,6 +9,9 @@ export const sendPushNotification = async (miembroId, titulo, descripcion) => {
         miembro_id: miembroId,
         titulo,
         descripcion,
+        url: options.url || '/socio/notificaciones',
+        imagen: options.imagen || null,
+        botones: options.botones || null,
       }),
     });
 
@@ -20,3 +23,4 @@ export const sendPushNotification = async (miembroId, titulo, descripcion) => {
     console.warn('[OneSignal Push] Error al conectar con Netlify Function:', err);
   }
 };
+

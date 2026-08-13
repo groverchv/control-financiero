@@ -201,9 +201,12 @@ export const academicoApi = {
         }));
         try {
           await supabase.from('notificacion').insert(notificaciones);
-          // Enviar push de OneSignal de forma asíncrona
+          // Enviar push de OneSignal de forma asíncrona con diseño enriquecido
           notificaciones.forEach(n => {
-            sendPushNotification(n.miembro_id, n.titulo, n.descripcion);
+            sendPushNotification(n.miembro_id, n.titulo, n.descripcion, {
+              url: '/socio/actividades',
+              imagen: actividad.imagen || null
+            });
           });
         } catch (err) {
           console.error('[Notif] Error guardando notificaciones de nueva actividad:', err);
@@ -802,8 +805,10 @@ export const academicoApi = {
         estado: 'pendiente'
       }]);
 
-      // Enviar push de OneSignal al miembro inscrito
-      sendPushNotification(miembroId, tituloPush, descPush);
+      // Enviar push de OneSignal al miembro inscrito con enlace directo
+      sendPushNotification(miembroId, tituloPush, descPush, {
+        url: '/socio/actividades'
+      });
     } catch (notifErr) {
       console.warn('[Notif] Nota sobre notificación de inscripción:', notifErr);
     }

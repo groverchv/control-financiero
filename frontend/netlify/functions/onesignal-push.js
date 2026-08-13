@@ -12,9 +12,9 @@ export const handler = async (event, context) => {
   try {
     const payload = JSON.parse(event.body || '{}');
     
-    // Supabase envía el registro insertado dentro de payload.record
+    // Supabase envía el registro insertado dentro de payload.record o el frontend directamente
     const notificationRecord = payload.record || payload;
-    const { miembro_id, titulo, descripcion } = notificationRecord;
+    const { miembro_id, titulo, descripcion, url, imagen, botones } = notificationRecord;
 
     if (!miembro_id || !titulo || !descripcion) {
       return {
@@ -34,13 +34,42 @@ export const handler = async (event, context) => {
       };
     }
 
-    // Petición HTTPS nativa a la API de OneSignal para evitar problemas de compatibilidad con fetch
-    const postData = JSON.stringify({
+    const baseUrl = 'https://control-financiero-v1.netlify.app';
+    const logoUrl = `${baseUrl}/logo-ap.png`;
+    const targetUrl = url ? (url.startsWith('http') ? url : `${baseUrl}${url}`) : `${baseUrl}/socio/notificaciones`;
+
+    // Configuración visual y de experiencia de usuario (UI/UX) para la notificación Push
+    const notificationData = {
       app_id: onesignalAppId,
       include_external_user_ids: [miembro_id],
       headings: { en: titulo, es: titulo },
       contents: { en: descripcion, es: descripcion },
-    });
+      url: targetUrl,
+      web_url: targetUrl,
+      // Iconos de marca corporativos
+      chrome_web_icon: logoUrl,
+      chrome_web_badge: logoUrl,
+      firefox_icon: logoUrl,
+      large_icon: logoUrl,
+      // Prioridad alta inmediata
+      priority: 10,
+      // Botones de acción interactivos
+      web_buttons: botones || [
+        {
+          id: 'view_details',
+          text: '👀 Ver en el Sistema',
+          url: targetUrl,
+        }
+      ],
+    };
+
+    // Si hay una imagen (ej. foto de portada de actividad), añadir banner visual grande
+    if (imagen) {
+      notificationData.chrome_web_image = imagen;
+      notificationData.big_picture = imagen;
+    }
+
+    const postData = JSON.stringify(notificationData);
 
     const result = await new Promise((resolve, reject) => {
       const req = https.request(
@@ -86,7 +115,7 @@ export const handler = async (event, context) => {
       };
     }
 
-    console.log('Push notification sent successfully:', responseBody);
+    console.log('Push notification sent successfully with rich branding:', responseBody);
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'Notification sent successfully', result: responseBody }),
@@ -100,3 +129,4 @@ export const handler = async (event, context) => {
     };
   }
 };
+

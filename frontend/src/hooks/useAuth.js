@@ -5,23 +5,22 @@ import { toast } from 'react-toastify';
 import OneSignal from 'react-onesignal';
 
 // Wrappers seguros para evitar que cualquier fallo del script de OneSignal afecte a la app
+// Este flag asegura que solo llamamos login/logout DESPUÉS de que init() haya resuelto con éxito
+let oneSignalReady = false;
+
 const safeOneSignalLogin = async (userId) => {
+  if (!oneSignalReady) return;
   try {
-    const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
-    if (appId && OneSignal) {
-      await OneSignal.login(userId);
-    }
+    await OneSignal.login(userId);
   } catch (err) {
     console.warn('OneSignal: login omitido o fallido de forma silenciosa:', err.message || err);
   }
 };
 
 const safeOneSignalLogout = async () => {
+  if (!oneSignalReady) return;
   try {
-    const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
-    if (appId && OneSignal) {
-      await OneSignal.logout();
-    }
+    await OneSignal.logout();
   } catch (err) {
     console.warn('OneSignal: logout omitido o fallido de forma silenciosa:', err.message || err);
   }
@@ -37,7 +36,13 @@ export const useAuth = () => {
       OneSignal.init({
         appId,
         allowLocalhostAsSecureOrigin: true,
-      }).catch(err => console.warn('Error al inicializar OneSignal:', err));
+      })
+        .then(() => {
+          oneSignalReady = true;
+        })
+        .catch(err => {
+          console.warn('OneSignal: no pudo inicializarse (dominio no autorizado o error de red):', err.message || err);
+        });
     }
   }, []);
 

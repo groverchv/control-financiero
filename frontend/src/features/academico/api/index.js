@@ -2,6 +2,7 @@ import { supabase } from '../../../services/supabase';
 import { cloudinaryService } from '../../../services/cloudinary';
 
 import { apiCache, withCache } from '../../../utils/apiCache';
+import { sendPushNotification } from '../../../services/onesignal';
 
 export const academicoApi = {
   obtenerTiposActividad: async () => {
@@ -200,6 +201,10 @@ export const academicoApi = {
         }));
         try {
           await supabase.from('notificacion').insert(notificaciones);
+          // Enviar push de OneSignal de forma asíncrona
+          notificaciones.forEach(n => {
+            sendPushNotification(n.miembro_id, n.titulo, n.descripcion);
+          });
         } catch (err) {
           console.error('[Notif] Error guardando notificaciones de nueva actividad:', err);
         }
@@ -787,12 +792,18 @@ export const academicoApi = {
       const fechaInsc = itemInfo?.fecha
         ? new Date(itemInfo.fecha.split('T')[0] + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
         : '—';
+      const tituloPush = `Inscripción confirmada: ${itemInfo?.titulo || 'Actividad'}`;
+      const descPush = `Inscripción a "${itemInfo?.titulo || 'Actividad'}" confirmada. Inicio: ${fechaInsc} a las ${itemInfo?.hora ? itemInfo.hora.substring(0, 5) : '—'} Hrs.${itemInfo?.costo > 0 ? ` Costo: Bs. ${itemInfo.costo}. Por favor, cancele este monto en secretaría.` : ''}`;
+
       await supabase.from('notificacion').insert([{
         miembro_id: miembroId,
-        titulo: `Inscripción confirmada: ${itemInfo?.titulo || 'Actividad'}`,
-        descripcion: `Inscripción a "${itemInfo?.titulo || 'Actividad'}" confirmada. Inicio: ${fechaInsc} a las ${itemInfo?.hora ? itemInfo.hora.substring(0, 5) : '—'} Hrs.${itemInfo?.costo > 0 ? ` Costo: Bs. ${itemInfo.costo}. Por favor, cancele este monto en secretaría.` : ''}`,
+        titulo: tituloPush,
+        descripcion: descPush,
         estado: 'pendiente'
       }]);
+
+      // Enviar push de OneSignal al miembro inscrito
+      sendPushNotification(miembroId, tituloPush, descPush);
     } catch (notifErr) {
       console.warn('[Notif] Nota sobre notificación de inscripción:', notifErr);
     }

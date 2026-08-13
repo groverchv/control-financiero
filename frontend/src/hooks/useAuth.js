@@ -4,6 +4,29 @@ import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-toastify';
 import OneSignal from 'react-onesignal';
 
+// Wrappers seguros para evitar que cualquier fallo del script de OneSignal afecte a la app
+const safeOneSignalLogin = async (userId) => {
+  try {
+    const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
+    if (appId && OneSignal) {
+      await OneSignal.login(userId);
+    }
+  } catch (err) {
+    console.warn('OneSignal: login omitido o fallido de forma silenciosa:', err.message || err);
+  }
+};
+
+const safeOneSignalLogout = async () => {
+  try {
+    const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
+    if (appId && OneSignal) {
+      await OneSignal.logout();
+    }
+  } catch (err) {
+    console.warn('OneSignal: logout omitido o fallido de forma silenciosa:', err.message || err);
+  }
+};
+
 
 export const useAuth = () => {
   const { setUser, setLoading, user, logout } = useAuthStore();
@@ -80,9 +103,7 @@ export const useAuth = () => {
       if (miembro && miembro.estado === 'inactivo') {
         try {
           await supabase.auth.signOut();
-          if (import.meta.env.VITE_ONESIGNAL_APP_ID) {
-            OneSignal.logout().catch(e => console.warn(e));
-          }
+          safeOneSignalLogout();
         } catch (err) {
           console.warn('[useAuth] Error al cerrar sesión de miembro inactivo:', err.message);
         }
@@ -117,11 +138,7 @@ export const useAuth = () => {
       setLoading(false);
 
       // Vincular sesión en OneSignal
-      if (import.meta.env.VITE_ONESIGNAL_APP_ID) {
-        OneSignal.login(sessionUser.id).catch(err =>
-          console.warn('Error al hacer login en OneSignal:', err)
-        );
-      }
+      safeOneSignalLogin(sessionUser.id);
 
       // Validar si el usuario cuenta con la notificación de bienvenida
       setTimeout(async () => {
@@ -181,9 +198,7 @@ export const useAuth = () => {
         } else {
           setUser(null);
           setLoading(false);
-          if (import.meta.env.VITE_ONESIGNAL_APP_ID) {
-            OneSignal.logout().catch(e => console.warn(e));
-          }
+          safeOneSignalLogout();
         }
       }
     );

@@ -1,5 +1,5 @@
-import { Search, FileText, Mail, User, ExternalLink, Briefcase, AlertCircle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Search, FileText, Mail, User, ExternalLink, Briefcase } from 'lucide-react';
+import { useState } from 'react';
 import { useTalentos } from '../hooks';
 import { Button, Spinner, Modal } from '../../../components/ui';
 import { Toast } from '../../../components/feedback';
@@ -226,7 +226,7 @@ export const BuscadorTalentoPage = () => {
                       Pantalla Completa
                     </Button>
                     <button 
-                      onClick={() => downloadCvFile(cvUrl, selectedSocio?.nombre_completo || `${selectedSocio?.nombres || ''} ${selectedSocio?.apellidos || ''}`.trim())}
+                      onClick={() => downloadCvFile(cvUrl, selectedTalento?.nombre || 'CV')}
                       className="flex-1 bg-slate-100 text-slate-700 rounded-xl py-3 text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors cursor-pointer"
                     >
                       Descargar PDF

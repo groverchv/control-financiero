@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 
 /**
  * Overlay premium de carga transaccional universal.
@@ -12,10 +11,15 @@ import { Loader2 } from 'lucide-react';
  */
 export const LoadingOverlay = ({ open, text, progress }) => {
   const [simulatedProgress, setSimulatedProgress] = useState(0);
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    setSimulatedProgress(open ? 8 : 0);
+  }
 
   useEffect(() => {
     if (!open) {
-      setSimulatedProgress(0);
       return;
     }
 
@@ -25,7 +29,6 @@ export const LoadingOverlay = ({ open, text, progress }) => {
     }
 
     // Iniciar avance fluido y continuo de 0% a 95% para cualquier acción transaccional
-    setSimulatedProgress(8);
     const interval = setInterval(() => {
       setSimulatedProgress((prev) => {
         if (prev >= 95) return prev;

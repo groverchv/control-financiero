@@ -4,11 +4,15 @@ import './index.css';
 import 'leaflet/dist/leaflet.css';
 import App from './App';
 
-// Desregistrar cualquier service worker heredado (como sw-custom.js) que cause errores en caché
+// Desregistrar cualquier service worker heredado (como sw-custom.js) que cause errores en caché, excepto el de OneSignal
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     if (registrations.length > 0) {
       for (const registration of registrations) {
+        // Ignorar el Service Worker de OneSignal para evitar deshabilitar las notificaciones push
+        if (registration.active && registration.active.scriptURL.includes('OneSignal')) {
+          continue;
+        }
         registration.unregister().then(() => {
           console.log('Service Worker heredado desregistrado con éxito.');
         });

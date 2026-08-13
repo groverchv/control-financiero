@@ -34,6 +34,7 @@ export const SocioQrPage = () => {
   const [toast, setToast] = useState({ open: false, type: 'success', text: '' });
 
   const fetchQrs = useCallback(async () => {
+    await Promise.resolve();
     setLoading(true);
     setError(null);
     try {
@@ -49,6 +50,7 @@ export const SocioQrPage = () => {
 
   const fetchSocioData = useCallback(async () => {
     if (!user?.id) return;
+    await Promise.resolve();
     try {
       const [historial, { data: insData, error: insErr }] = await Promise.all([
         finanzasApi.obtenerHistorialCuotasMiembro(true),
@@ -310,6 +312,17 @@ export const SocioQrPage = () => {
                 <div className="mt-2 text-center text-xs text-slate-400">
                   Escanea el código QR de arriba para transferir.
                 </div>
+
+                <Button 
+                  onClick={() => {
+                    setSelectedQrId(qr.id);
+                    setIsReportModalOpen(true);
+                  }}
+                  className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl flex items-center justify-center gap-1.5 text-xs shadow-md shadow-emerald-500/10"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Reportar Pago
+                </Button>
               </div>
             </div>
           ))}

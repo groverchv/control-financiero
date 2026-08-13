@@ -34,6 +34,7 @@ export const GestionQrPage = () => {
   const [zoomImage, setZoomImage] = useState(null);
 
   const fetchQrs = useCallback(async () => {
+    await Promise.resolve();
     setLoading(true);
     setError(null);
     try {
@@ -48,6 +49,7 @@ export const GestionQrPage = () => {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchQrs();
     finanzasApi.obtenerTiposIngreso()
       .then(setTiposIngreso)

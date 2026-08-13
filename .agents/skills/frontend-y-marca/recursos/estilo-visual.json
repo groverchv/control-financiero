@@ -1,0 +1,48 @@
+{
+  "marca": "Control Financiero",
+  "objetivo": "Mantener consistencia visual en UI y landings del sistema de control financiero.",
+  "paleta": {
+    "nota_importante": "¡ATENCIÓN! La configuración de tailwind.config.js sobreescribe el color 'blue' con tonos verdes (#22c55e) y 'red' con tonos rojos/rosas. Usar clases como text-blue-600 o bg-blue-500 pintará verde financiero.",
+    "principal": "#22c55e",
+    "secundario": "#0f172a",
+    "fondo_light": "#f8fafc",
+    "fondo_dark": "#0f172a",
+    "superficie_light": "#ffffff",
+    "superficie_dark": "#1e293b",
+    "texto": {
+      "light_principal": "#0f172a",
+      "light_secundario": "#64748B",
+      "dark_principal": "#f8fafc",
+      "dark_secundario": "#cbd5e1"
+    },
+    "bordes_light": "#e2e8f0",
+    "bordes_dark": "#334155"
+  },
+  "tipografia": {
+    "fuente_sans": "Inter",
+    "pesos": {
+      "normal": 400,
+      "medio": 500,
+      "semibold": 600,
+      "negrita": 700
+    }
+  },
+  "formas": {
+    "radio_tarjeta": "12px (rounded-xl)",
+    "radio_boton": "8px (rounded-md)",
+    "radio_input": "8px (rounded-md)"
+  },
+  "espaciado": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "12px",
+    "lg": "16px",
+    "xl": "24px",
+    "xxl": "32px"
+  },
+  "componentes": {
+    "boton_principal": "clase tailwind 'bg-blue-600 hover:bg-blue-700 text-white transition-all rounded-md px-4 py-2 font-medium' (nota: se verá verde financiero)",
+    "tarjetas": "clases tailwind 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl p-6 shadow-sm'",
+    "layout": "grid simple, responsivo, soporte completo para modo oscuro global mediante clase '.dark' en html"
+  }
+}

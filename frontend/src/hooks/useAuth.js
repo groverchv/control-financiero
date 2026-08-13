@@ -2,9 +2,22 @@ import { useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-toastify';
+import OneSignal from 'react-onesignal';
+
 
 export const useAuth = () => {
   const { setUser, setLoading, user, logout } = useAuthStore();
+
+  useEffect(() => {
+    const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
+    if (appId) {
+      OneSignal.init({
+        appId,
+        allowLocalhostAsSecureOrigin: true,
+      }).catch(err => console.warn('Error al inicializar OneSignal:', err));
+    }
+  }, []);
+
 
   useEffect(() => {
     if (!user?.id) return;
@@ -67,6 +80,9 @@ export const useAuth = () => {
       if (miembro && miembro.estado === 'inactivo') {
         try {
           await supabase.auth.signOut();
+          if (import.meta.env.VITE_ONESIGNAL_APP_ID) {
+            OneSignal.logout().catch(e => console.warn(e));
+          }
         } catch (err) {
           console.warn('[useAuth] Error al cerrar sesión de miembro inactivo:', err.message);
         }
@@ -99,6 +115,13 @@ export const useAuth = () => {
 
       setUser(userData);
       setLoading(false);
+
+      // Vincular sesión en OneSignal
+      if (import.meta.env.VITE_ONESIGNAL_APP_ID) {
+        OneSignal.login(sessionUser.id).catch(err =>
+          console.warn('Error al hacer login en OneSignal:', err)
+        );
+      }
 
       // Validar si el usuario cuenta con la notificación de bienvenida
       setTimeout(async () => {
@@ -158,6 +181,9 @@ export const useAuth = () => {
         } else {
           setUser(null);
           setLoading(false);
+          if (import.meta.env.VITE_ONESIGNAL_APP_ID) {
+            OneSignal.logout().catch(e => console.warn(e));
+          }
         }
       }
     );

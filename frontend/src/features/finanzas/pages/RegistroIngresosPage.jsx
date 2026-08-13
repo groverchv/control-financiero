@@ -18,6 +18,7 @@ import {
   BookOpen,
   QrCode,
   Check,
+  Info,
 } from "lucide-react";
 import { finanzasApi } from "../api";
 import { administracionApi } from "../../administracion/api";

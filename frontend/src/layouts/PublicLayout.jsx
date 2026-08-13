@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../services/supabase';
-import { LogOut, User as UserIcon, Menu, X, ChevronDown, ShieldCheck, GraduationCap, Sun, Moon, Monitor, Download, Smartphone } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, X, ChevronDown, ShieldCheck, GraduationCap, Sun, Moon, Monitor } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 export const PublicLayout = () => {
@@ -11,7 +11,6 @@ export const PublicLayout = () => {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
-  const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState(false);
   const navigate = useNavigate();
   const [theme, setTheme] = useTheme();
   const location = useLocation();

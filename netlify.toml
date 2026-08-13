@@ -31,7 +31,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.onesignal.com https://onesignal.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://res.cloudinary.com https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.brevo.com https://api.cloudinary.com http://localhost:3001 https://*.onesignal.com; font-src 'self' https://fonts.gstatic.com; worker-src 'self' blob:;"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.onesignal.com https://onesignal.com https://*.onesignal.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://res.cloudinary.com https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.brevo.com https://api.cloudinary.com http://localhost:3001 https://*.onesignal.com; font-src 'self' https://fonts.gstatic.com; worker-src 'self' blob:;"
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"

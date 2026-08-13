@@ -11,8 +11,12 @@ let oneSignalReady = false;
 const safeOneSignalLogin = async (userId) => {
   if (!oneSignalReady) return;
   try {
+    // Primero cerramos cualquier sesión previa para evitar el error 409 (Conflict)
+    // que ocurre cuando el externalId ya está vinculado a otro dispositivo/sesión
+    await OneSignal.logout().catch(() => {});
     await OneSignal.login(userId);
   } catch (err) {
+    // El 409 es un estado esperado y no afecta la funcionalidad de la app
     console.warn('OneSignal: login omitido o fallido de forma silenciosa:', err ? (err.message || err) : 'Error desconocido');
   }
 };

@@ -1,1 +1,4 @@
-/* /index.html   200
+/api/notifications/push   /.netlify/functions/onesignal-push   200
+/api/emails/send          /.netlify/functions/emails-send        200
+/api/admin/miembros/crear /.netlify/functions/admin-crear       200
+/*                        /index.html                           200

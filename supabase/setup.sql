@@ -943,6 +943,30 @@ CREATE POLICY "eliminar_notificacion" ON public.notificacion
   FOR DELETE TO authenticated
   USING (public.current_user_rol() = 'admin');
 
+-- ── webhook notificacion onesignal ───────────────────────────────────
+-- Habilitar la extensión pg_net si no está activa
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
+-- Función que envía la petición HTTP a Netlify para OneSignal
+CREATE OR REPLACE FUNCTION public.send_onesignal_notification()
+RETURNS trigger AS $$
+BEGIN
+  PERFORM net.http_post(
+    url := 'https://control-financiero-v1.netlify.app/api/notifications/push',
+    headers := '{"Content-Type": "application/json"}'::jsonb,
+    body := json_build_object('record', row_to_json(NEW))::text
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger para la tabla notificacion
+DROP TRIGGER IF EXISTS tr_notificacion_onesignal ON public.notificacion;
+CREATE TRIGGER tr_notificacion_onesignal
+AFTER INSERT ON public.notificacion
+FOR EACH ROW
+EXECUTE FUNCTION public.send_onesignal_notification();
+
 -- ── ingreso ───────────────────────────────────────────────────────────
 -- SEC-5: SIN lectura pública — datos financieros privados
 -- El socio solo ve sus propios ingresos; admin/secretario ven todos

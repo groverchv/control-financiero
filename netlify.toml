@@ -9,6 +9,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/notifications/push"
+  to = "/.netlify/functions/onesignal-push"
+  status = 200
+
+[[redirects]]
   from = "/api/admin/miembros/crear"
   to = "/.netlify/functions/admin-crear"
   status = 200

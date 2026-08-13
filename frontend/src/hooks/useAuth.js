@@ -13,7 +13,7 @@ const safeOneSignalLogin = async (userId) => {
   try {
     await OneSignal.login(userId);
   } catch (err) {
-    console.warn('OneSignal: login omitido o fallido de forma silenciosa:', err.message || err);
+    console.warn('OneSignal: login omitido o fallido de forma silenciosa:', err ? (err.message || err) : 'Error desconocido');
   }
 };
 
@@ -22,7 +22,7 @@ const safeOneSignalLogout = async () => {
   try {
     await OneSignal.logout();
   } catch (err) {
-    console.warn('OneSignal: logout omitido o fallido de forma silenciosa:', err.message || err);
+    console.warn('OneSignal: logout omitido o fallido de forma silenciosa:', err ? (err.message || err) : 'Error desconocido');
   }
 };
 
